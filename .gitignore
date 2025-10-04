@@ -1,0 +1,32 @@
+# Secrets - NEVER commit these
+**/*secret*
+**/*password*
+**/*credentials*
+**/id_rsa
+**/id_ed25519
+**/id_ecdsa
+**/id_dsa
+**/*.key
+**/*.pem
+.ssh/id_*
+!.ssh/id_*.pub
+.aws/credentials
+.config/gh/hosts.yml
+.config/gcloud/credentials.db
+.config/gcloud/access_tokens.db
+.netrc
+.gnupg/private-keys*
+.gnupg/*.key
+.docker/config.json
+.kube/config
+
+# Environment files
+.env
+.env.local
+**/.env
+
+# Safe to commit - configuration only
+# .ssh/config (public settings)
+# .bashrc, .zshrc
+# .gitconfig
+# sudoers files
