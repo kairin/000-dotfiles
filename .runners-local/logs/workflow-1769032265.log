@@ -1,0 +1,4 @@
+[2026-01-22 05:51:05] [INFO] 📊 GitHub Actions usage: unknown / unknown minutes
+[2026-01-22 05:51:05] [INFO] ℹ️ Billing info not numeric or unavailable; skipping percentage calculation
+[2026-01-22 05:51:05] [INFO] ⏱️ Billing check completed in 1s
+[2026-01-22 05:51:05] [STEP] 📄 Simulating Astro GitHub Pages setup...

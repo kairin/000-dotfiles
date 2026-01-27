@@ -1,0 +1,35 @@
+[2026-01-18 08:48:32] [INFO] 🏥 Starting Local CI/CD Health Check...
+[2026-01-18 08:48:32] [INFO] 📍 Repository: /home/kkk/Apps/ghostty-config-files
+[2026-01-18 08:48:32] [INFO] 🖥️  Hostname: kkksrv
+[2026-01-18 08:48:32] [STEP] 🔧 Checking core tools...
+[2026-01-18 08:48:32] [SUCCESS] ✅ GitHub CLI: 2.46.0
+[2026-01-18 08:48:32] [SUCCESS] ✅ Node.js: v25 (target)
+[2026-01-18 08:48:32] [SUCCESS] ✅ npm: 11.6.2
+[2026-01-18 08:48:32] [SUCCESS] ✅ git: 2.51.0
+[2026-01-18 08:48:32] [SUCCESS] ✅ jq: 1.8.1
+[2026-01-18 08:48:32] [SUCCESS] ✅ curl: 8.14.1
+[2026-01-18 08:48:32] [SUCCESS] ✅ bash: 5.2.37(1)-release
+[2026-01-18 08:48:32] [STEP] 🔐 Checking authentication (user-level)...
+[2026-01-18 08:48:33] [SUCCESS] ✅ GitHub CLI authenticated
+[2026-01-18 08:48:33] [INFO] ℹ️  MCP API keys (Context7, etc.) are managed in ~/.claude.json
+[2026-01-18 08:48:33] [INFO]    No project-level .env required - MCP handles authentication
+[2026-01-18 08:48:33] [STEP] 🏗️  Checking local CI/CD infrastructure...
+[2026-01-18 08:48:33] [SUCCESS] ✅ .runners-local/ directory exists
+[2026-01-18 08:48:33] [SUCCESS] ✅ Workflow scripts: 17/17 executable
+[2026-01-18 08:48:33] [SUCCESS] ✅ logs/ directory writable
+[2026-01-18 08:48:33] [SUCCESS] ✅ tests/ directory exists
+[2026-01-18 08:48:33] [STEP] 🔌 Checking MCP server connectivity (user-level)...
+[2026-01-18 08:48:33] [SUCCESS] ✅ MCP config: ~/.claude.json (6 servers)
+[2026-01-18 08:48:33] [SUCCESS] ✅ Claude Code CLI available
+[2026-01-18 08:48:35] [WARNING] ⚠️  MCP servers configured but none connected
+[2026-01-18 08:48:35] [STEP] 🌐 Checking Astro build environment...
+[2026-01-18 08:48:35] [ERROR] ❌ website/package.json not found
+[2026-01-18 08:48:35] [WARNING] ⚠️  Dependencies not installed - run: npm install
+[2026-01-18 08:48:35] [ERROR] ❌ astro.config.mjs not found
+[2026-01-18 08:48:35] [SUCCESS] ✅ Build output exists (docs/index.html)
+[2026-01-18 08:48:35] [SUCCESS] ✅ docs/.nojekyll exists (CRITICAL for GitHub Pages)
+[2026-01-18 08:48:35] [STEP] 🏃 Checking self-hosted runner (optional)...
+[2026-01-18 08:48:35] [INFO] ℹ️  Self-hosted runner not installed (optional component)
+[2026-01-18 08:48:35] [INFO] 📊 JSON report generated: /home/kkk/Apps/ghostty-config-files/.runners-local/workflows/../logs/health-check-1768697312.json
+[2026-01-18 08:48:35] [INFO] 📝 Generating setup instructions: /home/kkk/Apps/ghostty-config-files/.runners-local/workflows/../logs/setup-instructions-kkksrv-1768697312.md
+[2026-01-18 08:48:35] [SUCCESS] ✅ Setup instructions generated: /home/kkk/Apps/ghostty-config-files/.runners-local/workflows/../logs/setup-instructions-kkksrv-1768697312.md

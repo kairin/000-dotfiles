@@ -1,0 +1,7 @@
+[2026-01-22 05:50:26] [WARNING] ⚠️ ShellCheck issues found in: run_shellcheck.sh
+[2026-01-22 05:50:26] [WARNING] ⚠️ ShellCheck issues found in: test_functions.sh
+[2026-01-22 05:50:26] [WARNING] ⚠️ ShellCheck issues found in: test_install_node.sh
+[2026-01-22 05:50:26] [WARNING] ⚠️ ShellCheck issues found in: test_task_display.sh
+[2026-01-22 05:50:26] [WARNING] ⚠️ ShellCheck issues found in: test_check_antigravity.sh
+[2026-01-22 05:50:26] [WARNING] ⚠️ ShellCheck issues found in: test_common_utils.sh
+[2026-01-22 05:50:26] [WARNING] ⚠️ ShellCheck issues found in: test_install_uv.sh

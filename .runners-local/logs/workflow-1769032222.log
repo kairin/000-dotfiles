@@ -1,0 +1,4 @@
+[2026-01-22 05:50:22] [WARNING] ⚠️ ShellCheck issues found in: verify_manifest.sh
+[2026-01-22 05:50:22] [WARNING] ⚠️ ShellCheck issues found in: install_nodejs.sh
+[2026-01-22 05:50:22] [WARNING] ⚠️ ShellCheck issues found in: configure_zsh.sh
+[2026-01-22 05:50:22] [WARNING] ⚠️ ShellCheck issues found in: install_feh.sh

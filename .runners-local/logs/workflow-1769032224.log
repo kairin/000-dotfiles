@@ -1,0 +1,5 @@
+[2026-01-22 05:50:24] [WARNING] ⚠️ ShellCheck issues found in: logger.sh
+[2026-01-22 05:50:24] [WARNING] ⚠️ ShellCheck issues found in: record.sh
+[2026-01-22 05:50:24] [WARNING] ⚠️ ShellCheck issues found in: configure_zsh.sh
+[2026-01-22 05:50:24] [WARNING] ⚠️ ShellCheck issues found in: detect_cosmetic_warnings.sh
+[2026-01-22 05:50:24] [WARNING] ⚠️ ShellCheck issues found in: ghostty-theme-switcher.sh

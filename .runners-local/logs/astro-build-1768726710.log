@@ -1,0 +1,14 @@
+[2026-01-18 16:58:30] [ASTRO-BUILD] 🚀 Starting complete Astro build workflow...
+[2026-01-18 16:58:30] [ASTRO-BUILD] 💻 Running in local environment
+[2026-01-18 16:58:30] [ASTRO-BUILD] 🔍 Checking Astro build prerequisites...
+[2026-01-18 16:58:30] [ASTRO-BUILD] ✅ Node.js 25.3.0 (optimal version for project)
+[2026-01-18 16:58:30] [ASTRO-BUILD] ✅ npm 11.6.2
+[2026-01-18 16:58:30] [ASTRO-BUILD] ✅ package.json found
+[2026-01-18 16:58:30] [ASTRO-BUILD] ✅ Astro astro
+^5.16.2 configured
+[2026-01-18 16:58:30] [ASTRO-BUILD] ✅ astro.config.mjs found
+[2026-01-18 16:58:30] [ASTRO-BUILD] ✅ GitHub Pages configuration (outDir: docs) verified
+[2026-01-18 16:58:30] [ASTRO-BUILD] ⏱️ Prerequisites check completed in 0s
+[2026-01-18 16:58:30] [ASTRO-BUILD] ✅ All prerequisites met
+[2026-01-18 16:58:30] [ASTRO-BUILD] 📦 Installing dependencies...
+[2026-01-18 16:58:30] [ASTRO-BUILD] 📦 Using npm install for local development

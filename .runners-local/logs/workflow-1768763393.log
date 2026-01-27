@@ -1,0 +1,8 @@
+[2026-01-19 03:09:53] [WARNING] ⚠️ ShellCheck issues found in: install_feh.sh
+[2026-01-19 03:09:53] [WARNING] ⚠️ ShellCheck issues found in: install_antigravity.sh
+[2026-01-19 03:09:53] [WARNING] ⚠️ ShellCheck issues found in: sync-mcp-secrets.sh
+[2026-01-19 03:09:53] [WARNING] ⚠️ ShellCheck issues found in: install_deps_antigravity.sh
+[2026-01-19 03:09:53] [WARNING] ⚠️ ShellCheck issues found in: install_deps_nerdfonts.sh
+[2026-01-19 03:09:53] [WARNING] ⚠️ ShellCheck issues found in: install_deps_feh.sh
+[2026-01-19 03:09:53] [WARNING] ⚠️ ShellCheck issues found in: install_deps_ghostty.sh
+[2026-01-19 03:09:53] [WARNING] ⚠️ ShellCheck issues found in: daily-updates.sh

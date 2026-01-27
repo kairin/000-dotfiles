@@ -1,0 +1,9 @@
+{
+    "timestamp": "2026-01-18T16:58:30+08:00",
+    "operation": "Prerequisites check",
+    "duration": "0s",
+    "runner_type": "local",
+    "node_version": "v25.3.0",
+    "npm_version": "11.6.2",
+    "build_output_size": "1578613"
+}

@@ -1,0 +1,11 @@
+Looking at your project, I can see this is a comprehensive Ghostty terminal configuration repository with a Go-based TUI installer, Astro website for documentation, and various shell scripts for tool management.
+
+What would you like help with today? Some common tasks I can assist with:
+
+1. **TUI Installer** - Working on the Go/Bubbletea TUI in `tui/`
+2. **Ghostty Configuration** - Modifying configs in `configs/ghostty/`
+3. **Website/Documentation** - The Astro site in `astro-website/`
+4. **Tool Scripts** - Install/update scripts in `scripts/`
+5. **CI/CD** - Local workflow runners in `.runners-local/`
+
+Or if you have a specific task or question, let me know.
