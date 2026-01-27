@@ -24,9 +24,208 @@
 .env
 .env.local
 **/.env
+.env.production
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Safe to commit - configuration only
 # .ssh/config (public settings)
 # .bashrc, .zshrc
 # .gitconfig
 # sudoers files
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Website directory (new structure)
+website/node_modules/
+website/dist/
+website/.astro/
+
+# Astro
+.astro/
+dist/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs (dual-mode output system)
+logs/
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+jspm_packages/
+
+# Snowpack dependency directory
+web_modules/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Modern web development specific
+*.tgz
+*.tar.gz
+
+# Local CI/CD logs (consolidated in .runners-local)
+.runners-local/logs/**/*.log
+.runners-local/logs/**/*.json
+!.runners-local/logs/.gitkeep
+
+# Performance monitoring
+*.perf
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+CLEANUP_EXECUTION_SCRIPT.sh
+ROOT_CLEANUP_PLAN.md
+
+# Generated analysis reports
+*_ANALYSIS_REPORT.md
+*_REPORT.md
+FUNCTION_ANALYSIS*.md
+DEAD_CODE*.md
+
+# Installation state (runtime data)
+.installation-state.json
+
+# Build artifacts
+build/
+out/
+
+# Documentation build output
+docs-dist/
+
+# Cache
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.vuepress/dist
+
+# ESLint cache
+.eslintcache
+
+# Stylelint cache
+.stylelintcache
+
+# Prettier cache
+.prettiercache
+
+# Package manager lock files (keep package-lock.json for reproducible builds)
+yarn.lock
+pnpm-lock.yaml
+
+# MCP Secrets (API keys - NEVER commit)
+.mcp-secrets
+*/.mcp-secrets
+
+# Vercel
+.vercel
+
+# Deployment
+deploy/
+deployment/
+
+# Constitutional compliance: Local CI/CD working files
+.runners-local/tmp/
+.runners-local/cache/
+.runners-local/self-hosted/config/
+
+# User customizations (preserve during updates)
+configs/custom/
+user-config/
+
+# Backup files
+backups/
+*.backup-*
+lib/**/*.backup
+
+# Lighthouse performance reports
+documentations/performance/lighthouse-reports/*.json
+
+# Package Migration System
+.config/package-migration/
+~/.config/package-migration/
+.mcp.json
+
+# Self-hosted runner credentials (CRITICAL - never commit)
+.local-runner/
+~/.local-runner/
+**/.credentials
+**/.credentials_rsaparams
+**/.runner
+**/runner-*.token
+runner-state.json
+runner-credentials.json
+
+# GitHub Actions runner working directory
+actions-runner/
+_diag/
+_work/
+
+# TUI build artifacts (Go binary)
+tui/dotfiles-installer
+dotfiles-installer
+/installer
+
+# Download logs (wget artifacts)
+wget-log
+wget-log.*
