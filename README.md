@@ -1,114 +1,67 @@
 # 000 Dotfiles
 
-LLM CLI tools sudoers configuration and system setup for Ubuntu 25.04+ with uv package manager integration.
+Ubuntu development environment setup with LLM CLI tools integration, developer tool management, and zero-cost local CI/CD infrastructure.
 
-## 🎯 Purpose
+## Purpose
 
-This repository manages sudoers configurations that enable AI-powered CLI tools (Claude Code, Copilot CLI, Gemini CLI) to execute system commands without password prompts, streamlining development workflows across multiple machines. Part of the unified system management suite alongside 001-agents-manager and 002-mcp-manager.
+This repository provides a comprehensive development environment for Ubuntu 25.04+ including:
+- **LLM CLI Tools Configuration**: Sudoers configuration for Claude Code, Copilot CLI, Gemini CLI
+- **Developer Tools TUI Installer**: Interactive installer for fastfetch, glow, gum, Node.js, AI tools, and more
+- **ZSH Configuration**: Oh My Zsh with Powerlevel10k theme and plugins
+- **MCP Server Configs**: Model Context Protocol integrations
+- **Local CI/CD**: Zero-cost GitHub Actions alternative for local validation
 
-## Contents
+## Quick Start
 
-- `sudoers/llm-cli-tools` - Sudoers configuration allowing LLM tools to run specific commands without password
-- `scripts/deploy-sudoers.sh` - Deployment script for other machines
-- `install.sh` - One-line wget installer for quick setup on any Ubuntu machine
-
-## Installation
-
-### Quick Install (Recommended for Office Machines)
-
-**One-line installation using wget** (Ubuntu 25.04+):
+### One-Line Installation
 
 ```bash
 wget -qO- https://raw.githubusercontent.com/kairin/000-dotfiles/main/install.sh | bash
 ```
 
-**What this script does:**
-- ✓ Installs `uv` package manager (if not present)
-- ✓ Verifies system Python installation (uses Ubuntu's system Python only)
-- ✓ Downloads sudoers configuration from this repository
-- ✓ Automatically customizes for your username
-- ✓ Validates syntax before applying (safe - won't break your sudo)
-- ✓ Performs rollback if validation fails
-- ✓ No git clone required - completely standalone
+This installs the sudoers configuration for LLM CLI tools.
 
-**Requirements:**
-- Ubuntu 25.04+ (or other Ubuntu versions)
-- Internet connection
-- sudo privileges
-
-
-### Manual Installation
-
-#### On this machine (localhost)
+### Full Setup (Recommended)
 
 ```bash
-sudo cp ~/dotfiles/sudoers/llm-cli-tools /etc/sudoers.d/
-sudo chmod 440 /etc/sudoers.d/llm-cli-tools
-sudo chown root:root /etc/sudoers.d/llm-cli-tools
-sudo visudo -c  # Verify syntax
+git clone https://github.com/kairin/000-dotfiles.git ~/Apps/000-dotfiles
+cd ~/Apps/000-dotfiles
+./start.sh
 ```
 
-### On other machines (if repo is already cloned)
+The `start.sh` script provides an interactive setup for all components.
 
-#### Option 1: Using the wget installer (Easiest)
+### TUI Installer
+
+For interactive tool management:
+
 ```bash
-# No need to clone - just run:
-wget -qO- https://raw.githubusercontent.com/kairin/000-dotfiles/main/install.sh | bash
+cd ~/Apps/000-dotfiles/tui
+go run ./cmd/installer
 ```
 
-#### Option 2: Using deployment script (for multiple machines)
-```bash
-cd ~/dotfiles
-./scripts/deploy-sudoers.sh hostname1 hostname2 hostname3
-```
+## Components
 
-#### Option 3: Manual deployment
-```bash
-# On each machine, clone this repo first
-git clone ~/dotfiles  # Or from remote if pushed
+### Developer Tools (via TUI)
 
-# Then install
-sudo cp ~/dotfiles/sudoers/llm-cli-tools /etc/sudoers.d/
-sudo chmod 440 /etc/sudoers.d/llm-cli-tools
-sudo chown root:root /etc/sudoers.d/llm-cli-tools
-```
+| Tool | Description | Installation Method |
+|------|-------------|---------------------|
+| **Feh** | Lightweight image viewer | Source build |
+| **Node.js** | JavaScript runtime with fnm | Script |
+| **AI Tools** | Claude Code, Gemini CLI, Copilot | NPM |
+| **Antigravity** | Google agentic development | Script |
+| **Fastfetch** | System info fetcher | APT |
+| **Glow** | Terminal markdown renderer | Charm repo |
+| **Go** | Go programming language | Tarball |
+| **Gum** | TUI component library | Charm repo |
+| **Python/uv** | Python with uv package manager | Script |
+| **VHS** | Terminal recording/GIF | Charm repo |
+| **ZSH** | ZSH + Oh My Zsh + Powerlevel10k | APT |
+| **Nerd Fonts** | Developer fonts (8 families) | GitHub release |
 
-## Adding New Commands
+### Sudoers Configuration
 
-Edit `sudoers/llm-cli-tools` and add commands in the format:
-```
-username ALL=(ALL) NOPASSWD: /full/path/to/command
-```
-
-Find command paths with: `which command_name`
-
-After editing:
-```bash
-git add sudoers/llm-cli-tools
-git commit -m "Add new sudo command: xyz"
-```
-
-Then redeploy to other machines.
-
-## Requirements
-
-- **OS:** Ubuntu 25.04+ (compatible with earlier Ubuntu versions)
-- **Python:** System Python 3 (automatically verified by installer)
-- **Package Manager:** `uv` (automatically installed by installer if missing)
-- **Permissions:** sudo access for installation
-
-## Security
-
-- `.gitignore` is configured to prevent committing secrets
-- Only configuration files are tracked, never credentials
-- Before committing new files: `git add -n .` (dry-run check)
-- Installer validates sudoers syntax before applying (prevents breaking sudo)
-- Automatic rollback on validation failure
-- Whitelisted commands only - no blanket sudo access
-
-## Whitelisted Commands
-
-Currently allows passwordless sudo for the following commands:
+Passwordless sudo for whitelisted commands used by LLM CLI tools:
 
 | Category | Commands |
 |----------|----------|
@@ -119,53 +72,91 @@ Currently allows passwordless sudo for the following commands:
 | **File Operations** | `install`, `mkdir`, `chmod`, `chown`, `tee` |
 | **Network Tools** | `curl`, `wget` |
 
-These commands can be executed by LLM CLI tools without password prompts.
+### LLM Configuration
+
+- `.claude/` - Claude Code settings and instructions
+- `.gemini/` - Gemini CLI configuration
+- `configs/mcp/` - MCP server configurations
+
+### Local CI/CD
+
+```bash
+# Run full validation workflow locally
+./.runners-local/workflows/gh-workflow-local.sh all
+
+# Check GitHub Actions billing
+./.runners-local/workflows/gh-workflow-local.sh billing
+```
+
+## Directory Structure
+
+```
+000-dotfiles/
+├── .claude/                    # Claude Code configuration
+│   ├── instructions-for-agents/
+│   └── settings.json
+├── .gemini/                    # Gemini CLI configuration
+├── .runners-local/             # Local CI/CD infrastructure
+├── configs/
+│   ├── mcp/                    # MCP server configs
+│   └── zsh/                    # ZSH configuration
+├── scripts/
+│   ├── 000-check/              # Tool check scripts
+│   ├── 001-uninstall/          # Tool uninstall scripts
+│   ├── 002-install-first-time/ # First-time install scripts
+│   ├── 003-verify/             # Verification scripts
+│   ├── 004-reinstall/          # Reinstall scripts
+│   ├── 005-confirm/            # Confirmation scripts
+│   ├── 006-logs/               # Logging scripts
+│   ├── 007-diagnostics/        # Diagnostic scripts
+│   ├── 007-update/             # Update scripts
+│   ├── mcp/                    # MCP scripts
+│   └── deploy-sudoers.sh       # Sudoers deployment
+├── sudoers/
+│   └── llm-cli-tools           # Sudoers configuration
+├── tui/                        # Go-based TUI installer
+├── AGENTS.md                   # LLM instructions (single source of truth)
+├── CLAUDE.md -> AGENTS.md      # Symlink for Claude Code
+├── GEMINI.md -> AGENTS.md      # Symlink for Gemini CLI
+├── install.sh                  # Quick sudoers installer
+├── start.sh                    # Full environment setup
+└── README.md                   # This file
+```
+
+## Requirements
+
+- **OS**: Ubuntu 25.04+ (compatible with 22.04+)
+- **Go**: 1.23+ (for TUI installer, optional)
+- **Python**: System Python 3
+- **Package Manager**: `uv` (auto-installed)
+
+## Security
+
+- `.gitignore` prevents committing secrets
+- Sudoers syntax validated before applying
+- Automatic rollback on validation failure
+- Whitelisted commands only - no blanket sudo access
+
+## Update Management
+
+```bash
+# Smart update checker
+./scripts/check_updates.sh
+
+# View update logs
+./scripts/006-logs/view_update_logs.sh
+```
 
 ## Version History
 
-See [CHANGELOG.md](CHANGELOG.md) for detailed version history and changes.
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 ## Contributing
 
-When adding new configurations:
 1. Test locally first
-2. Update CHANGELOG.md under `[Unreleased]`
-3. Update README.md if adding new features
-4. Commit with descriptive message (format: "Add/Update/Fix: description")
-5. Deploy to other machines as needed
-
-### Adding New Sudo Commands
-
-1. Find the command path:
-   ```bash
-   which command_name
-   ```
-
-2. Edit `sudoers/llm-cli-tools`:
-   ```
-   username ALL=(ALL) NOPASSWD: /full/path/to/command
-   ```
-
-3. Test locally:
-   ```bash
-   sudo cp sudoers/llm-cli-tools /etc/sudoers.d/
-   sudo chmod 440 /etc/sudoers.d/llm-cli-tools
-   sudo chown root:root /etc/sudoers.d/llm-cli-tools
-   sudo visudo -c  # Verify syntax
-   ```
-
-4. Commit and push:
-   ```bash
-   git add sudoers/llm-cli-tools CHANGELOG.md
-   git commit -m "Add sudo command: command_name"
-   git push
-   ```
-
-5. Redeploy to office machines:
-   ```bash
-   # They can just re-run the installer
-   wget -qO- https://raw.githubusercontent.com/kairin/000-dotfiles/main/install.sh | bash
-   ```
+2. Update CHANGELOG.md
+3. Follow branch naming: `YYYYMMDD-HHMMSS-type-description`
+4. Use conventional commits
 
 ## License
 
