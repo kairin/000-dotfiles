@@ -1,0 +1,10 @@
+[2026-01-19 03:09:56] [WARNING] ⚠️ ShellCheck issues found in: test_install_uv.sh
+[2026-01-19 03:09:57] [WARNING] ⚠️ ShellCheck issues found in: test_audit_packages.sh
+[2026-01-19 03:09:57] [WARNING] ⚠️ ShellCheck issues found in: test_install_modern_tools.sh
+[2026-01-19 03:09:57] [WARNING] ⚠️ ShellCheck issues found in: test_success_criteria.sh
+[2026-01-19 03:09:57] [WARNING] ⚠️ ShellCheck issues found in: test_audit_workflow.sh
+[2026-01-19 03:09:57] [WARNING] ⚠️ ShellCheck issues found in: test_full_installation.sh
+[2026-01-19 03:09:57] [WARNING] ⚠️ ShellCheck issues found in: test_update_workflow.sh
+[2026-01-19 03:09:57] [WARNING] ⚠️ ShellCheck issues found in: test_mcp_integration.sh
+[2026-01-19 03:09:57] [WARNING] ⚠️ ShellCheck issues found in: test_health_checks.sh
+[2026-01-19 03:09:57] [WARNING] ⚠️ ShellCheck issues found in: test_local_cicd_workflow.sh

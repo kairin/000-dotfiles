@@ -1,0 +1,47 @@
+[2026-01-18 08:55:22] [INFO] 🏥 Starting Local CI/CD Health Check...
+[2026-01-18 08:55:22] [INFO] 📍 Repository: /home/kkk/Apps/ghostty-config-files
+[2026-01-18 08:55:22] [INFO] 🖥️  Hostname: kkksrv
+[2026-01-18 08:55:22] [STEP] 🔧 Checking core tools...
+[2026-01-18 08:55:22] [SUCCESS] ✅ GitHub CLI: 2.46.0
+[2026-01-18 08:55:22] [SUCCESS] ✅ Node.js: v25 (target)
+[2026-01-18 08:55:22] [SUCCESS] ✅ npm: 11.6.2
+[2026-01-18 08:55:22] [SUCCESS] ✅ git: 2.51.0
+[2026-01-18 08:55:22] [SUCCESS] ✅ jq: 1.8.1
+[2026-01-18 08:55:22] [SUCCESS] ✅ curl: 8.14.1
+[2026-01-18 08:55:22] [SUCCESS] ✅ bash: 5.2.37(1)-release
+[2026-01-18 08:55:22] [STEP] 🔐 Checking authentication (user-level)...
+[2026-01-18 08:55:22] [SUCCESS] ✅ GitHub CLI authenticated
+[2026-01-18 08:55:22] [INFO] ℹ️  MCP API keys (Context7, etc.) are managed in ~/.claude.json
+[2026-01-18 08:55:22] [INFO]    No project-level .env required - MCP handles authentication
+[2026-01-18 08:55:22] [STEP] 🏗️  Checking local CI/CD infrastructure...
+[2026-01-18 08:55:22] [SUCCESS] ✅ .runners-local/ directory exists
+[2026-01-18 08:55:22] [SUCCESS] ✅ Workflow scripts: 17/17 executable
+[2026-01-18 08:55:22] [SUCCESS] ✅ logs/ directory writable
+[2026-01-18 08:55:22] [SUCCESS] ✅ tests/ directory exists
+[2026-01-18 08:55:22] [STEP] 🔌 Checking MCP server connectivity (user-level)...
+[2026-01-18 08:55:22] [SUCCESS] ✅ MCP config: ~/.claude.json (6 servers)
+[2026-01-18 08:55:22] [SUCCESS] ✅ Claude Code CLI available
+[2026-01-18 08:55:25] [SUCCESS] ✅ MCP servers: 6 connected
+[2026-01-18 08:55:25] [STEP] 🔍 Checking for MCP config conflicts...
+[2026-01-18 08:55:25] [WARNING] ⚠️  Project-level .mcp.json detected at /home/kkk/Apps/ghostty-config-files/.mcp.json
+[2026-01-18 08:55:25] [ERROR] ❌ MCP SERVER CONFLICT DETECTED:
+[2026-01-18 08:55:25] [ERROR]    The following servers exist in BOTH configs:
+[2026-01-18 08:55:25] [ERROR]    • context7
+[2026-01-18 08:55:25] [ERROR]    • github
+[2026-01-18 08:55:25] [INFO] 
+[2026-01-18 08:55:25] [INFO]    RESOLUTION OPTIONS:
+[2026-01-18 08:55:25] [INFO]    1. Delete project .mcp.json: rm /home/kkk/Apps/ghostty-config-files/.mcp.json
+[2026-01-18 08:55:25] [INFO]    2. Rename servers in .mcp.json to avoid conflict
+[2026-01-18 08:55:25] [INFO]    3. Remove duplicates from .mcp.json, keep only project-specific servers
+[2026-01-18 08:55:25] [STEP] 🌐 Checking Astro build environment...
+[2026-01-18 08:55:25] [SUCCESS] ✅ Astro package.json exists (astro-website)
+[2026-01-18 08:55:25] [SUCCESS] ✅ Dependencies installed
+[2026-01-18 08:55:25] [SUCCESS] ✅ astro.config.mjs exists
+[2026-01-18 08:55:25] [SUCCESS] ✅ outDir correctly set to ../docs
+[2026-01-18 08:55:25] [SUCCESS] ✅ Build output exists (docs/index.html)
+[2026-01-18 08:55:25] [SUCCESS] ✅ docs/.nojekyll exists (CRITICAL for GitHub Pages)
+[2026-01-18 08:55:25] [STEP] 🏃 Checking self-hosted runner (optional)...
+[2026-01-18 08:55:25] [INFO] ℹ️  Self-hosted runner not installed (optional component)
+[2026-01-18 08:55:25] [INFO] 📊 JSON report generated: /home/kkk/Apps/ghostty-config-files/.runners-local/workflows/../logs/health-check-1768697722.json
+[2026-01-18 08:55:25] [INFO] 📝 Generating setup instructions: /home/kkk/Apps/ghostty-config-files/.runners-local/workflows/../logs/setup-instructions-kkksrv-1768697722.md
+[2026-01-18 08:55:25] [SUCCESS] ✅ Setup instructions generated: /home/kkk/Apps/ghostty-config-files/.runners-local/workflows/../logs/setup-instructions-kkksrv-1768697722.md

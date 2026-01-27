@@ -1,0 +1,37 @@
+[2026-01-18 18:52:16] [INFO] 🏥 Starting Local CI/CD Health Check...
+[2026-01-18 18:52:16] [INFO] 📍 Repository: /home/kkk/Apps/ghostty-config-files
+[2026-01-18 18:52:16] [INFO] 🖥️  Hostname: kkksrv
+[2026-01-18 18:52:16] [STEP] 🔧 Checking core tools...
+[2026-01-18 18:52:16] [SUCCESS] ✅ GitHub CLI: 2.46.0
+[2026-01-18 18:52:16] [SUCCESS] ✅ Node.js: v25 (target)
+[2026-01-18 18:52:16] [SUCCESS] ✅ npm: 11.6.2
+[2026-01-18 18:52:16] [SUCCESS] ✅ git: 2.51.0
+[2026-01-18 18:52:16] [SUCCESS] ✅ jq: 1.8.1
+[2026-01-18 18:52:16] [SUCCESS] ✅ curl: 8.14.1
+[2026-01-18 18:52:16] [SUCCESS] ✅ bash: 5.2.37(1)-release
+[2026-01-18 18:52:16] [STEP] 🔐 Checking authentication (user-level)...
+[2026-01-18 18:52:16] [SUCCESS] ✅ GitHub CLI authenticated
+[2026-01-18 18:52:16] [INFO] ℹ️  MCP API keys (Context7, etc.) are managed in ~/.claude.json
+[2026-01-18 18:52:16] [INFO]    No project-level .env required - MCP handles authentication
+[2026-01-18 18:52:16] [STEP] 🏗️  Checking local CI/CD infrastructure...
+[2026-01-18 18:52:16] [SUCCESS] ✅ .runners-local/ directory exists
+[2026-01-18 18:52:16] [SUCCESS] ✅ Workflow scripts: 17/17 executable
+[2026-01-18 18:52:16] [SUCCESS] ✅ logs/ directory writable
+[2026-01-18 18:52:16] [SUCCESS] ✅ tests/ directory exists
+[2026-01-18 18:52:16] [STEP] 🔌 Checking MCP server connectivity (user-level)...
+[2026-01-18 18:52:16] [SUCCESS] ✅ MCP config: ~/.claude.json (6 servers)
+[2026-01-18 18:52:16] [SUCCESS] ✅ Claude Code CLI available
+[2026-01-18 18:52:19] [SUCCESS] ✅ MCP servers: 6 connected
+[2026-01-18 18:52:19] [STEP] 🔍 Checking for MCP config conflicts...
+[2026-01-18 18:52:19] [SUCCESS] ✅ No project-level .mcp.json (clean - user-level only)
+[2026-01-18 18:52:19] [STEP] 🌐 Checking Astro build environment...
+[2026-01-18 18:52:19] [SUCCESS] ✅ Astro package.json exists (astro-website)
+[2026-01-18 18:52:19] [SUCCESS] ✅ Dependencies installed
+[2026-01-18 18:52:19] [SUCCESS] ✅ astro.config.mjs exists
+[2026-01-18 18:52:19] [SUCCESS] ✅ outDir correctly set to ../docs
+[2026-01-18 18:52:19] [SUCCESS] ✅ Build output exists (docs/index.html)
+[2026-01-18 18:52:19] [SUCCESS] ✅ docs/.nojekyll exists (CRITICAL for GitHub Pages)
+[2026-01-18 18:52:19] [STEP] 🏃 Checking CI/CD policy and runner status...
+[2026-01-18 18:52:19] [INFO]    Detected policy: zero-cost
+[2026-01-18 18:52:19] [SUCCESS] ✅ Zero-cost compliance: Local CI/CD only, no GitHub Actions runner required
+[2026-01-18 18:52:19] [INFO] 📊 JSON report generated: /home/kkk/Apps/ghostty-config-files/.runners-local/workflows/../logs/health-check-1768733536.json

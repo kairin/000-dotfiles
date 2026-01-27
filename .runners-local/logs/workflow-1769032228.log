@@ -1,0 +1,9 @@
+[2026-01-22 05:50:28] [WARNING] ⚠️ ShellCheck issues found in: test_functional_requirements.sh
+[2026-01-22 05:50:28] [WARNING] ⚠️ ShellCheck issues found in: run_integration_tests.sh
+[2026-01-22 05:50:28] [WARNING] ⚠️ ShellCheck issues found in: test_astro_build_deploy.sh
+[2026-01-22 05:50:28] [WARNING] ⚠️ ShellCheck issues found in: test_constitutional_compliance.sh
+[2026-01-22 05:50:28] [WARNING] ⚠️ ShellCheck issues found in: setup-self-hosted-runner.sh
+[2026-01-22 05:50:28] [WARNING] ⚠️ ShellCheck issues found in: validate-doc-links.sh
+[2026-01-22 05:50:28] [WARNING] ⚠️ ShellCheck issues found in: performance-monitor.sh
+[2026-01-22 05:50:28] [WARNING] ⚠️ ShellCheck issues found in: gh-workflow-local.sh
+[2026-01-22 05:50:28] [WARNING] ⚠️ ShellCheck issues found in: health-check.sh

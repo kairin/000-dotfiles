@@ -1,0 +1,5 @@
+[2026-01-22 05:50:25] [WARNING] ⚠️ ShellCheck issues found in: uninstall_nerdfonts.sh
+[2026-01-22 05:50:25] [WARNING] ⚠️ ShellCheck issues found in: install_apt_hook.sh
+[2026-01-22 05:50:25] [WARNING] ⚠️ ShellCheck issues found in: confirm_ide_fonts.sh
+[2026-01-22 05:50:25] [WARNING] ⚠️ ShellCheck issues found in: confirm_feh.sh
+[2026-01-22 05:50:25] [WARNING] ⚠️ ShellCheck issues found in: generate_manifest.sh

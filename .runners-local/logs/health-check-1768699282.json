@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-01-18T09:21:26+08:00",
+  "repository_path": "/home/kkk/Apps/ghostty-config-files",
+  "device_hostname": "kkksrv",
+  "overall_status": "NEEDS_SETUP",
+  "summary": {
+    "total_checks": 23,
+    "passed": 22,
+    "failed": 0,
+    "warnings": 1
+  },
+  "categories": {
+    "core_tools": {},
+    "environment_variables": {},
+    "local_cicd": {},
+    "mcp_servers": {},
+    "astro_build": {},
+    "self_hosted_runner": {}
+  }
+}

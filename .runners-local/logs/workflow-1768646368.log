@@ -1,0 +1,23 @@
+[2026-01-17 18:39:28] [WARNING] ⚠️ go vet found issues
+[2026-01-17 18:39:28] [INFO] ⏱️ Go TUI build completed in 1s
+[2026-01-17 18:39:28] [STEP] 🔧 Validating Ghostty configuration...
+[2026-01-17 18:39:28] [SUCCESS] ✅ Ghostty configuration is valid
+[2026-01-17 18:39:28] [SUCCESS] ✅ CGroup single-instance optimization found
+[2026-01-17 18:39:28] [SUCCESS] ✅ Enhanced shell integration found
+[2026-01-17 18:39:28] [SUCCESS] ✅ Clipboard paste protection found
+[2026-01-17 18:39:28] [INFO] 📊 Found 3/3 2025 optimizations
+[2026-01-17 18:39:28] [INFO] 🔍 Running ShellCheck validation on shell scripts...
+[2026-01-17 18:39:28] [WARNING] ⚠️ ShellCheck not installed, skipping validation
+[2026-01-17 18:39:28] [INFO] 💡 Install with: sudo apt-get install shellcheck
+[2026-01-17 18:39:28] [INFO] 🔒 Running npm security audit...
+[2026-01-17 18:39:28] [SUCCESS] ✅ npm audit passed - no vulnerabilities found
+[2026-01-17 18:39:28] [INFO] ⏱️ Configuration validation completed in 0s
+[2026-01-17 18:39:28] [STEP] 🎨 Validating desktop icon integration...
+[2026-01-17 18:39:28] [INFO] Checking system icon directory: /usr/local/share/icons/hicolor
+[2026-01-17 18:39:28] [SUCCESS] ✅ index.theme exists in /usr/local/share/icons/hicolor
+[2026-01-17 18:39:28] [WARNING] ⚠️ Icon cache invalid (320 bytes) - auto-fixing...
+[2026-01-17 18:39:28] [ERROR] ❌ Failed to rebuild icon cache
+[2026-01-17 18:39:28] [INFO] Checking user icon directory: /home/kkk/.local/share/icons/hicolor
+[2026-01-17 18:39:28] [ERROR] ❌ Icon validation found 1 unresolvable issue(s)
+[2026-01-17 18:39:28] [INFO] 💡 Run: tests/verify_icons.sh --fix for manual remediation
+[2026-01-17 18:39:28] [INFO] ⏱️ Icon validation completed in 0s
