@@ -1,11 +1,9 @@
 name: Constitutional Astro Build and Deploy
 
-# GitHub-hosted deployment for reliability
+# DISABLED: GitHub Pages not configured for this repository
+# To enable: Configure GitHub Pages in repository settings, then uncomment push/pull_request triggers
+# Manual trigger only via workflow_dispatch
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:

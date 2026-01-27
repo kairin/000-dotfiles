@@ -1,13 +1,13 @@
 name: Deploy to GitHub Pages
 
-# Zero-cost constitutional deployment workflow
-# Triggers on push to main branch
-# Validates .nojekyll file presence (CRITICAL for Astro assets)
-# Uses github-pages@v4 for deployment
-
+# DISABLED: GitHub Pages not configured for this repository
+# To enable: Configure GitHub Pages in repository settings, then uncomment push trigger
+# Manual trigger only via workflow_dispatch
+#
+# Original triggers (commented out):
+#   push:
+#     branches: [main]
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
