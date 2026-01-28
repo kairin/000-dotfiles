@@ -119,6 +119,10 @@ type InstallerModel struct {
 	// Recovery button selection (for failed/paused states)
 	recoveryFocused int
 	recoveryButtons []recoveryButton
+
+	// Sudo pre-authentication flag - when true, pipeline skips interactive sudo prompt
+	// This prevents double sudo prompts (UI already authenticated before launching installer)
+	sudoPreAuthenticated bool
 }
 
 // stageStatus tracks the status of each pipeline stage
@@ -132,6 +136,13 @@ type stageStatus struct {
 // NewInstallerModel creates a new installer model
 // Returns nil-safe model if tool is nil (defensive programming)
 func NewInstallerModel(tool *registry.Tool, repoRoot string) InstallerModel {
+	return NewInstallerModelWithSudo(tool, repoRoot, false)
+}
+
+// NewInstallerModelWithSudo creates a new installer model with sudo pre-authentication flag
+// When sudoPreAuthenticated is true, the pipeline skips interactive sudo prompts
+// (because the UI layer already handled authentication before launching installer)
+func NewInstallerModelWithSudo(tool *registry.Tool, repoRoot string, sudoPreAuthenticated bool) InstallerModel {
 	stages := []stageStatus{
 		{stage: executor.StageCheck},
 		{stage: executor.StageInstallDeps},
@@ -151,17 +162,23 @@ func NewInstallerModel(tool *registry.Tool, repoRoot string) InstallerModel {
 	ts.SetDisplayLines(20) // Show more lines during installation
 
 	return InstallerModel{
-		tool:        tool,
-		state:       InstallerIdle,
-		stages:      stages,
-		tailSpinner: ts,
-		repoRoot:    repoRoot,
+		tool:                 tool,
+		state:                InstallerIdle,
+		stages:               stages,
+		tailSpinner:          ts,
+		repoRoot:             repoRoot,
+		sudoPreAuthenticated: sudoPreAuthenticated,
 	}
 }
 
 // NewInstallerModelForUninstall creates an installer model configured for uninstallation
 // Returns nil-safe model if tool is nil (defensive programming)
 func NewInstallerModelForUninstall(tool *registry.Tool, repoRoot string) InstallerModel {
+	return NewInstallerModelForUninstallWithSudo(tool, repoRoot, false)
+}
+
+// NewInstallerModelForUninstallWithSudo creates an installer model for uninstallation with sudo pre-auth flag
+func NewInstallerModelForUninstallWithSudo(tool *registry.Tool, repoRoot string, sudoPreAuthenticated bool) InstallerModel {
 	// Single stage for uninstall
 	stages := []stageStatus{
 		{stage: executor.StageUninstall},
@@ -178,12 +195,13 @@ func NewInstallerModelForUninstall(tool *registry.Tool, repoRoot string) Install
 	ts.SetDisplayLines(20)
 
 	return InstallerModel{
-		tool:        tool,
-		state:       InstallerIdle,
-		stages:      stages,
-		tailSpinner: ts,
-		repoRoot:    repoRoot,
-		isUninstall: true,
+		tool:                 tool,
+		state:                InstallerIdle,
+		stages:               stages,
+		tailSpinner:          ts,
+		repoRoot:             repoRoot,
+		isUninstall:          true,
+		sudoPreAuthenticated: sudoPreAuthenticated,
 	}
 }
 
@@ -219,6 +237,11 @@ func NewInstallerModelForConfigure(tool *registry.Tool, repoRoot string) Install
 // This is non-destructive - preserves user data like npm global packages
 // Returns nil-safe model if tool is nil (defensive programming)
 func NewInstallerModelForUpdate(tool *registry.Tool, repoRoot string) InstallerModel {
+	return NewInstallerModelForUpdateWithSudo(tool, repoRoot, false)
+}
+
+// NewInstallerModelForUpdateWithSudo creates an installer model for updates with sudo pre-auth flag
+func NewInstallerModelForUpdateWithSudo(tool *registry.Tool, repoRoot string, sudoPreAuthenticated bool) InstallerModel {
 	// Update pipeline stages: Check → Update → Confirm
 	stages := []stageStatus{
 		{stage: executor.StageCheck},
@@ -237,12 +260,13 @@ func NewInstallerModelForUpdate(tool *registry.Tool, repoRoot string) InstallerM
 	ts.SetDisplayLines(20)
 
 	return InstallerModel{
-		tool:        tool,
-		state:       InstallerIdle,
-		stages:      stages,
-		tailSpinner: ts,
-		repoRoot:    repoRoot,
-		isUpdate:    true,
+		tool:                 tool,
+		state:                InstallerIdle,
+		stages:               stages,
+		tailSpinner:          ts,
+		repoRoot:             repoRoot,
+		isUpdate:             true,
+		sudoPreAuthenticated: sudoPreAuthenticated,
 	}
 }
 
@@ -569,8 +593,9 @@ func (m InstallerModel) startPipeline(resume bool) (InstallerModel, tea.Cmd) {
 		m.stages[i].duration = ""
 	}
 
-	// Create pipeline
+	// Create pipeline with sudo skip flag if UI already authenticated
 	config := executor.DefaultPipelineConfig(m.repoRoot)
+	config.SkipSudoCache = m.sudoPreAuthenticated
 	m.pipeline = executor.NewPipeline(m.tool, config)
 
 	// Create cancellable context
@@ -614,8 +639,9 @@ func (m InstallerModel) startUninstallPipeline() (InstallerModel, tea.Cmd) {
 		m.stages[i].duration = ""
 	}
 
-	// Create uninstall pipeline
+	// Create uninstall pipeline with sudo skip flag if UI already authenticated
 	config := executor.DefaultPipelineConfig(m.repoRoot)
+	config.SkipSudoCache = m.sudoPreAuthenticated
 	m.uninstallPipeline = executor.NewUninstallPipeline(m.tool, config)
 
 	// Create cancellable context
@@ -646,8 +672,9 @@ func (m InstallerModel) startConfigurePipeline() (InstallerModel, tea.Cmd) {
 		m.stages[i].duration = ""
 	}
 
-	// Create configure pipeline
+	// Create configure pipeline with sudo skip flag if UI already authenticated
 	config := executor.DefaultPipelineConfig(m.repoRoot)
+	config.SkipSudoCache = m.sudoPreAuthenticated
 	m.configurePipeline = executor.NewConfigurePipeline(m.tool, config)
 
 	// Create cancellable context
@@ -678,8 +705,9 @@ func (m InstallerModel) startUpdatePipeline() (InstallerModel, tea.Cmd) {
 		m.stages[i].duration = ""
 	}
 
-	// Create pipeline (reuses standard Pipeline with ExecuteUpdate method)
+	// Create pipeline with sudo skip flag if UI already authenticated
 	config := executor.DefaultPipelineConfig(m.repoRoot)
+	config.SkipSudoCache = m.sudoPreAuthenticated
 	m.pipeline = executor.NewPipeline(m.tool, config)
 
 	// Create cancellable context

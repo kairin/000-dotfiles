@@ -15,13 +15,25 @@ type ConfirmResult struct {
 	Context   interface{} // Optional context to pass back
 }
 
+// ConfirmAction identifies the type of action being confirmed
+type ConfirmAction string
+
+const (
+	ConfirmActionInstall   ConfirmAction = "Install"
+	ConfirmActionUpdate    ConfirmAction = "Update"
+	ConfirmActionReinstall ConfirmAction = "Reinstall"
+	ConfirmActionUninstall ConfirmAction = "Uninstall"
+)
+
 // ConfirmModel implements a confirmation dialog
 type ConfirmModel struct {
-	question string
-	focused  int         // 0=No, 1=Yes
-	context  interface{} // Context to pass back with result
-	width    int
-	height   int
+	question    string
+	focused     int         // 0=No, 1=Yes
+	context     interface{} // Context to pass back with result
+	width       int
+	height      int
+	action      ConfirmAction  // Type of action for styling
+	borderColor lipgloss.Color // Border color (varies by action)
 }
 
 // Confirm key bindings
@@ -69,11 +81,48 @@ var confirmKeys = confirmKeyMap{
 // NewConfirmModel creates a new confirmation dialog
 func NewConfirmModel(question string, context interface{}) ConfirmModel {
 	return ConfirmModel{
-		question: question,
-		focused:  0, // Default to "No" for safety
-		context:  context,
-		width:    50,
-		height:   7,
+		question:    question,
+		focused:     0, // Default to "No" for safety
+		context:     context,
+		width:       50,
+		height:      7,
+		action:      ConfirmActionUninstall, // Default to uninstall styling for backwards compat
+		borderColor: ColorWarning,
+	}
+}
+
+// NewConfirmModelWithAction creates a new confirmation dialog with action-specific styling
+func NewConfirmModelWithAction(question string, context interface{}, action ConfirmAction) ConfirmModel {
+	// Determine border color based on action
+	var borderColor lipgloss.Color
+	var defaultFocus int
+
+	switch action {
+	case ConfirmActionInstall:
+		borderColor = ColorPrimary // Magenta for install (positive action)
+		defaultFocus = 1           // Default to Yes for install
+	case ConfirmActionUpdate:
+		borderColor = ColorWarning // Orange for update (caution)
+		defaultFocus = 1           // Default to Yes for update
+	case ConfirmActionReinstall:
+		borderColor = ColorWarning // Orange for reinstall (caution)
+		defaultFocus = 0           // Default to No for reinstall (destructive)
+	case ConfirmActionUninstall:
+		borderColor = ColorWarning // Orange for uninstall (danger)
+		defaultFocus = 0           // Default to No for uninstall (destructive)
+	default:
+		borderColor = ColorWarning
+		defaultFocus = 0
+	}
+
+	return ConfirmModel{
+		question:    question,
+		focused:     defaultFocus,
+		context:     context,
+		width:       50,
+		height:      7,
+		action:      action,
+		borderColor: borderColor,
 	}
 }
 
@@ -139,12 +188,34 @@ func (m ConfirmModel) View() string {
 		Foreground(ColorPrimary).
 		Bold(true)
 
-	dangerButtonStyle := lipgloss.NewStyle().
-		Padding(0, 3).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(ColorError).
-		Foreground(ColorError).
-		Bold(true)
+	// Determine Yes button style based on action type
+	var yesSelectedStyle lipgloss.Style
+	switch m.action {
+	case ConfirmActionInstall:
+		// Primary/positive for install
+		yesSelectedStyle = lipgloss.NewStyle().
+			Padding(0, 3).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(ColorPrimary).
+			Foreground(ColorPrimary).
+			Bold(true)
+	case ConfirmActionUpdate:
+		// Primary for update (generally safe)
+		yesSelectedStyle = lipgloss.NewStyle().
+			Padding(0, 3).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(ColorPrimary).
+			Foreground(ColorPrimary).
+			Bold(true)
+	default:
+		// Danger/warning for reinstall and uninstall
+		yesSelectedStyle = lipgloss.NewStyle().
+			Padding(0, 3).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(ColorError).
+			Foreground(ColorError).
+			Bold(true)
+	}
 
 	// Render buttons
 	var noButton, yesButton string
@@ -153,16 +224,26 @@ func (m ConfirmModel) View() string {
 		yesButton = buttonStyle.Render(" Yes ")
 	} else {
 		noButton = buttonStyle.Render("  No  ")
-		yesButton = dangerButtonStyle.Render(" Yes ")
+		yesButton = yesSelectedStyle.Render(" Yes ")
 	}
 
 	buttons := lipgloss.JoinHorizontal(lipgloss.Center, noButton, "    ", yesButton)
 
-	// Question with warning icon
+	// Question with icon (varies by action)
+	var icon string
+	switch m.action {
+	case ConfirmActionInstall:
+		icon = IconPackage
+	case ConfirmActionUpdate:
+		icon = IconArrowUp
+	default:
+		icon = IconWarning
+	}
+
 	questionStyle := lipgloss.NewStyle().
-		Foreground(ColorWarning).
+		Foreground(m.borderColor).
 		Bold(true)
-	questionText := questionStyle.Render(IconWarning + "  " + m.question)
+	questionText := questionStyle.Render(icon + "  " + m.question)
 
 	// Help text
 	helpText := HelpStyle.Render("[←/→] Select  [Enter] Confirm  [Esc] Cancel  [Y/N] Quick select")
@@ -178,10 +259,10 @@ func (m ConfirmModel) View() string {
 		helpText,
 	)
 
-	// Dialog box style
+	// Dialog box style - use action-specific border color
 	dialogStyle := lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
-		BorderForeground(ColorWarning).
+		BorderForeground(m.borderColor).
 		Padding(1, 4).
 		Width(60)
 
@@ -206,5 +287,28 @@ func (m *ConfirmModel) SetSize(width, height int) {
 // ConfirmUninstall creates a confirmation dialog for uninstalling a tool
 func ConfirmUninstall(toolName string, context interface{}) ConfirmModel {
 	question := fmt.Sprintf("Uninstall %s? This action cannot be undone.", toolName)
-	return NewConfirmModel(question, context)
+	return NewConfirmModelWithAction(question, context, ConfirmActionUninstall)
+}
+
+// ConfirmInstall creates a confirmation dialog for installing a tool
+func ConfirmInstall(toolName string, context interface{}) ConfirmModel {
+	question := fmt.Sprintf("Install %s?", toolName)
+	return NewConfirmModelWithAction(question, context, ConfirmActionInstall)
+}
+
+// ConfirmUpdate creates a confirmation dialog for updating a tool
+func ConfirmUpdate(toolName string, context interface{}) ConfirmModel {
+	question := fmt.Sprintf("Update %s to the latest version?", toolName)
+	return NewConfirmModelWithAction(question, context, ConfirmActionUpdate)
+}
+
+// ConfirmReinstall creates a confirmation dialog for reinstalling a tool
+func ConfirmReinstall(toolName string, context interface{}) ConfirmModel {
+	question := fmt.Sprintf("Reinstall %s? This will uninstall and reinstall the tool.", toolName)
+	return NewConfirmModelWithAction(question, context, ConfirmActionReinstall)
+}
+
+// GetAction returns the confirmation action type
+func (m ConfirmModel) GetAction() ConfirmAction {
+	return m.action
 }

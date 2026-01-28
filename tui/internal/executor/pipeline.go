@@ -30,6 +30,7 @@ type PipelineConfig struct {
 	StageTimeout   time.Duration // Timeout per stage (default: 5 min)
 	OverallTimeout time.Duration // Overall timeout (default: 30 min)
 	RepoRoot       string        // Repository root path
+	SkipSudoCache  bool          // Skip preCacheSudo when UI already authenticated
 }
 
 // DefaultPipelineConfig returns sensible defaults
@@ -100,10 +101,17 @@ func (p *Pipeline) Execute(ctx context.Context) error {
 // preCacheSudo verifies or obtains sudo credentials
 // First attempts non-interactive check, then falls back to interactive prompt if needed.
 // This handles the case where credentials may have been lost between UI auth and pipeline start.
+// If SkipSudoCache is set (UI already authenticated), only performs non-blocking verification.
 func (p *Pipeline) preCacheSudo(ctx context.Context) error {
 	// Non-interactive check - verify credentials are already cached
 	cmd := exec.CommandContext(ctx, "sudo", "-n", "true")
 	if err := cmd.Run(); err != nil {
+		// If UI already authenticated, credentials should be cached - don't show interactive prompt
+		// This prevents double sudo prompts and terminal corruption in alt-screen mode
+		if p.config.SkipSudoCache {
+			return fmt.Errorf("sudo credentials expired (UI authenticated but not cached): %w", err)
+		}
+
 		// Credentials not cached - try to cache them now with interactive prompt
 		// This allows the pipeline to work even if the UI layer's auth didn't persist
 		cacheCmd := exec.CommandContext(ctx, "sudo", "-v")
