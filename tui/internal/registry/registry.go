@@ -112,6 +112,26 @@ var tools = map[string]*Tool{
 		VersionCmd:   []string{"antigravity", "--version"},
 		VersionRegex: `(\d+\.\d+\.\d+)`,
 	},
+	"fish": {
+		ID:          "fish",
+		DisplayName: "Fish + Fisher",
+		Description: "Fish shell + Fisher + Tide theme",
+		Category:    CategoryMain,
+		Method:      MethodAPT,
+		Scripts: ToolScripts{
+			Check:       "scripts/000-check/check_fish.sh",
+			Uninstall:   "scripts/001-uninstall/uninstall_fish.sh",
+			InstallDeps: "scripts/002-install-first-time/install_deps_fish.sh",
+			VerifyDeps:  "scripts/003-verify/verify_deps_fish.sh",
+			Install:     "scripts/004-reinstall/install_fish.sh",
+			Confirm:     "scripts/005-confirm/confirm_fish.sh",
+			Configure:   "scripts/004-reinstall/configure_fish.sh",
+			Update:      "scripts/007-update/update_fish.sh",
+		},
+		VersionCmd:   []string{"fish", "--version"},
+		VersionRegex: `fish, version (\d+\.\d+\.\d+)`,
+		DocsPath:     ".claude/instructions-for-agents/tools/fish.md",
+	},
 
 	// === EXTRAS TOOLS ===
 	"fastfetch": {
@@ -290,7 +310,7 @@ var tools = map[string]*Tool{
 }
 
 // Ordered lists for display
-var mainToolIDs = []string{"feh", "nodejs", "ai_tools", "antigravity"}
+var mainToolIDs = []string{"feh", "nodejs", "ai_tools", "antigravity", "fish"}
 var extrasToolIDs = []string{"fastfetch", "glow", "go", "gum", "python_uv", "shellcheck", "icon_cache", "vhs", "zsh"}
 
 // GetTool returns a tool by ID

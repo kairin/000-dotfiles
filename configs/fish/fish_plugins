@@ -1,0 +1,28 @@
+# Fish Plugins managed by Fisher
+# https://github.com/jorgebucaran/fisher
+#
+# These plugins are installed by the 000-dotfiles TUI installer
+# To add more plugins: fisher install author/plugin
+# To update all plugins: fisher update
+# To remove a plugin: fisher remove author/plugin
+
+# Plugin Manager (self-managed)
+jorgebucaran/fisher
+
+# fzf integration - Ctrl+R for history, Ctrl+T for files
+PatrickF1/fzf.fish
+
+# Directory jumping - use 'z <partial-path>' to jump
+jethrokuan/z
+
+# Auto-close brackets, quotes, and parentheses
+jorgebucaran/autopair.fish
+
+# Modern prompt theme (like Powerlevel10k for ZSH)
+IlanCosman/tide
+
+# Run bash scripts from within Fish
+edc/bass
+
+# Notifications when long-running commands complete
+franciscolourenco/done
