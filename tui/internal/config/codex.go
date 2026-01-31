@@ -122,8 +122,7 @@ func ReadCodexConfig() (*CodexConfig, error) {
 	}
 
 	// Read the file (path is resolved within ~/.codex).
-	// nosemgrep: file path is fixed to ~/.codex/config.toml via codexConfigPath.
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(configPath) // nosemgrep: file path is fixed to ~/.codex/config.toml via codexConfigPath
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Codex config: %w", err)
 	}
