@@ -101,15 +101,14 @@ func IsClaudeInstalled() bool {
 
 // ReadCodexConfig reads the Codex config.toml file
 func ReadCodexConfig() (*CodexConfig, error) {
-	configPath := GetCodexConfigPath()
+	configPath, err := codexConfigPath()
+	if err != nil {
+		return nil, err
+	}
 
 	config := &CodexConfig{
 		MCPServers: make(map[string]CodexMCPServer),
 		configPath: configPath,
-	}
-
-	if err := validateCodexConfigPath(configPath); err != nil {
-		return nil, err
 	}
 
 	// Check if file exists
@@ -122,9 +121,7 @@ func ReadCodexConfig() (*CodexConfig, error) {
 		return nil, fmt.Errorf("failed to stat Codex config: %w", err)
 	}
 
-	// Read the file
-	// Path is validated and restricted to ~/.codex before reading.
-	// #nosec G304 -- configPath is validated by validateCodexConfigPath
+	// Read the file (path is resolved within ~/.codex).
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Codex config: %w", err)
@@ -223,7 +220,7 @@ func CodexConfigExists() bool {
 func resolveCodexConfigPath(config *CodexConfig) (string, error) {
 	configPath := config.configPath
 	if configPath == "" {
-		configPath = GetCodexConfigPath()
+		return codexConfigPath()
 	}
 	if err := validateCodexConfigPath(configPath); err != nil {
 		return "", err
@@ -338,6 +335,21 @@ func validateCodexConfigPath(configPath string) error {
 		return nil
 	}
 	return fmt.Errorf("unexpected Codex config path: %s", configPath)
+}
+
+func codexConfigPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return "", fmt.Errorf("failed to resolve home directory for Codex config")
+	}
+	baseDir := filepath.Join(home, ".codex")
+	filename := filepath.Base("config.toml")
+	resolved := filepath.Join(baseDir, filename)
+	allowedPrefix := baseDir + string(os.PathSeparator)
+	if !strings.HasPrefix(resolved, allowedPrefix) {
+		return "", fmt.Errorf("unexpected Codex config path: %s", resolved)
+	}
+	return resolved, nil
 }
 
 func sortedCodexServerNames(servers map[string]CodexMCPServer) []string {
