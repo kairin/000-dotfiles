@@ -143,7 +143,7 @@
 - [ ] T046 Remove unused ViewAppMenu code from tui/internal/ui/model.go (after all stories verified)
 - [X] T047 [P] Search for remaining tea.ExecProcess usage to ensure only sudo operations remain
 - [X] T048 Run `cd tui && go build ./cmd/installer` to verify final build
-- [ ] T049 Manual verification of all 26 menu items per research.md inventory (FAIL: Update All/Ghostty not present; Setup Secrets view not visible)
+- [ ] T049 Manual verification of all 26 menu items per research.md inventory (FAIL: Update All/Ghostty not present; Setup Secrets view not reachable; font action menu opens installer)
 - [ ] T050 [P] Update quickstart.md verification steps if needed in specs/008-tui-dashboard-consistency/quickstart.md
 
 ---

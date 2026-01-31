@@ -162,7 +162,7 @@
 ### Nerd Fonts Menu (3 items)
 | Item | Correct Navigation? |
 |------|---------------------|
-| Font families (8) | [ ] Action menu → ViewInstaller |
+| Font families (8) | [x] Action menu → ViewInstaller |
 | Install All | [x] ViewBatchPreview |
 | Back | [x] ViewDashboard |
 
