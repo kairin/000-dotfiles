@@ -1543,11 +1543,11 @@ func (m Model) viewDashboard() string {
 // getTableTools returns only the tools to display in the main table (excludes menu-only tools)
 func (m Model) getTableTools() []*registry.Tool {
 	allMain := registry.GetMainTools()
-	tableTools := make([]*registry.Tool, 0, 3)
-	// Filter: only show nodejs, ai_tools, antigravity in table
+	tableTools := make([]*registry.Tool, 0, 4)
+	// Filter: only show nodejs, ai_tools, antigravity, fish in table
 	// Feh are now menu items for quick access to detail views
 	for _, tool := range allMain {
-		if tool.ID == "nodejs" || tool.ID == "ai_tools" || tool.ID == "antigravity" {
+		if tool.ID == "nodejs" || tool.ID == "ai_tools" || tool.ID == "antigravity" || tool.ID == "fish" {
 			tableTools = append(tableTools, tool)
 		}
 	}
