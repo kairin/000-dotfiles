@@ -124,7 +124,7 @@ func ReadCodexConfig() (*CodexConfig, error) {
 
 	// Read the file
 	// Path is validated and restricted to ~/.codex before reading.
-	// #nosec G304 -- configPath is validated by validateCodexConfigPath
+	// nolint:gosec // G304 - configPath is validated by validateCodexConfigPath
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Codex config: %w", err)
@@ -386,25 +386,14 @@ func filterMCPServerSections(lines []string, sectionRe *regexp.Regexp, block str
 	skip := false
 
 	for _, line := range lines {
-		match := sectionRe.FindStringSubmatch(line)
-		if match != nil {
-			section := strings.TrimSpace(match[1])
-			isMCP := strings.HasPrefix(section, "mcp_servers")
-			if isMCP && !skip {
-				if block != "" && !inserted {
-					out = append(out, strings.Split(block, "\n")...)
-					inserted = true
-				}
-				skip = true
-				continue
-			}
-			if skip && !isMCP {
-				skip = false
-			}
-			if skip {
-				continue
-			}
+		nextSkip, wroteBlock, wroteLine := handleSectionLine(line, sectionRe, block, skip, inserted, &out)
+		if wroteBlock {
+			inserted = true
 		}
+		if wroteLine {
+			continue
+		}
+		skip = nextSkip
 		if !skip {
 			out = append(out, line)
 		}
@@ -418,4 +407,28 @@ func appendBlock(out []string, block string) []string {
 		out = append(out, "")
 	}
 	return append(out, strings.Split(block, "\n")...)
+}
+
+func handleSectionLine(line string, sectionRe *regexp.Regexp, block string, skip bool, inserted bool, out *[]string) (bool, bool, bool) {
+	match := sectionRe.FindStringSubmatch(line)
+	if match == nil {
+		return skip, false, false
+	}
+
+	section := strings.TrimSpace(match[1])
+	isMCP := strings.HasPrefix(section, "mcp_servers")
+	if isMCP && !skip {
+		if block != "" && !inserted {
+			*out = append(*out, strings.Split(block, "\n")...)
+			return true, true, true
+		}
+		return true, false, true
+	}
+	if skip && !isMCP {
+		return false, false, false
+	}
+	if skip {
+		return true, false, true
+	}
+	return skip, false, false
 }
