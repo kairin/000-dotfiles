@@ -63,10 +63,10 @@
 - [X] T014 [US1] Locate handleEnter() function table tool handling in tui/internal/ui/model.go (~line 1033)
 - [X] T015 [US1] Replace ViewAppMenu navigation with ViewToolDetail for table tools in tui/internal/ui/model.go
 - [X] T016 [US1] Ensure ToolDetailModel receives correct returnView (ViewDashboard) in tui/internal/ui/model.go
-- [ ] T017 [US1] Verify nodejs table selection shows ViewToolDetail by running TUI manually
-- [ ] T018 [US1] Verify ai_tools table selection shows ViewToolDetail by running TUI manually
-- [ ] T019 [US1] Verify antigravity table selection shows ViewToolDetail by running TUI manually
-- [ ] T020 [US1] Verify ESC from ViewToolDetail returns to Dashboard
+- [X] T017 [US1] Verify nodejs table selection shows ViewToolDetail by running TUI manually (PASS)
+- [X] T018 [US1] Verify ai_tools table selection shows ViewToolDetail by running TUI manually (PASS)
+- [X] T019 [US1] Verify antigravity table selection shows ViewToolDetail by running TUI manually (PASS)
+- [X] T020 [US1] Verify ESC from ViewToolDetail returns to Dashboard (PASS)
 
 **Checkpoint**: User Story 1 complete - all table tools now use ViewToolDetail like menu tools
 
@@ -87,9 +87,9 @@
 - [X] T025 [US2] Handle BatchPreview confirmation to start batch update in tui/internal/ui/model.go
 - [X] T026 [US2] Locate Extras Install All handling in tui/internal/ui/model.go (~line 455)
 - [X] T027 [US2] Replace immediate batch start with BatchPreviewModel for Extras Install All in tui/internal/ui/model.go
-- [ ] T028 [US2] Verify "Update All" shows preview by running TUI manually
-- [ ] T029 [US2] Verify "Install All" (Extras) shows preview by running TUI manually
-- [ ] T030 [US2] Verify Cancel returns to origin view in both cases
+- [ ] T028 [US2] Verify "Update All" shows preview by running TUI manually (FAIL: no Update All menu item; "u" shortcut did not open preview)
+- [X] T029 [US2] Verify "Install All" (Extras) shows preview by running TUI manually (PASS)
+- [ ] T030 [US2] Verify Cancel returns to origin view in both cases (FAIL: Update All preview unavailable; Extras preview cancel returned correctly)
 
 **Checkpoint**: User Story 2 complete - batch operations show preview before execution
 
@@ -108,9 +108,9 @@
 - [X] T033 [US3] Remove tea.ExecProcess call for Claude Config in tui/internal/ui/model.go
 - [X] T034 [US3] Create InstallerModel with pseudo-tool for Claude Config in tui/internal/ui/model.go
 - [X] T035 [US3] Set currentView to ViewInstaller and emit start message in tui/internal/ui/model.go
-- [ ] T036 [US3] Verify "Install Claude Config" shows ViewInstaller by running TUI manually
-- [ ] T037 [US3] Verify installation progress displays in TUI
-- [ ] T038 [US3] Verify ESC returns to Extras after completion
+- [X] T036 [US3] Verify "Install Claude Config" shows ViewInstaller by running TUI manually (PASS)
+- [X] T037 [US3] Verify installation progress displays in TUI (PASS; script failed but progress displayed)
+- [X] T038 [US3] Verify ESC returns to Extras after completion (PASS; ESC returned to Extras after failure)
 
 **Checkpoint**: User Story 3 complete - Claude Config installation stays within TUI
 
@@ -128,9 +128,9 @@
 - [X] T040 [US4] Extract missing fonts from NerdFontsModel state in tui/internal/ui/model.go
 - [X] T041 [US4] Create BatchPreviewModelForFonts with missing fonts list in tui/internal/ui/model.go
 - [X] T042 [US4] Handle confirmation to start nerdfonts batch install in tui/internal/ui/model.go
-- [ ] T043 [US4] Verify "Install All" (Nerd Fonts) shows preview by running TUI manually
-- [ ] T044 [US4] Verify preview lists only missing fonts, not all fonts
-- [ ] T045 [US4] Verify Cancel returns to ViewNerdFonts
+- [X] T043 [US4] Verify "Install All" (Nerd Fonts) shows preview by running TUI manually (PASS)
+- [X] T044 [US4] Verify preview lists only missing fonts, not all fonts (PASS; preview listed 8 missing)
+- [X] T045 [US4] Verify Cancel returns to ViewNerdFonts (PASS)
 
 **Checkpoint**: User Story 4 complete - Nerd Fonts batch install shows preview
 
@@ -143,7 +143,7 @@
 - [ ] T046 Remove unused ViewAppMenu code from tui/internal/ui/model.go (after all stories verified)
 - [X] T047 [P] Search for remaining tea.ExecProcess usage to ensure only sudo operations remain
 - [X] T048 Run `cd tui && go build ./cmd/installer` to verify final build
-- [ ] T049 Manual verification of all 26 menu items per research.md inventory
+- [ ] T049 Manual verification of all 26 menu items per research.md inventory (FAIL: Update All/Ghostty not present; Setup Secrets view not reachable; font action menu opens installer)
 - [ ] T050 [P] Update quickstart.md verification steps if needed in specs/008-tui-dashboard-consistency/quickstart.md
 
 ---
