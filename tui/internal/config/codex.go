@@ -123,6 +123,8 @@ func ReadCodexConfig() (*CodexConfig, error) {
 	}
 
 	// Read the file
+	// Path is validated and restricted to ~/.codex before reading.
+	// #nosec G304 -- configPath is validated by validateCodexConfigPath
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Codex config: %w", err)
@@ -266,43 +268,10 @@ func renderCodexMCPServersBlock(servers map[string]CodexMCPServer) string {
 		return ""
 	}
 
-	names := make([]string, 0, len(servers))
-	for name := range servers {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
+	names := sortedCodexServerNames(servers)
 	var b strings.Builder
 	for i, name := range names {
-		server := servers[name]
-		b.WriteString("[mcp_servers.")
-		b.WriteString(name)
-		b.WriteString("]\n")
-		if server.Command != "" {
-			b.WriteString("command = ")
-			b.WriteString(strconv.Quote(server.Command))
-			b.WriteString("\n")
-		}
-		if len(server.Args) > 0 {
-			b.WriteString("args = [")
-			for idx, arg := range server.Args {
-				if idx > 0 {
-					b.WriteString(", ")
-				}
-				b.WriteString(strconv.Quote(arg))
-			}
-			b.WriteString("]\n")
-		}
-		if server.URL != "" {
-			b.WriteString("url = ")
-			b.WriteString(strconv.Quote(server.URL))
-			b.WriteString("\n")
-		}
-		if server.BearerTokenEnvVar != "" {
-			b.WriteString("bearer_token_env_var = ")
-			b.WriteString(strconv.Quote(server.BearerTokenEnvVar))
-			b.WriteString("\n")
-		}
+		writeCodexServerBlock(&b, name, servers[name])
 		if i < len(names)-1 {
 			b.WriteString("\n")
 		}
@@ -315,40 +284,9 @@ func replaceMCPServersBlock(src string, block string) string {
 	lines := strings.Split(src, "\n")
 	sectionRe := regexp.MustCompile(`^\s*\[(.+)\]\s*$`)
 
-	var out []string
-	inserted := false
-	skip := false
-
-	for _, line := range lines {
-		match := sectionRe.FindStringSubmatch(line)
-		if match != nil {
-			section := strings.TrimSpace(match[1])
-			isMCP := strings.HasPrefix(section, "mcp_servers")
-			if isMCP && !skip {
-				if block != "" && !inserted {
-					out = append(out, strings.Split(block, "\n")...)
-					inserted = true
-				}
-				skip = true
-				continue
-			}
-			if skip && !isMCP {
-				skip = false
-			}
-			if skip {
-				continue
-			}
-		}
-		if !skip {
-			out = append(out, line)
-		}
-	}
-
+	out, inserted := filterMCPServerSections(lines, sectionRe, block)
 	if !inserted && block != "" {
-		if len(out) > 0 && strings.TrimSpace(out[len(out)-1]) != "" {
-			out = append(out, "")
-		}
-		out = append(out, strings.Split(block, "\n")...)
+		out = appendBlock(out, block)
 	}
 
 	return strings.Join(out, "\n")
@@ -400,4 +338,84 @@ func validateCodexConfigPath(configPath string) error {
 		return nil
 	}
 	return fmt.Errorf("unexpected Codex config path: %s", configPath)
+}
+
+func sortedCodexServerNames(servers map[string]CodexMCPServer) []string {
+	names := make([]string, 0, len(servers))
+	for name := range servers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func writeCodexServerBlock(b *strings.Builder, name string, server CodexMCPServer) {
+	b.WriteString("[mcp_servers.")
+	b.WriteString(name)
+	b.WriteString("]\n")
+	if server.Command != "" {
+		b.WriteString("command = ")
+		b.WriteString(strconv.Quote(server.Command))
+		b.WriteString("\n")
+	}
+	if len(server.Args) > 0 {
+		b.WriteString("args = [")
+		for idx, arg := range server.Args {
+			if idx > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(strconv.Quote(arg))
+		}
+		b.WriteString("]\n")
+	}
+	if server.URL != "" {
+		b.WriteString("url = ")
+		b.WriteString(strconv.Quote(server.URL))
+		b.WriteString("\n")
+	}
+	if server.BearerTokenEnvVar != "" {
+		b.WriteString("bearer_token_env_var = ")
+		b.WriteString(strconv.Quote(server.BearerTokenEnvVar))
+		b.WriteString("\n")
+	}
+}
+
+func filterMCPServerSections(lines []string, sectionRe *regexp.Regexp, block string) ([]string, bool) {
+	out := []string{}
+	inserted := false
+	skip := false
+
+	for _, line := range lines {
+		match := sectionRe.FindStringSubmatch(line)
+		if match != nil {
+			section := strings.TrimSpace(match[1])
+			isMCP := strings.HasPrefix(section, "mcp_servers")
+			if isMCP && !skip {
+				if block != "" && !inserted {
+					out = append(out, strings.Split(block, "\n")...)
+					inserted = true
+				}
+				skip = true
+				continue
+			}
+			if skip && !isMCP {
+				skip = false
+			}
+			if skip {
+				continue
+			}
+		}
+		if !skip {
+			out = append(out, line)
+		}
+	}
+
+	return out, inserted
+}
+
+func appendBlock(out []string, block string) []string {
+	if len(out) > 0 && strings.TrimSpace(out[len(out)-1]) != "" {
+		out = append(out, "")
+	}
+	return append(out, strings.Split(block, "\n")...)
 }

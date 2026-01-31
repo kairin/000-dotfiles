@@ -86,17 +86,24 @@ func statusCell(available bool, hasStatus bool, status MCPServerStatus) (string,
 	if !available {
 		return "N/A", StatusUnknownStyle
 	}
-	if hasStatus && status.Error == "auth" {
-		return "Login", StatusUpdateStyle
-	}
-	if hasStatus && status.Error == "config" {
-		return "Config", StatusMissingStyle
-	}
-	if hasStatus && status.Error != "" {
-		return "Error", StatusMissingStyle
-	}
-	if hasStatus && status.Connected {
-		return IconCheckmark + " Added", StatusInstalledStyle
+	label, style := statusLabel(hasStatus, status)
+	return label, style
+}
+
+func statusLabel(hasStatus bool, status MCPServerStatus) (string, lipgloss.Style) {
+	if hasStatus {
+		if status.Error == "auth" {
+			return "Login", StatusUpdateStyle
+		}
+		if status.Error == "config" {
+			return "Config", StatusMissingStyle
+		}
+		if status.Error != "" {
+			return "Error", StatusMissingStyle
+		}
+		if status.Connected {
+			return IconCheckmark + " Added", StatusInstalledStyle
+		}
 	}
 	return IconCross + " Missing", StatusMissingStyle
 }
@@ -110,27 +117,46 @@ func truncateDescription(desc string, max int) string {
 
 func buildActionItems(claudeInstalled, codexInstalled, claudeAdded, codexAdded bool) []string {
 	items := []string{}
+	items = append(items, buildInstallActions(claudeInstalled, codexInstalled, claudeAdded, codexAdded)...)
+	items = append(items, buildRemoveActions(claudeInstalled, codexInstalled, claudeAdded, codexAdded)...)
+	items = append(items, "Back")
+	return items
+}
 
+func buildInstallActions(claudeInstalled, codexInstalled, claudeAdded, codexAdded bool) []string {
+	items := []string{}
 	if claudeInstalled && codexInstalled {
-		if !claudeAdded && !codexAdded {
-			items = append(items, "Install (Both)")
-			items = append(items, "Install (Claude only)")
-			items = append(items, "Install (Codex only)")
-		} else if !claudeAdded {
-			items = append(items, "Install (Claude only)")
-		} else if !codexAdded {
-			items = append(items, "Install (Codex only)")
-		}
-	} else if claudeInstalled && !codexInstalled {
+		return buildInstallActionsBoth(items, claudeAdded, codexAdded)
+	}
+	if claudeInstalled && !codexInstalled {
 		if !claudeAdded {
 			items = append(items, "Install (Claude)")
 		}
-	} else if !claudeInstalled && codexInstalled {
-		if !codexAdded {
-			items = append(items, "Install (Codex)")
-		}
+		return items
 	}
+	if !claudeInstalled && codexInstalled && !codexAdded {
+		items = append(items, "Install (Codex)")
+	}
+	return items
+}
 
+func buildInstallActionsBoth(items []string, claudeAdded, codexAdded bool) []string {
+	if !claudeAdded && !codexAdded {
+		items = append(items, "Install (Both)")
+		items = append(items, "Install (Claude only)")
+		items = append(items, "Install (Codex only)")
+		return items
+	}
+	if !claudeAdded {
+		items = append(items, "Install (Claude only)")
+	} else if !codexAdded {
+		items = append(items, "Install (Codex only)")
+	}
+	return items
+}
+
+func buildRemoveActions(claudeInstalled, codexInstalled, claudeAdded, codexAdded bool) []string {
+	items := []string{}
 	if claudeInstalled && claudeAdded {
 		items = append(items, "Remove (Claude)")
 	}
@@ -140,67 +166,22 @@ func buildActionItems(claudeInstalled, codexInstalled, claudeAdded, codexAdded b
 	if claudeInstalled && codexInstalled && claudeAdded && codexAdded {
 		items = append(items, "Remove (Both)")
 	}
-
-	items = append(items, "Back")
 	return items
 }
 
 func (m *MCPServersModel) handlePreferenceMenuKey(msg tea.KeyMsg) (tea.Cmd, bool) {
 	switch msg.String() {
 	case "up", "k":
-		if m.preferenceCursor > 0 {
-			m.preferenceCursor--
-		} else {
-			m.preferenceCursor = len(m.preferenceItems) - 1
-		}
+		m.preferenceCursor = shiftCursor(m.preferenceCursor, len(m.preferenceItems), -1)
 		return nil, false
 	case "down", "j":
-		if m.preferenceCursor < len(m.preferenceItems)-1 {
-			m.preferenceCursor++
-		} else {
-			m.preferenceCursor = 0
-		}
+		m.preferenceCursor = shiftCursor(m.preferenceCursor, len(m.preferenceItems), 1)
 		return nil, false
 	case "esc":
-		m.preferenceMode = false
-		m.preferenceItems = nil
-		m.preferenceCursor = 0
+		m.resetPreferenceMenu()
 		return nil, false
 	case "enter":
-		if m.preferenceCursor >= len(m.preferenceItems) {
-			return nil, false
-		}
-		choice := m.preferenceItems[m.preferenceCursor]
-		if choice == "Back" {
-			m.preferenceMode = false
-			m.preferenceItems = nil
-			m.preferenceCursor = 0
-			return nil, false
-		}
-		var target config.MCPCLITarget
-		switch choice {
-		case "Default: Both":
-			target = config.MCPTargetBoth
-		case "Default: Claude":
-			target = config.MCPTargetClaude
-		case "Default: Codex":
-			target = config.MCPTargetCodex
-		}
-		if target != "" {
-			prefs := config.NewPreferenceStore()
-			if err := prefs.SetMCPDefaultTarget(target); err != nil {
-				m.lastActionMessage = "Failed to save default target: " + err.Error()
-				m.lastActionError = true
-			} else {
-				m.defaultTarget = target
-				m.lastActionMessage = "Default target set to " + string(target)
-				m.lastActionError = false
-			}
-		}
-		m.preferenceMode = false
-		m.preferenceItems = nil
-		m.preferenceCursor = 0
-		return nil, false
+		return m.handlePreferenceSelection()
 	}
 	return nil, false
 }
@@ -311,4 +292,66 @@ func formatMCPActionResult(action string, msg interface{}) (string, bool) {
 		parts = append(parts, "Codex: "+codexErr.Error())
 	}
 	return strings.Join(parts, " | "), true
+}
+
+func shiftCursor(cursor int, total int, delta int) int {
+	if total == 0 {
+		return 0
+	}
+	next := cursor + delta
+	if next < 0 {
+		return total - 1
+	}
+	if next >= total {
+		return 0
+	}
+	return next
+}
+
+func (m *MCPServersModel) handlePreferenceSelection() (tea.Cmd, bool) {
+	if m.preferenceCursor >= len(m.preferenceItems) {
+		return nil, false
+	}
+	choice := m.preferenceItems[m.preferenceCursor]
+	if choice == "Back" {
+		m.resetPreferenceMenu()
+		return nil, false
+	}
+	target := preferenceTargetFromChoice(choice)
+	if target != "" {
+		m.saveDefaultTarget(target)
+	}
+	m.resetPreferenceMenu()
+	return nil, false
+}
+
+func preferenceTargetFromChoice(choice string) config.MCPCLITarget {
+	switch choice {
+	case "Default: Both":
+		return config.MCPTargetBoth
+	case "Default: Claude":
+		return config.MCPTargetClaude
+	case "Default: Codex":
+		return config.MCPTargetCodex
+	default:
+		return ""
+	}
+}
+
+func (m *MCPServersModel) saveDefaultTarget(target config.MCPCLITarget) {
+	prefs := config.NewPreferenceStore()
+	if err := prefs.SetMCPDefaultTarget(target); err != nil {
+		m.lastActionMessage = "Failed to save default target: " + err.Error()
+		m.lastActionError = true
+		return
+	}
+	m.defaultTarget = target
+	m.lastActionMessage = "Default target set to " + string(target)
+	m.lastActionError = false
+}
+
+func (m *MCPServersModel) resetPreferenceMenu() {
+	m.preferenceMode = false
+	m.preferenceItems = nil
+	m.preferenceCursor = 0
 }
