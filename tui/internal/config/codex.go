@@ -2,10 +2,12 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -22,13 +24,13 @@ type CodexMCPServer struct {
 	BearerTokenEnvVar string `toml:"bearer_token_env_var,omitempty"`
 }
 
-// CodexConfig represents the Codex CLI configuration file structure
-// We use a map to preserve arbitrary sections while focusing on mcp_servers
+// CodexConfig represents the Codex CLI configuration file structure.
 type CodexConfig struct {
 	MCPServers map[string]CodexMCPServer `toml:"mcp_servers"`
 
-	// Preserve other sections as raw data
-	rawData    map[string]interface{}
+	// Preserve original file content for comment/format retention.
+	rawText    string
+	fileMode   os.FileMode
 	configPath string
 }
 
@@ -103,14 +105,17 @@ func ReadCodexConfig() (*CodexConfig, error) {
 
 	config := &CodexConfig{
 		MCPServers: make(map[string]CodexMCPServer),
-		rawData:    make(map[string]interface{}),
 		configPath: configPath,
 	}
 
 	// Check if file exists
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+	info, err := os.Stat(configPath)
+	if os.IsNotExist(err) {
 		// File doesn't exist, return empty config
 		return config, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat Codex config: %w", err)
 	}
 
 	// Read the file
@@ -118,20 +123,17 @@ func ReadCodexConfig() (*CodexConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Codex config: %w", err)
 	}
+	config.rawText = string(data)
+	config.fileMode = info.Mode().Perm()
 
-	// First decode into raw data to preserve everything
-	if err := toml.Unmarshal(data, &config.rawData); err != nil {
-		return nil, fmt.Errorf("failed to parse Codex config: %w", err)
-	}
-
-	// Now decode specifically for mcp_servers
+	// Decode specifically for mcp_servers
 	// We use a temporary struct to get the typed data
 	var typedConfig struct {
 		MCPServers map[string]CodexMCPServer `toml:"mcp_servers"`
 	}
 
 	if err := toml.Unmarshal(data, &typedConfig); err != nil {
-		return nil, fmt.Errorf("failed to parse MCP servers: %w", err)
+		return nil, fmt.Errorf("failed to parse Codex config: %w", err)
 	}
 
 	if typedConfig.MCPServers != nil {
@@ -154,53 +156,26 @@ func WriteCodexConfig(config *CodexConfig) error {
 		return fmt.Errorf("failed to create Codex config directory: %w", err)
 	}
 
-	// Build the output by merging rawData with MCPServers
-	outputData := make(map[string]interface{})
+	// Build mcp_servers block
+	block := renderCodexMCPServersBlock(config.MCPServers)
 
-	// Copy all existing data
-	for k, v := range config.rawData {
-		outputData[k] = v
+	var output string
+	if config.rawText != "" {
+		output = replaceMCPServersBlock(config.rawText, block)
+	} else if block != "" {
+		output = block
 	}
 
-	// Update mcp_servers section
-	if len(config.MCPServers) > 0 {
-		mcpSection := make(map[string]interface{})
-		for name, server := range config.MCPServers {
-			serverMap := make(map[string]interface{})
-			if server.Command != "" {
-				serverMap["command"] = server.Command
-			}
-			if len(server.Args) > 0 {
-				serverMap["args"] = server.Args
-			}
-			if server.URL != "" {
-				serverMap["url"] = server.URL
-			}
-			if server.BearerTokenEnvVar != "" {
-				serverMap["bearer_token_env_var"] = server.BearerTokenEnvVar
-			}
-			mcpSection[name] = serverMap
-		}
-		outputData["mcp_servers"] = mcpSection
-	} else {
-		// Remove mcp_servers if empty
-		delete(outputData, "mcp_servers")
+	if output != "" && !strings.HasSuffix(output, "\n") {
+		output += "\n"
 	}
 
-	// Encode to TOML
-	var buf bytes.Buffer
-	encoder := toml.NewEncoder(&buf)
-	encoder.Indent = ""
-	if err := encoder.Encode(outputData); err != nil {
-		return fmt.Errorf("failed to encode Codex config: %w", err)
+	mode := config.fileMode
+	if mode == 0 {
+		mode = 0600
 	}
 
-	// Write to file
-	if err := os.WriteFile(configPath, buf.Bytes(), 0644); err != nil {
-		return fmt.Errorf("failed to write Codex config: %w", err)
-	}
-
-	return nil
+	return writeFileAtomic(configPath, []byte(output), mode)
 }
 
 // AddCodexMCPServer adds an MCP server to the Codex config
@@ -255,4 +230,125 @@ func CodexConfigExists() bool {
 	configPath := GetCodexConfigPath()
 	_, err := os.Stat(configPath)
 	return err == nil
+}
+
+func renderCodexMCPServersBlock(servers map[string]CodexMCPServer) string {
+	if len(servers) == 0 {
+		return ""
+	}
+
+	names := make([]string, 0, len(servers))
+	for name := range servers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var b strings.Builder
+	for i, name := range names {
+		server := servers[name]
+		b.WriteString("[mcp_servers.")
+		b.WriteString(name)
+		b.WriteString("]\n")
+		if server.Command != "" {
+			b.WriteString("command = ")
+			b.WriteString(strconv.Quote(server.Command))
+			b.WriteString("\n")
+		}
+		if len(server.Args) > 0 {
+			b.WriteString("args = [")
+			for idx, arg := range server.Args {
+				if idx > 0 {
+					b.WriteString(", ")
+				}
+				b.WriteString(strconv.Quote(arg))
+			}
+			b.WriteString("]\n")
+		}
+		if server.URL != "" {
+			b.WriteString("url = ")
+			b.WriteString(strconv.Quote(server.URL))
+			b.WriteString("\n")
+		}
+		if server.BearerTokenEnvVar != "" {
+			b.WriteString("bearer_token_env_var = ")
+			b.WriteString(strconv.Quote(server.BearerTokenEnvVar))
+			b.WriteString("\n")
+		}
+		if i < len(names)-1 {
+			b.WriteString("\n")
+		}
+	}
+
+	return b.String()
+}
+
+func replaceMCPServersBlock(src string, block string) string {
+	lines := strings.Split(src, "\n")
+	sectionRe := regexp.MustCompile(`^\s*\[(.+)\]\s*$`)
+
+	var out []string
+	inserted := false
+	skip := false
+
+	for _, line := range lines {
+		match := sectionRe.FindStringSubmatch(line)
+		if match != nil {
+			section := strings.TrimSpace(match[1])
+			isMCP := strings.HasPrefix(section, "mcp_servers")
+			if isMCP && !skip {
+				if block != "" && !inserted {
+					out = append(out, strings.Split(block, "\n")...)
+					inserted = true
+				}
+				skip = true
+				continue
+			}
+			if skip && !isMCP {
+				skip = false
+			}
+			if skip {
+				continue
+			}
+		}
+		if !skip {
+			out = append(out, line)
+		}
+	}
+
+	if !inserted && block != "" {
+		if len(out) > 0 && strings.TrimSpace(out[len(out)-1]) != "" {
+			out = append(out, "")
+		}
+		out = append(out, strings.Split(block, "\n")...)
+	}
+
+	return strings.Join(out, "\n")
+}
+
+func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".codex-config-*.toml")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer func() {
+		_ = os.Remove(tmp.Name())
+	}()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("failed to write temp config: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("failed to close temp config: %w", err)
+	}
+
+	if err := os.Chmod(tmp.Name(), mode); err != nil {
+		return fmt.Errorf("failed to set config permissions: %w", err)
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		return fmt.Errorf("failed to replace config: %w", err)
+	}
+
+	return nil
 }
