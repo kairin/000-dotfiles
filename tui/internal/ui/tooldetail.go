@@ -245,12 +245,30 @@ func (m ToolDetailModel) renderStatusTable() string {
 		}
 		renderRow("Method", method, valueStyle)
 
-		// Location
+		// Location (Bug #201 fix: Display all location lines including Details array)
 		location := m.status.Location
 		if location == "" {
 			location = "-"
 		}
 		renderRow("Location", location, valueStyle)
+
+		// Display additional location lines from Details array
+		// These are parsed from ^-delimited location data (e.g., "Skills: /path^Agents: /path")
+		if len(m.status.Details) > 0 {
+			// Create indent to align with the value column (label width + colon + space)
+			labelStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("245")).
+				Width(colLabel)
+			indent := labelStyle.Render("") + " "
+
+			for _, detail := range m.status.Details {
+				if detail != "" {
+					row := indent + valueStyle.Render(detail)
+					b.WriteString(row)
+					b.WriteString("\n")
+				}
+			}
+		}
 	} else {
 		// No status available
 		renderRow("Status", "Unknown", StatusUnknownStyle)

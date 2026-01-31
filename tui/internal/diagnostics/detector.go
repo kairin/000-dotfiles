@@ -10,6 +10,167 @@ import (
 	"time"
 )
 
+// DetectorStatus represents the current status of a detector
+type DetectorStatus int
+
+const (
+	DetectorPending DetectorStatus = iota
+	DetectorRunning
+	DetectorComplete
+	DetectorFailed
+	DetectorTimedOut
+)
+
+// String returns the string representation of DetectorStatus
+func (s DetectorStatus) String() string {
+	switch s {
+	case DetectorPending:
+		return "pending"
+	case DetectorRunning:
+		return "running"
+	case DetectorComplete:
+		return "complete"
+	case DetectorFailed:
+		return "failed"
+	case DetectorTimedOut:
+		return "timeout"
+	default:
+		return "unknown"
+	}
+}
+
+// DetectorInfo holds metadata about a single detector
+type DetectorInfo struct {
+	ID          int    // Index in the detector list (0-4)
+	Script      string // Script path relative to repo root
+	DisplayName string // Human-readable name
+	Description string // One-line description of what it checks
+	Status      DetectorStatus
+	IssueCount  int           // Number of issues found by this detector
+	Error       error         // Error if failed/timeout
+	Duration    time.Duration // How long the detector took to run
+}
+
+// detectorMetadata contains display information for each detector
+var detectorMetadata = []struct {
+	DisplayName string
+	Description string
+}{
+	{"Failed Services", "Identifies systemd services that failed to start"},
+	{"Orphaned Services", "Finds services referencing executables that no longer exist"},
+	{"Network Wait Issues", "Detects NetworkManager-wait-online timeout problems"},
+	{"Unsupported Snaps", "Identifies snaps incompatible with your Ubuntu version"},
+	{"Cosmetic Warnings", "Known harmless warnings (ALSA, GNOME keyring, etc.)"},
+}
+
+// GetDetectorInfos returns metadata for all detectors with initial pending status
+func GetDetectorInfos() []DetectorInfo {
+	infos := make([]DetectorInfo, len(detectorScripts))
+	for i, script := range detectorScripts {
+		meta := detectorMetadata[i]
+		infos[i] = DetectorInfo{
+			ID:          i,
+			Script:      script,
+			DisplayName: meta.DisplayName,
+			Description: meta.Description,
+			Status:      DetectorPending,
+		}
+	}
+	return infos
+}
+
+// DetectorProgress reports the progress of a single detector
+type DetectorProgress struct {
+	DetectorID int            // Which detector (0-4)
+	Status     DetectorStatus // Current status
+	IssueCount int            // Number of issues found (when complete)
+	Error      error          // Error if failed/timeout
+	Duration   time.Duration  // How long it took
+}
+
+// StreamingDetectorResult holds the result from the streaming detector run
+type StreamingDetectorResult struct {
+	Issues []*Issue
+	Errors []error
+}
+
+// RunDetectorsWithProgress executes all detector scripts concurrently and sends progress updates
+// The progressChan receives updates as each detector starts and completes
+// Returns the final result when all detectors are done
+func RunDetectorsWithProgress(ctx context.Context, repoRoot string, progressChan chan<- DetectorProgress) *StreamingDetectorResult {
+	var wg sync.WaitGroup
+	results := make(chan struct {
+		index  int
+		result DetectorResult
+	}, len(detectorScripts))
+
+	// Run each detector concurrently
+	for i, script := range detectorScripts {
+		wg.Add(1)
+		go func(index int, scriptPath string) {
+			defer wg.Done()
+
+			// Send "running" status
+			progressChan <- DetectorProgress{
+				DetectorID: index,
+				Status:     DetectorRunning,
+			}
+
+			// Run the detector
+			start := time.Now()
+			result := runSingleDetector(ctx, repoRoot, scriptPath)
+			duration := time.Since(start)
+
+			// Determine final status
+			status := DetectorComplete
+			if result.Error != nil {
+				if ctx.Err() == context.DeadlineExceeded {
+					status = DetectorTimedOut
+				} else {
+					status = DetectorFailed
+				}
+			}
+
+			// Send completion status
+			progressChan <- DetectorProgress{
+				DetectorID: index,
+				Status:     status,
+				IssueCount: len(result.Issues),
+				Error:      result.Error,
+				Duration:   duration,
+			}
+
+			results <- struct {
+				index  int
+				result DetectorResult
+			}{index, result}
+		}(i, script)
+	}
+
+	// Close results channel when all detectors complete
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results
+	allIssues := make([]*Issue, 0)
+	errors := make([]error, 0)
+
+	for r := range results {
+		if r.result.Error != nil {
+			errors = append(errors, r.result.Error)
+			continue
+		}
+		allIssues = append(allIssues, r.result.Issues...)
+	}
+
+	return &StreamingDetectorResult{
+		Issues: allIssues,
+		Errors: errors,
+	}
+}
+
 // DetectorScript paths relative to repo root
 var detectorScripts = []string{
 	"scripts/007-diagnostics/detect_failed_services.sh",

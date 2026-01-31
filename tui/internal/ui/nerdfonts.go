@@ -34,9 +34,9 @@ type NerdFontsModel struct {
 	loading bool
 
 	// Action menu state (for individual font selection)
-	menuMode     bool     // true when showing action menu for a font
-	actionItems  []string // ["Install", "Reinstall", "Uninstall", "Back"]
-	actionCursor int      // cursor within action menu
+	menuMode     bool        // true when showing action menu for a font
+	actionItems  []string    // ["Install", "Reinstall", "Uninstall", "Back"]
+	actionCursor int         // cursor within action menu
 	selectedFont *FontFamily // font being acted upon
 
 	// Shared state (statuses and loading flags from parent)

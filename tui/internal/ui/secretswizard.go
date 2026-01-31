@@ -11,16 +11,16 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/kairin/ghostty-installer/internal/registry"
+	"github.com/kairin/dotfiles-installer/internal/registry"
 )
 
 // SecretsWizardModel guides user through setting up MCP secrets
 type SecretsWizardModel struct {
 	// Step tracking
-	step     int                   // Current step (0 = intro, 1+ = secret prompts)
-	secrets  []registry.MCPSecret  // Secrets to configure
-	values   map[string]string     // EnvVar -> value (entered by user)
-	existing map[string]string     // EnvVar -> value (already in file)
+	step     int                  // Current step (0 = intro, 1+ = secret prompts)
+	secrets  []registry.MCPSecret // Secrets to configure
+	values   map[string]string    // EnvVar -> value (entered by user)
+	existing map[string]string    // EnvVar -> value (already in file)
 
 	// Input
 	input textinput.Model

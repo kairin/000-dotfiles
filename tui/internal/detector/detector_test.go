@@ -3,7 +3,7 @@ package detector
 import (
 	"testing"
 
-	"github.com/kairin/ghostty-installer/internal/registry"
+	"github.com/kairin/dotfiles-installer/internal/registry"
 )
 
 func TestParseFastfetchJSON(t *testing.T) {

@@ -36,9 +36,10 @@ The `start.sh` script provides an interactive setup for all components.
 For interactive tool management:
 
 ```bash
-cd ~/Apps/000-dotfiles/tui
-go run ./cmd/installer
+./start.sh
 ```
+
+The script handles Go installation, building, and launching automatically.
 
 ## Components
 

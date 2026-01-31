@@ -51,6 +51,7 @@
 **Location**: `.claude/instructions-for-agents/principles/`
 
 - **[Script Proliferation Prevention](/.claude/instructions-for-agents/principles/script-proliferation.md)** - Mandatory principle for all script creation
+- **[Single Entry Point Enforcement](/.claude/instructions-for-agents/principles/single-entry-point.md)** - `./start.sh` as ONLY user-facing command
 
 ### Tool Implementation Reference
 **Location**: `.claude/instructions-for-agents/tools/`
@@ -98,6 +99,14 @@
 Query Context7 before major configuration changes.
 
 **Details**: [Context7 MCP Setup](/.claude/instructions-for-agents/guides/context7-mcp.md)
+
+### 6. Single Entry Point Enforcement (CONSTITUTIONAL PRINCIPLE)
+**MANDATORY**: `./start.sh` is the ONLY command to communicate to end users.
+
+**User-facing docs MUST use:** `./start.sh`
+**Developer docs MAY use (labeled):** `cd tui && go run ./cmd/installer  # DEVELOPER ONLY`
+
+**Details**: [Single Entry Point](/.claude/instructions-for-agents/principles/single-entry-point.md)
 
 ---
 
@@ -173,9 +182,16 @@ HAS DEPENDENCY on another task?
 ```
 
 ### TUI Installer
+
+**For Users:**
 ```bash
-cd tui && go run ./cmd/installer        # Launch TUI installer
-./tui/dotfiles-installer                # Run compiled binary (if built)
+./start.sh                              # One-command setup (RECOMMENDED)
+```
+
+**For Developers:**
+```bash
+cd tui && go run ./cmd/installer        # DEVELOPER ONLY - Run from source
+./tui/dotfiles-installer                # DEVELOPER ONLY - Run compiled binary
 ```
 **Features**: Interactive tool installation, Nerd Fonts management, update/uninstall support
 
