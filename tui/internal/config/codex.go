@@ -124,7 +124,7 @@ func ReadCodexConfig() (*CodexConfig, error) {
 
 	// Read the file
 	// Path is validated and restricted to ~/.codex before reading.
-	// nolint:gosec // G304 - configPath is validated by validateCodexConfigPath
+	// #nosec G304 -- configPath is validated by validateCodexConfigPath
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Codex config: %w", err)
@@ -409,26 +409,36 @@ func appendBlock(out []string, block string) []string {
 	return append(out, strings.Split(block, "\n")...)
 }
 
-func handleSectionLine(line string, sectionRe *regexp.Regexp, block string, skip bool, inserted bool, out *[]string) (bool, bool, bool) {
+func parseSection(line string, sectionRe *regexp.Regexp) (string, bool) {
 	match := sectionRe.FindStringSubmatch(line)
 	if match == nil {
-		return skip, false, false
+		return "", false
 	}
+	return strings.TrimSpace(match[1]), true
+}
 
-	section := strings.TrimSpace(match[1])
-	isMCP := strings.HasPrefix(section, "mcp_servers")
-	if isMCP && !skip {
-		if block != "" && !inserted {
-			*out = append(*out, strings.Split(block, "\n")...)
-			return true, true, true
-		}
-		return true, false, true
-	}
-	if skip && !isMCP {
-		return false, false, false
+func handleMCPSection(block string, skip bool, inserted bool, out *[]string) (bool, bool, bool) {
+	if !skip && block != "" && !inserted {
+		*out = append(*out, strings.Split(block, "\n")...)
+		return true, true, true
 	}
 	if skip {
 		return true, false, true
+	}
+	return true, false, true
+}
+func handleSectionLine(line string, sectionRe *regexp.Regexp, block string, skip bool, inserted bool, out *[]string) (bool, bool, bool) {
+	section, ok := parseSection(line, sectionRe)
+	if !ok {
+		return skip, false, false
+	}
+
+	isMCP := strings.HasPrefix(section, "mcp_servers")
+	if isMCP {
+		return handleMCPSection(block, skip, inserted, out)
+	}
+	if skip {
+		return false, false, false
 	}
 	return skip, false, false
 }
