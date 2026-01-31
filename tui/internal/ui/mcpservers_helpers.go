@@ -128,14 +128,11 @@ func buildInstallActions(claudeInstalled, codexInstalled, claudeAdded, codexAdde
 	if claudeInstalled && codexInstalled {
 		return buildInstallActionsBoth(items, claudeAdded, codexAdded)
 	}
-	if claudeInstalled && !codexInstalled {
-		if !claudeAdded {
-			items = append(items, "Install (Claude)")
-		}
-		return items
+	if claudeInstalled {
+		return buildInstallActionsClaudeOnly(items, claudeAdded)
 	}
-	if !claudeInstalled && codexInstalled && !codexAdded {
-		items = append(items, "Install (Codex)")
+	if codexInstalled {
+		return buildInstallActionsCodexOnly(items, codexAdded)
 	}
 	return items
 }
@@ -155,7 +152,28 @@ func buildInstallActionsBoth(items []string, claudeAdded, codexAdded bool) []str
 	return items
 }
 
+func buildInstallActionsClaudeOnly(items []string, claudeAdded bool) []string {
+	if !claudeAdded {
+		items = append(items, "Install (Claude)")
+	}
+	return items
+}
+
+func buildInstallActionsCodexOnly(items []string, codexAdded bool) []string {
+	if !codexAdded {
+		items = append(items, "Install (Codex)")
+	}
+	return items
+}
+
 func buildRemoveActions(claudeInstalled, codexInstalled, claudeAdded, codexAdded bool) []string {
+	items := []string{}
+	items = append(items, buildRemoveActionsSingle(claudeInstalled, claudeAdded, codexInstalled, codexAdded)...)
+	items = append(items, buildRemoveActionsBoth(claudeInstalled, codexInstalled, claudeAdded, codexAdded)...)
+	return items
+}
+
+func buildRemoveActionsSingle(claudeInstalled, claudeAdded, codexInstalled, codexAdded bool) []string {
 	items := []string{}
 	if claudeInstalled && claudeAdded {
 		items = append(items, "Remove (Claude)")
@@ -163,10 +181,14 @@ func buildRemoveActions(claudeInstalled, codexInstalled, claudeAdded, codexAdded
 	if codexInstalled && codexAdded {
 		items = append(items, "Remove (Codex)")
 	}
-	if claudeInstalled && codexInstalled && claudeAdded && codexAdded {
-		items = append(items, "Remove (Both)")
-	}
 	return items
+}
+
+func buildRemoveActionsBoth(claudeInstalled, codexInstalled, claudeAdded, codexAdded bool) []string {
+	if claudeInstalled && codexInstalled && claudeAdded && codexAdded {
+		return []string{"Remove (Both)"}
+	}
+	return nil
 }
 
 func (m *MCPServersModel) handlePreferenceMenuKey(msg tea.KeyMsg) (tea.Cmd, bool) {
