@@ -926,8 +926,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case MCPShowPrereqMsg:
-		// Show prerequisites view for MCP server
-		prereqModel := NewMCPPrereqModel(msg.Server)
+		// Show prerequisites view for MCP server with target
+		prereqModel := NewMCPPrereqModelWithTarget(msg.Server, msg.Target)
 		m.mcpPrereq = &prereqModel
 		m.currentView = ViewMCPPrereq
 		return m, nil
@@ -935,7 +935,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case MCPInstallServerMsg:
 		// Install MCP server (prerequisites already passed)
 		if m.mcpServers != nil {
-			return m, m.mcpServers.installMCPServer(msg.Server)
+			return m, m.mcpServers.installMCPServerToTarget(msg.Server, msg.Target)
 		}
 		return m, nil
 
