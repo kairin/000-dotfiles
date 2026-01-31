@@ -32,6 +32,17 @@ type MCPSecret struct {
 	Required    bool   // true if server won't work without it
 }
 
+// CodexMCPConfig defines Codex-specific MCP server configuration
+type CodexMCPConfig struct {
+	// For stdio transport
+	Command string   // Command to execute (e.g., "npx")
+	Args    []string // Arguments for the command
+
+	// For HTTP transport
+	URL               string // Server URL
+	BearerTokenEnvVar string // Environment variable for auth token
+}
+
 // MCPServer defines a single MCP server configuration
 type MCPServer struct {
 	ID          string
@@ -49,6 +60,9 @@ type MCPServer struct {
 	// Dependencies
 	Prerequisites []MCPPrerequisite
 	Secrets       []MCPSecret
+
+	// Codex-specific configuration
+	CodexConfig CodexMCPConfig
 }
 
 // PrerequisiteResult holds the result of checking a prerequisite
@@ -80,6 +94,10 @@ var mcpServers = map[string]*MCPServer{
 			GetURL:      "https://context7.com",
 			Required:    true,
 		}},
+		CodexConfig: CodexMCPConfig{
+			Command: "npx",
+			Args:    []string{"-y", "@upstash/context7-mcp"},
+		},
 	},
 	"github": {
 		ID:          "github",
@@ -101,6 +119,10 @@ var mcpServers = map[string]*MCPServer{
 				FixInstructions: "Run: gh auth login",
 			},
 		},
+		CodexConfig: CodexMCPConfig{
+			Command: "npx",
+			Args:    []string{"-y", "@modelcontextprotocol/server-github"},
+		},
 	},
 	"markitdown": {
 		ID:          "markitdown",
@@ -115,6 +137,10 @@ var mcpServers = map[string]*MCPServer{
 				CheckCmd:        []string{"uvx", "--version"},
 				FixInstructions: "Install UV: curl -LsSf https://astral.sh/uv/install.sh | sh",
 			},
+		},
+		CodexConfig: CodexMCPConfig{
+			Command: "uvx",
+			Args:    []string{"markitdown-mcp"},
 		},
 	},
 	"playwright": {
@@ -137,6 +163,10 @@ var mcpServers = map[string]*MCPServer{
 				FixInstructions: "Create wrapper script at ~/.local/bin/playwright-mcp-wrapper.sh",
 			},
 		},
+		CodexConfig: CodexMCPConfig{
+			Command: "npx",
+			Args:    []string{"-y", "@anthropic/mcp-playwright"},
+		},
 	},
 	"hf-mcp-server": {
 		ID:          "hf-mcp-server",
@@ -151,6 +181,42 @@ var mcpServers = map[string]*MCPServer{
 			GetURL:      "https://huggingface.co/settings/tokens",
 			Required:    true,
 		}},
+		CodexConfig: CodexMCPConfig{
+			URL:               "https://huggingface.co/mcp",
+			BearerTokenEnvVar: "HUGGINGFACE_TOKEN",
+		},
+	},
+	"mcp-hfspace": {
+		ID:          "mcp-hfspace",
+		DisplayName: "HF Space",
+		Description: "HuggingFace Spaces access",
+		Transport:   TransportStdio,
+		Command:     `export PATH="$HOME/.local/bin:$PATH"; eval "$(fnm env 2>/dev/null)" 2>/dev/null; npx -y @anthropic/mcp-hfspace`,
+		Prerequisites: []MCPPrerequisite{
+			{
+				ID:              "nodejs",
+				Name:            "Node.js",
+				CheckCmd:        []string{"node", "--version"},
+				FixInstructions: "Install Node.js: fnm install --lts",
+			},
+			{
+				ID:              "hf_token_file",
+				Name:            "HuggingFace Login",
+				CheckCmd:        []string{"test", "-f", os.ExpandEnv("$HOME/.cache/huggingface/token")},
+				FixInstructions: "Run: huggingface-cli login",
+			},
+		},
+		Secrets: []MCPSecret{{
+			EnvVar:      "HF_TOKEN",
+			Name:        "HuggingFace Token",
+			Description: "Token for HuggingFace Spaces (reads from ~/.cache/huggingface/token if set via huggingface-cli login)",
+			GetURL:      "https://huggingface.co/settings/tokens",
+			Required:    false, // Can use token file instead
+		}},
+		CodexConfig: CodexMCPConfig{
+			Command: "npx",
+			Args:    []string{"-y", "@anthropic/mcp-hfspace"},
+		},
 	},
 	"shadcn": {
 		ID:          "shadcn",
@@ -165,6 +231,10 @@ var mcpServers = map[string]*MCPServer{
 				CheckCmd:        []string{"node", "--version"},
 				FixInstructions: "Install Node.js: fnm install --lts",
 			},
+		},
+		CodexConfig: CodexMCPConfig{
+			Command: "npx",
+			Args:    []string{"-y", "shadcn@latest", "mcp"},
 		},
 	},
 	"shadcn-ui": {
@@ -187,6 +257,10 @@ var mcpServers = map[string]*MCPServer{
 				FixInstructions: "Run: gh auth login",
 			},
 		},
+		CodexConfig: CodexMCPConfig{
+			Command: "npx",
+			Args:    []string{"-y", "@jpisnice/shadcn-ui-mcp-server"},
+		},
 	},
 }
 
@@ -197,6 +271,7 @@ var mcpServerIDs = []string{
 	"markitdown",
 	"playwright",
 	"hf-mcp-server",
+	"mcp-hfspace",
 	"shadcn",
 	"shadcn-ui",
 }

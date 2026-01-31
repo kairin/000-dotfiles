@@ -11,10 +11,20 @@ import (
 	"github.com/kairin/dotfiles-installer/internal/registry"
 )
 
+// MCPCLITarget represents the target CLI(s) for MCP operations
+type MCPCLITarget string
+
+const (
+	MCPTargetBoth   MCPCLITarget = "both"
+	MCPTargetClaude MCPCLITarget = "claude"
+	MCPTargetCodex  MCPCLITarget = "codex"
+)
+
 // Preferences stores user installation method preferences
 type Preferences struct {
-	ToolMethods  map[string]registry.InstallMethod `json:"tool_methods"`
-	LastModified time.Time                         `json:"last_modified"`
+	ToolMethods      map[string]registry.InstallMethod `json:"tool_methods"`
+	MCPDefaultTarget MCPCLITarget                      `json:"mcp_default_target,omitempty"`
+	LastModified     time.Time                         `json:"last_modified"`
 }
 
 // PreferenceStore manages the preference file on disk
@@ -136,4 +146,33 @@ func (s *PreferenceStore) Exists() bool {
 // GetPath returns the path to the preference file
 func (s *PreferenceStore) GetPath() string {
 	return s.path
+}
+
+// GetMCPDefaultTarget returns the default MCP CLI target
+// Returns "both" if no preference is saved
+func (s *PreferenceStore) GetMCPDefaultTarget() (MCPCLITarget, error) {
+	prefs, err := s.Load()
+	if err != nil {
+		return MCPTargetBoth, err
+	}
+
+	if prefs.MCPDefaultTarget == "" {
+		return MCPTargetBoth, nil
+	}
+
+	return prefs.MCPDefaultTarget, nil
+}
+
+// SetMCPDefaultTarget saves the user's default MCP CLI target
+func (s *PreferenceStore) SetMCPDefaultTarget(target MCPCLITarget) error {
+	prefs, err := s.Load()
+	if err != nil {
+		// If load fails, create new preferences
+		prefs = &Preferences{
+			ToolMethods: make(map[string]registry.InstallMethod),
+		}
+	}
+
+	prefs.MCPDefaultTarget = target
+	return s.Save(prefs)
 }
