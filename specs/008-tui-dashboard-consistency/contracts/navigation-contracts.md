@@ -200,11 +200,11 @@ if m.extras.IsClaudeConfigSelected() {
 
 ## Verification Checklist
 
-- [ ] Table tools navigate to ViewToolDetail
+- [x] Table tools navigate to ViewToolDetail
 - [ ] Menu tools navigate to ViewToolDetail
 - [ ] "Update All" shows ViewBatchPreview
-- [ ] "Install All" (Extras) shows ViewBatchPreview
-- [ ] "Install All" (Fonts) shows ViewBatchPreview
-- [ ] "Install Claude Config" uses ViewInstaller (not tea.ExecProcess)
+- [x] "Install All" (Extras) shows ViewBatchPreview
+- [x] "Install All" (Fonts) shows ViewBatchPreview
+- [x] "Install Claude Config" uses ViewInstaller (not tea.ExecProcess)
 - [ ] ESC from any view returns to correct parent
 - [ ] ViewAppMenu is not reachable from any code path
