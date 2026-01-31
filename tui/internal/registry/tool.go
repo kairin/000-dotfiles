@@ -71,10 +71,10 @@ type Tool struct {
 	VersionRegex string   // Regex to extract version from output
 
 	// Special behaviors
-	IsAggregate  bool           // True if this is a multi-tool aggregate (AI Tools)
-	SubTools     []SubTool      // Component tools for aggregates
-	HasGlobals   bool           // Node.js-specific: track global packages
-	BundledTools []BundledTool  // Required dependencies installed with this tool (e.g., fnm for Node.js)
+	IsAggregate  bool          // True if this is a multi-tool aggregate (AI Tools)
+	SubTools     []SubTool     // Component tools for aggregates
+	HasGlobals   bool          // Node.js-specific: track global packages
+	BundledTools []BundledTool // Required dependencies installed with this tool (e.g., fnm for Node.js)
 
 	// Font-specific (for per-family Nerd Font installation)
 	FontArg string // Font family name to pass to install script (e.g., "JetBrainsMono")

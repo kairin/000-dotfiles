@@ -45,6 +45,12 @@ type DiagnosticsModel struct {
 	// Components
 	spinner spinner.Model
 
+	// Detector progress tracking (for verbose scanning view)
+	detectorInfos    []diagnostics.DetectorInfo // Metadata for all 5 detectors
+	detectorSpinners []spinner.Model            // Individual spinners for each detector
+	progressChan     chan diagnostics.DetectorProgress
+	issuesFoundSoFar int // Running count of issues found during scan
+
 	// Config
 	repoRoot   string
 	demoMode   bool
@@ -65,15 +71,27 @@ func NewDiagnosticsModel(repoRoot string, demoMode, sudoCached bool) Diagnostics
 	s.Spinner = spinner.Dot
 	s.Style = SpinnerStyle
 
+	// Create individual spinners for each detector
+	detectorInfos := diagnostics.GetDetectorInfos()
+	detectorSpinners := make([]spinner.Model, len(detectorInfos))
+	for i := range detectorSpinners {
+		ds := spinner.New()
+		ds.Spinner = spinner.Dot
+		ds.Style = SpinnerStyle
+		detectorSpinners[i] = ds
+	}
+
 	return DiagnosticsModel{
-		state:      DiagnosticsIdle,
-		selected:   make(map[int]bool),
-		cacheStore: diagnostics.NewCacheStore(),
-		fixer:      diagnostics.NewFixer(repoRoot, demoMode, sudoCached),
-		spinner:    s,
-		repoRoot:   repoRoot,
-		demoMode:   demoMode,
-		sudoCached: sudoCached,
+		state:            DiagnosticsIdle,
+		selected:         make(map[int]bool),
+		cacheStore:       diagnostics.NewCacheStore(),
+		fixer:            diagnostics.NewFixer(repoRoot, demoMode, sudoCached),
+		spinner:          s,
+		detectorInfos:    detectorInfos,
+		detectorSpinners: detectorSpinners,
+		repoRoot:         repoRoot,
+		demoMode:         demoMode,
+		sudoCached:       sudoCached,
 	}
 }
 
@@ -86,6 +104,11 @@ type (
 	diagnosticsScanCompleteMsg struct {
 		issues []*diagnostics.Issue
 		err    error
+	}
+
+	// diagnosticsDetectorProgressMsg reports progress from a single detector
+	diagnosticsDetectorProgressMsg struct {
+		progress diagnostics.DetectorProgress
 	}
 
 	// diagnosticsFixStartMsg initiates fix execution
@@ -127,19 +150,59 @@ func (m DiagnosticsModel) Update(msg tea.Msg) (DiagnosticsModel, tea.Cmd) {
 
 	case spinner.TickMsg:
 		if m.state == DiagnosticsScanning || m.state == DiagnosticsFixing {
+			// Update main spinner
 			var cmd tea.Cmd
 			m.spinner, cmd = m.spinner.Update(msg)
 			cmds = append(cmds, cmd)
+
+			// Update individual detector spinners for running detectors
+			if m.state == DiagnosticsScanning {
+				for i := range m.detectorSpinners {
+					if m.detectorInfos[i].Status == diagnostics.DetectorRunning {
+						var spinnerCmd tea.Cmd
+						m.detectorSpinners[i], spinnerCmd = m.detectorSpinners[i].Update(msg)
+						if spinnerCmd != nil {
+							cmds = append(cmds, spinnerCmd)
+						}
+					}
+				}
+			}
 		}
 		return m, tea.Batch(cmds...)
 
 	case diagnosticsScanStartMsg:
 		m.state = DiagnosticsScanning
 		m.scanError = nil
+		m.issuesFoundSoFar = 0
+		// Reset detector infos to pending
+		m.detectorInfos = diagnostics.GetDetectorInfos()
+		// Create progress channel
+		m.progressChan = make(chan diagnostics.DetectorProgress, 10)
 		return m, tea.Batch(
 			m.spinner.Tick,
-			m.runScan(),
+			m.runScanWithProgress(),
+			m.readDetectorProgress(),
 		)
+
+	case diagnosticsDetectorProgressMsg:
+		// Update the detector info with progress
+		idx := msg.progress.DetectorID
+		if idx >= 0 && idx < len(m.detectorInfos) {
+			m.detectorInfos[idx].Status = msg.progress.Status
+			m.detectorInfos[idx].IssueCount = msg.progress.IssueCount
+			m.detectorInfos[idx].Error = msg.progress.Error
+			m.detectorInfos[idx].Duration = msg.progress.Duration
+
+			// Update running issue count when a detector completes
+			if msg.progress.Status == diagnostics.DetectorComplete {
+				m.issuesFoundSoFar += msg.progress.IssueCount
+			}
+		}
+		// Continue reading progress if still scanning
+		if m.state == DiagnosticsScanning {
+			cmds = append(cmds, m.readDetectorProgress())
+		}
+		return m, tea.Batch(cmds...)
 
 	case diagnosticsScanCompleteMsg:
 		m.state = DiagnosticsShowingResults
@@ -149,6 +212,11 @@ func (m DiagnosticsModel) Update(msg tea.Msg) (DiagnosticsModel, tea.Cmd) {
 			m.issues = msg.issues
 			m.grouped = diagnostics.GroupBySeverity(m.issues)
 			m.lastScan = time.Now()
+		}
+		// Close progress channel
+		if m.progressChan != nil {
+			close(m.progressChan)
+			m.progressChan = nil
 		}
 		return m, nil
 
@@ -175,7 +243,7 @@ func (m DiagnosticsModel) Update(msg tea.Msg) (DiagnosticsModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// runScan executes the diagnostic scan
+// runScan executes the diagnostic scan (legacy - kept for compatibility)
 func (m DiagnosticsModel) runScan() tea.Cmd {
 	repoRoot := m.repoRoot
 	cacheStore := m.cacheStore
@@ -191,6 +259,51 @@ func (m DiagnosticsModel) runScan() tea.Cmd {
 			issues: result.Issues,
 			err:    nil,
 		}
+	}
+}
+
+// runScanWithProgress executes the diagnostic scan with progress updates
+func (m DiagnosticsModel) runScanWithProgress() tea.Cmd {
+	repoRoot := m.repoRoot
+	cacheStore := m.cacheStore
+	progressChan := m.progressChan
+
+	return func() tea.Msg {
+		ctx := context.Background()
+		result := diagnostics.RunDetectorsWithProgress(ctx, repoRoot, progressChan)
+
+		// Create a ScanResult for caching
+		scanResult := &diagnostics.ScanResult{
+			Issues:        result.Issues,
+			Errors:        result.Errors,
+			ScanTime:      time.Now(),
+			ScriptsRan:    5,
+			ScriptsFailed: len(result.Errors),
+		}
+
+		// Save to cache
+		cacheStore.Save(scanResult)
+
+		return diagnosticsScanCompleteMsg{
+			issues: result.Issues,
+			err:    nil,
+		}
+	}
+}
+
+// readDetectorProgress reads progress updates from the progress channel
+func (m DiagnosticsModel) readDetectorProgress() tea.Cmd {
+	progressChan := m.progressChan
+	if progressChan == nil {
+		return nil
+	}
+
+	return func() tea.Msg {
+		progress, ok := <-progressChan
+		if !ok {
+			return nil
+		}
+		return diagnosticsDetectorProgressMsg{progress: progress}
 	}
 }
 
@@ -240,10 +353,7 @@ func (m DiagnosticsModel) View() string {
 	// State-specific content
 	switch m.state {
 	case DiagnosticsScanning:
-		b.WriteString(m.spinner.View())
-		b.WriteString(" Scanning for boot issues...")
-		b.WriteString("\n\n")
-		b.WriteString(DetailStyle.Render("Running 5 detector scripts in parallel"))
+		b.WriteString(m.renderScanningProgress())
 
 	case DiagnosticsFixing:
 		b.WriteString(m.spinner.View())
@@ -263,6 +373,75 @@ func (m DiagnosticsModel) View() string {
 
 	b.WriteString("\n\n")
 	b.WriteString(m.renderHelp())
+
+	return b.String()
+}
+
+// renderScanningProgress renders the verbose per-detector progress view
+func (m DiagnosticsModel) renderScanningProgress() string {
+	var b strings.Builder
+
+	// Header line with main spinner
+	b.WriteString(m.spinner.View())
+	b.WriteString(" Scanning for boot issues...\n\n")
+
+	// Count completed detectors
+	completedCount := 0
+	for _, info := range m.detectorInfos {
+		if info.Status == diagnostics.DetectorComplete ||
+			info.Status == diagnostics.DetectorFailed ||
+			info.Status == diagnostics.DetectorTimedOut {
+			completedCount++
+		}
+	}
+
+	// Render each detector with its status
+	for i, info := range m.detectorInfos {
+		b.WriteString("  ")
+
+		// Status icon/spinner
+		switch info.Status {
+		case diagnostics.DetectorPending:
+			// Gray pending indicator
+			b.WriteString(StatusUnknownStyle.Render("○ "))
+		case diagnostics.DetectorRunning:
+			// Animated spinner
+			b.WriteString(m.detectorSpinners[i].View())
+			b.WriteString(" ")
+		case diagnostics.DetectorComplete:
+			// Green checkmark
+			b.WriteString(StatusInstalledStyle.Render(IconCheckmark + " "))
+		case diagnostics.DetectorFailed, diagnostics.DetectorTimedOut:
+			// Red X
+			b.WriteString(StatusMissingStyle.Render(IconCross + " "))
+		}
+
+		// Detector name (fixed width for alignment)
+		nameStyle := lipgloss.NewStyle().Width(20)
+		if info.Status == diagnostics.DetectorRunning {
+			b.WriteString(SpinnerStyle.Render(nameStyle.Render(info.DisplayName)))
+		} else {
+			b.WriteString(nameStyle.Render(info.DisplayName))
+		}
+
+		// Description
+		b.WriteString(DetailStyle.Render(info.Description))
+
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+
+	// Progress summary line
+	progressLine := fmt.Sprintf("Progress: %d/5 complete", completedCount)
+	if m.issuesFoundSoFar > 0 {
+		progressLine += fmt.Sprintf(" | Found %d issue", m.issuesFoundSoFar)
+		if m.issuesFoundSoFar != 1 {
+			progressLine += "s"
+		}
+		progressLine += " so far"
+	}
+	b.WriteString(DetailStyle.Render(progressLine))
 
 	return b.String()
 }

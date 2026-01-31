@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/kairin/ghostty-installer/internal/detector"
+	"github.com/kairin/dotfiles-installer/internal/detector"
 )
 
 func main() {

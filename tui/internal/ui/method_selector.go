@@ -22,14 +22,14 @@ type backMsg struct{}
 
 // MethodSelectorModel handles the method selection view
 type MethodSelectorModel struct {
-	tool            *registry.Tool
-	recommendation  *detector.InstallMethodRecommendation
-	methods         []registry.InstallMethod
-	cursor          int
-	savePreference  bool
-	systemInfo      *detector.SystemInfo
-	width           int
-	height          int
+	tool           *registry.Tool
+	recommendation *detector.InstallMethodRecommendation
+	methods        []registry.InstallMethod
+	cursor         int
+	savePreference bool
+	systemInfo     *detector.SystemInfo
+	width          int
+	height         int
 }
 
 // NewMethodSelector creates a new method selector
@@ -218,7 +218,7 @@ func (m MethodSelectorModel) renderMethods() string {
 		if i == m.cursor {
 			details := m.getMethodDetails(method)
 			if details != "" {
-				b.WriteString(HelpStyle.Render("  " + details) + "\n")
+				b.WriteString(HelpStyle.Render("  "+details) + "\n")
 			}
 		}
 	}

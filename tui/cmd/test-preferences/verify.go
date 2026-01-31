@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/kairin/ghostty-installer/internal/config"
-	"github.com/kairin/ghostty-installer/internal/registry"
+	"github.com/kairin/dotfiles-installer/internal/config"
+	"github.com/kairin/dotfiles-installer/internal/registry"
 )
 
 func main() {

@@ -31,9 +31,9 @@ type MCPServersModel struct {
 	loading bool
 
 	// Action menu state (for individual server selection)
-	menuMode     bool
-	actionItems  []string
-	actionCursor int
+	menuMode       bool
+	actionItems    []string
+	actionCursor   int
 	selectedServer *registry.MCPServer
 
 	// Components
