@@ -144,51 +144,20 @@ func (m MCPServersModel) refreshMCPStatuses() tea.Cmd {
 // getClaudeStatuses gets MCP server statuses from Claude Code CLI
 func getClaudeStatuses() (map[string]MCPServerStatus, error) {
 	statuses := make(map[string]MCPServerStatus)
-
 	if !config.IsClaudeInstalled() {
 		return statuses, nil
 	}
 
-	// Run claude mcp list to get current server status
-	cmd := exec.Command("claude", "mcp", "list")
-	output, err := cmd.CombinedOutput()
+	output, errOutput, err := runClaudeMCPList()
 	if err != nil {
-		errMsg := strings.ToLower(string(output))
-		if looksLikeAuthError(errMsg) {
-			for _, server := range registry.GetAllMCPServers() {
-				statuses[server.ID] = MCPServerStatus{
-					Connected: false,
-					Error:     "auth",
-				}
-			}
+		if looksLikeAuthError(errOutput) {
+			applyClaudeAuthError(statuses)
 			return statuses, fmt.Errorf("Claude not authenticated. Run: claude auth login")
 		}
 		return statuses, fmt.Errorf("Claude MCP status failed: %v", err)
 	}
 
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		// Parse format: "server_name: connected" or "server_name: disconnected"
-		// Or format with status indicators
-		for _, server := range registry.GetAllMCPServers() {
-			if strings.Contains(line, server.ID) {
-				connected := strings.Contains(strings.ToLower(line), "connected") ||
-					strings.Contains(line, "✓") ||
-					!strings.Contains(strings.ToLower(line), "error")
-
-				statuses[server.ID] = MCPServerStatus{
-					Connected: connected,
-				}
-			}
-		}
-	}
-
-	return statuses, nil
+	return parseClaudeMCPStatuses(output), nil
 }
 
 // getCodexStatuses gets MCP server statuses from Codex CLI config
@@ -394,80 +363,9 @@ func (m MCPServersModel) renderServersTable() string {
 	b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(sep))
 	b.WriteString("\n")
 
-	// Servers
 	for i, server := range m.servers {
-		// Determine Claude status display
-		var claudeStr, codexStr string
-		var claudeStyle, codexStyle lipgloss.Style
-
-		if m.loading {
-			claudeStr = m.spinner.View()
-			claudeStyle = StatusUnknownStyle
-			codexStr = m.spinner.View()
-			codexStyle = StatusUnknownStyle
-		} else {
-			// Claude status
-			if !m.cliAvailability.ClaudeInstalled {
-				claudeStr = "N/A"
-				claudeStyle = StatusUnknownStyle
-			} else {
-				status, hasStatus := m.statuses[server.ID]
-				if hasStatus && status.Claude.Error == "auth" {
-					claudeStr = "Login"
-					claudeStyle = StatusUpdateStyle
-				} else if hasStatus && status.Claude.Error != "" {
-					claudeStr = "Error"
-					claudeStyle = StatusMissingStyle
-				} else if hasStatus && status.Claude.Connected {
-					claudeStr = IconCheckmark + " Added"
-					claudeStyle = StatusInstalledStyle
-				} else {
-					claudeStr = IconCross + " Missing"
-					claudeStyle = StatusMissingStyle
-				}
-			}
-
-			// Codex status
-			if !m.cliAvailability.CodexInstalled {
-				codexStr = "N/A"
-				codexStyle = StatusUnknownStyle
-			} else {
-				status, hasStatus := m.statuses[server.ID]
-				if hasStatus && status.Codex.Error == "config" {
-					codexStr = "Config"
-					codexStyle = StatusMissingStyle
-				} else if hasStatus && status.Codex.Error != "" {
-					codexStr = "Error"
-					codexStyle = StatusMissingStyle
-				} else if hasStatus && status.Codex.Connected {
-					codexStr = IconCheckmark + " Added"
-					codexStyle = StatusInstalledStyle
-				} else {
-					codexStr = IconCross + " Missing"
-					codexStyle = StatusMissingStyle
-				}
-			}
-		}
-
-		// Format row
-		rowStyle := TableRowStyle
-		if i == m.cursor && m.cursor < len(m.servers) {
-			rowStyle = TableSelectedStyle
-		}
-
-		// Truncate description if needed
-		desc := server.Description
-		if len(desc) > colDescription {
-			desc = desc[:colDescription-3] + "..."
-		}
-
-		row := fmt.Sprintf("%-*s %-*s %-*s %-*s",
-			colServer, server.DisplayName,
-			colClaude, claudeStyle.Render(claudeStr),
-			colCodex, codexStyle.Render(codexStr),
-			colDescription, desc,
-		)
-		b.WriteString(rowStyle.Render(row))
+		row := m.renderServerRow(i, server, colServer, colClaude, colCodex, colDescription)
+		b.WriteString(row)
 		b.WriteString("\n")
 	}
 
@@ -604,52 +502,9 @@ func (m *MCPServersModel) showActionMenu(server *registry.MCPServer) {
 	claudeInstalled := m.cliAvailability.ClaudeInstalled
 	codexInstalled := m.cliAvailability.CodexInstalled
 
-	m.actionItems = []string{}
-
-	// Determine if server is installed in each CLI
 	claudeAdded := hasStatus && status.Claude.Connected
 	codexAdded := hasStatus && status.Codex.Connected
-
-	// Add install options
-	if claudeInstalled && codexInstalled {
-		// Both CLIs available
-		if !claudeAdded && !codexAdded {
-			// Not in either - offer all install options
-			m.actionItems = append(m.actionItems, "Install (Both)")
-			m.actionItems = append(m.actionItems, "Install (Claude only)")
-			m.actionItems = append(m.actionItems, "Install (Codex only)")
-		} else if !claudeAdded {
-			// Only missing from Claude
-			m.actionItems = append(m.actionItems, "Install (Claude only)")
-		} else if !codexAdded {
-			// Only missing from Codex
-			m.actionItems = append(m.actionItems, "Install (Codex only)")
-		}
-	} else if claudeInstalled && !codexInstalled {
-		// Only Claude available
-		if !claudeAdded {
-			m.actionItems = append(m.actionItems, "Install (Claude)")
-		}
-	} else if !claudeInstalled && codexInstalled {
-		// Only Codex available
-		if !codexAdded {
-			m.actionItems = append(m.actionItems, "Install (Codex)")
-		}
-	}
-
-	// Add remove options
-	if claudeInstalled && claudeAdded {
-		m.actionItems = append(m.actionItems, "Remove (Claude)")
-	}
-	if codexInstalled && codexAdded {
-		m.actionItems = append(m.actionItems, "Remove (Codex)")
-	}
-	if claudeInstalled && codexInstalled && claudeAdded && codexAdded {
-		// Offer bulk remove if in both
-		m.actionItems = append(m.actionItems, "Remove (Both)")
-	}
-
-	m.actionItems = append(m.actionItems, "Back")
+	m.actionItems = buildActionItems(claudeInstalled, codexInstalled, claudeAdded, codexAdded)
 
 	// Set default cursor based on user preference
 	m.setDefaultActionCursor()
@@ -774,171 +629,6 @@ func (m *MCPServersModel) handleActionMenuKey(msg tea.KeyMsg) (tea.Cmd, bool) {
 }
 
 // handlePreferenceMenuKey processes key presses in preference menu mode
-func (m *MCPServersModel) handlePreferenceMenuKey(msg tea.KeyMsg) (tea.Cmd, bool) {
-	switch msg.String() {
-	case "up", "k":
-		if m.preferenceCursor > 0 {
-			m.preferenceCursor--
-		} else {
-			m.preferenceCursor = len(m.preferenceItems) - 1
-		}
-		return nil, false
-	case "down", "j":
-		if m.preferenceCursor < len(m.preferenceItems)-1 {
-			m.preferenceCursor++
-		} else {
-			m.preferenceCursor = 0
-		}
-		return nil, false
-	case "esc":
-		m.preferenceMode = false
-		m.preferenceItems = nil
-		m.preferenceCursor = 0
-		return nil, false
-	case "enter":
-		if m.preferenceCursor >= len(m.preferenceItems) {
-			return nil, false
-		}
-		choice := m.preferenceItems[m.preferenceCursor]
-		if choice == "Back" {
-			m.preferenceMode = false
-			m.preferenceItems = nil
-			m.preferenceCursor = 0
-			return nil, false
-		}
-		var target config.MCPCLITarget
-		switch choice {
-		case "Default: Both":
-			target = config.MCPTargetBoth
-		case "Default: Claude":
-			target = config.MCPTargetClaude
-		case "Default: Codex":
-			target = config.MCPTargetCodex
-		}
-		if target != "" {
-			prefs := config.NewPreferenceStore()
-			if err := prefs.SetMCPDefaultTarget(target); err != nil {
-				m.lastActionMessage = "Failed to save default target: " + err.Error()
-				m.lastActionError = true
-			} else {
-				m.defaultTarget = target
-				m.lastActionMessage = "Default target set to " + string(target)
-				m.lastActionError = false
-			}
-		}
-		m.preferenceMode = false
-		m.preferenceItems = nil
-		m.preferenceCursor = 0
-		return nil, false
-	}
-	return nil, false
-}
-
-func (m MCPServersModel) renderPreferenceMenu() string {
-	var b strings.Builder
-	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("135")).Bold(true)
-	b.WriteString("\n")
-	b.WriteString(titleStyle.Render("Default MCP Target:"))
-	b.WriteString("\n")
-	for i, item := range m.preferenceItems {
-		cursor := " "
-		style := MenuItemStyle
-		if i == m.preferenceCursor {
-			cursor = ">"
-			style = MenuSelectedStyle
-		}
-		b.WriteString(fmt.Sprintf("%s %s\n", MenuCursorStyle.Render(cursor), style.Render(item)))
-	}
-	return b.String()
-}
-
-// parseActionTarget extracts the CLI target from an action string
-func (m *MCPServersModel) parseActionTarget(action string) config.MCPCLITarget {
-	if strings.Contains(action, "(Both)") {
-		return config.MCPTargetBoth
-	} else if strings.Contains(action, "(Claude") {
-		return config.MCPTargetClaude
-	} else if strings.Contains(action, "(Codex") {
-		return config.MCPTargetCodex
-	}
-	// Default based on what's available
-	if m.cliAvailability.ClaudeInstalled && m.cliAvailability.CodexInstalled {
-		return config.MCPTargetBoth
-	} else if m.cliAvailability.ClaudeInstalled {
-		return config.MCPTargetClaude
-	}
-	return config.MCPTargetCodex
-}
-
-func looksLikeAuthError(msg string) bool {
-	if msg == "" {
-		return false
-	}
-	return strings.Contains(msg, "auth") ||
-		strings.Contains(msg, "login") ||
-		strings.Contains(msg, "unauthorized") ||
-		strings.Contains(msg, "forbidden")
-}
-
-func formatMCPActionResult(action string, msg interface{}) (string, bool) {
-	var serverID string
-	var claudeOK bool
-	var codexOK bool
-	var claudeErr error
-	var codexErr error
-
-	switch v := msg.(type) {
-	case mcpInstallResultMsg:
-		serverID = v.serverID
-		claudeOK = v.claudeOK
-		codexOK = v.codexOK
-		claudeErr = v.claudeErr
-		codexErr = v.codexErr
-	case mcpRemoveResultMsg:
-		serverID = v.serverID
-		claudeOK = v.claudeOK
-		codexOK = v.codexOK
-		claudeErr = v.claudeErr
-		codexErr = v.codexErr
-	default:
-		return "", false
-	}
-
-	serverName := serverID
-	if server, ok := registry.GetMCPServer(serverID); ok {
-		serverName = server.DisplayName
-	}
-
-	okCount := 0
-	failCount := 0
-	if claudeOK || claudeErr != nil {
-		if claudeOK {
-			okCount++
-		} else {
-			failCount++
-		}
-	}
-	if codexOK || codexErr != nil {
-		if codexOK {
-			okCount++
-		} else {
-			failCount++
-		}
-	}
-
-	if failCount == 0 {
-		return fmt.Sprintf("%s successful for %s", action, serverName), false
-	}
-
-	parts := []string{fmt.Sprintf("%s partial for %s", action, serverName)}
-	if claudeErr != nil {
-		parts = append(parts, "Claude: "+claudeErr.Error())
-	}
-	if codexErr != nil {
-		parts = append(parts, "Codex: "+codexErr.Error())
-	}
-	return strings.Join(parts, " | "), true
-}
 
 // installMCPServerToTarget returns a command to install an MCP server to the specified target(s)
 func (m *MCPServersModel) installMCPServerToTarget(server *registry.MCPServer, target config.MCPCLITarget) tea.Cmd {

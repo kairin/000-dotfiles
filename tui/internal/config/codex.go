@@ -108,6 +108,10 @@ func ReadCodexConfig() (*CodexConfig, error) {
 		configPath: configPath,
 	}
 
+	if err := validateCodexConfigPath(configPath); err != nil {
+		return nil, err
+	}
+
 	// Check if file exists
 	info, err := os.Stat(configPath)
 	if os.IsNotExist(err) {
@@ -145,35 +149,17 @@ func ReadCodexConfig() (*CodexConfig, error) {
 
 // WriteCodexConfig writes the Codex config.toml file
 func WriteCodexConfig(config *CodexConfig) error {
-	configPath := config.configPath
-	if configPath == "" {
-		configPath = GetCodexConfigPath()
+	configPath, err := resolveCodexConfigPath(config)
+	if err != nil {
+		return err
 	}
 
-	// Ensure directory exists
-	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create Codex config directory: %w", err)
+	if err := ensureCodexConfigDir(configPath); err != nil {
+		return err
 	}
 
-	// Build mcp_servers block
-	block := renderCodexMCPServersBlock(config.MCPServers)
-
-	var output string
-	if config.rawText != "" {
-		output = replaceMCPServersBlock(config.rawText, block)
-	} else if block != "" {
-		output = block
-	}
-
-	if output != "" && !strings.HasSuffix(output, "\n") {
-		output += "\n"
-	}
-
-	mode := config.fileMode
-	if mode == 0 {
-		mode = 0600
-	}
+	output := buildCodexConfigOutput(config.rawText, config.MCPServers)
+	mode := codexFileMode(config.fileMode)
 
 	return writeFileAtomic(configPath, []byte(output), mode)
 }
@@ -230,6 +216,49 @@ func CodexConfigExists() bool {
 	configPath := GetCodexConfigPath()
 	_, err := os.Stat(configPath)
 	return err == nil
+}
+
+func resolveCodexConfigPath(config *CodexConfig) (string, error) {
+	configPath := config.configPath
+	if configPath == "" {
+		configPath = GetCodexConfigPath()
+	}
+	if err := validateCodexConfigPath(configPath); err != nil {
+		return "", err
+	}
+	return configPath, nil
+}
+
+func ensureCodexConfigDir(configPath string) error {
+	dir := filepath.Dir(configPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create Codex config directory: %w", err)
+	}
+	return nil
+}
+
+func buildCodexConfigOutput(rawText string, servers map[string]CodexMCPServer) string {
+	block := renderCodexMCPServersBlock(servers)
+
+	var output string
+	if rawText != "" {
+		output = replaceMCPServersBlock(rawText, block)
+	} else if block != "" {
+		output = block
+	}
+
+	if output != "" && !strings.HasSuffix(output, "\n") {
+		output += "\n"
+	}
+
+	return output
+}
+
+func codexFileMode(mode os.FileMode) os.FileMode {
+	if mode == 0 {
+		return 0600
+	}
+	return mode
 }
 
 func renderCodexMCPServersBlock(servers map[string]CodexMCPServer) string {
@@ -351,4 +380,24 @@ func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
 	}
 
 	return nil
+}
+
+func validateCodexConfigPath(configPath string) error {
+	clean := filepath.Clean(configPath)
+	if !filepath.IsAbs(clean) {
+		return fmt.Errorf("invalid Codex config path: %s", configPath)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return fmt.Errorf("failed to resolve home directory for Codex config")
+	}
+	allowed := filepath.Join(home, ".codex", "config.toml")
+	if clean == allowed {
+		return nil
+	}
+	codexDir := filepath.Join(home, ".codex") + string(os.PathSeparator)
+	if strings.HasPrefix(clean, codexDir) {
+		return nil
+	}
+	return fmt.Errorf("unexpected Codex config path: %s", configPath)
 }
