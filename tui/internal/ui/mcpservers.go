@@ -44,7 +44,12 @@ type MCPServersModel struct {
 	cliAvailability CLIAvailability
 
 	// State
-	loading bool
+	loading   bool
+	loadError string
+
+	// Action feedback
+	lastActionMessage string
+	lastActionError   bool
 
 	// Action menu state (for individual server selection)
 	menuMode       bool
@@ -55,6 +60,11 @@ type MCPServersModel struct {
 
 	// Default CLI target preference
 	defaultTarget config.MCPCLITarget
+
+	// Preference menu state
+	preferenceMode   bool
+	preferenceItems  []string
+	preferenceCursor int
 
 	// Components
 	spinner spinner.Model
@@ -110,7 +120,7 @@ func (m MCPServersModel) refreshMCPStatuses() tea.Cmd {
 		}
 
 		// Check Claude status
-		claudeStatuses := getClaudeStatuses()
+		claudeStatuses, claudeErr := getClaudeStatuses()
 		for serverID, status := range claudeStatuses {
 			if dual, ok := statuses[serverID]; ok {
 				dual.Claude = status
@@ -119,7 +129,7 @@ func (m MCPServersModel) refreshMCPStatuses() tea.Cmd {
 		}
 
 		// Check Codex status
-		codexStatuses := getCodexStatuses()
+		codexStatuses, codexErr := getCodexStatuses()
 		for serverID, status := range codexStatuses {
 			if dual, ok := statuses[serverID]; ok {
 				dual.Codex = status
@@ -127,62 +137,47 @@ func (m MCPServersModel) refreshMCPStatuses() tea.Cmd {
 			}
 		}
 
-		return mcpAllLoadedMsg{statuses: statuses}
+		return mcpAllLoadedMsg{statuses: statuses, claudeErr: claudeErr, codexErr: codexErr}
 	}
 }
 
 // getClaudeStatuses gets MCP server statuses from Claude Code CLI
-func getClaudeStatuses() map[string]MCPServerStatus {
+func getClaudeStatuses() (map[string]MCPServerStatus, error) {
 	statuses := make(map[string]MCPServerStatus)
-
 	if !config.IsClaudeInstalled() {
-		return statuses
+		return statuses, nil
 	}
 
-	// Run claude mcp list to get current server status
-	cmd := exec.Command("claude", "mcp", "list")
-	output, err := cmd.Output()
+	output, errOutput, err := runClaudeMCPList()
 	if err != nil {
-		return statuses
+		if looksLikeAuthError(errOutput) {
+			applyClaudeAuthError(statuses)
+			return statuses, fmt.Errorf("Claude not authenticated. Run: claude auth login")
+		}
+		return statuses, fmt.Errorf("Claude MCP status failed: %v", err)
 	}
 
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		// Parse format: "server_name: connected" or "server_name: disconnected"
-		// Or format with status indicators
-		for _, server := range registry.GetAllMCPServers() {
-			if strings.Contains(line, server.ID) {
-				connected := strings.Contains(strings.ToLower(line), "connected") ||
-					strings.Contains(line, "✓") ||
-					!strings.Contains(strings.ToLower(line), "error")
-
-				statuses[server.ID] = MCPServerStatus{
-					Connected: connected,
-				}
-			}
-		}
-	}
-
-	return statuses
+	return parseClaudeMCPStatuses(output), nil
 }
 
 // getCodexStatuses gets MCP server statuses from Codex CLI config
-func getCodexStatuses() map[string]MCPServerStatus {
+func getCodexStatuses() (map[string]MCPServerStatus, error) {
 	statuses := make(map[string]MCPServerStatus)
 
 	if !config.IsCodexInstalled() {
-		return statuses
+		return statuses, nil
 	}
 
 	// Read Codex config directly
 	codexServers, err := config.GetCodexMCPServers()
 	if err != nil {
-		return statuses
+		for _, server := range registry.GetAllMCPServers() {
+			statuses[server.ID] = MCPServerStatus{
+				Connected: false,
+				Error:     "config",
+			}
+		}
+		return statuses, fmt.Errorf("Codex config error: %v", err)
 	}
 
 	for serverID := range codexServers {
@@ -191,32 +186,33 @@ func getCodexStatuses() map[string]MCPServerStatus {
 		}
 	}
 
-	return statuses
+	return statuses, nil
 }
 
 // MCP-specific messages
 type (
 	mcpAllLoadedMsg struct {
-		statuses map[string]DualMCPStatus
-		err      error
+		statuses  map[string]DualMCPStatus
+		claudeErr error
+		codexErr  error
 	}
 
 	mcpInstallResultMsg struct {
-		serverID     string
-		target       config.MCPCLITarget
-		claudeOK     bool
-		codexOK      bool
-		claudeErr    error
-		codexErr     error
+		serverID  string
+		target    config.MCPCLITarget
+		claudeOK  bool
+		codexOK   bool
+		claudeErr error
+		codexErr  error
 	}
 
 	mcpRemoveResultMsg struct {
-		serverID     string
-		target       config.MCPCLITarget
-		claudeOK     bool
-		codexOK      bool
-		claudeErr    error
-		codexErr     error
+		serverID  string
+		target    config.MCPCLITarget
+		claudeOK  bool
+		codexOK   bool
+		claudeErr error
+		codexErr  error
 	}
 
 	// MCPShowPrereqMsg signals that prerequisites view should be shown
@@ -249,18 +245,30 @@ func (m MCPServersModel) Update(msg tea.Msg) (MCPServersModel, tea.Cmd) {
 		return m, cmd
 
 	case mcpAllLoadedMsg:
-		if msg.err == nil && msg.statuses != nil {
+		m.loadError = ""
+		if msg.claudeErr != nil {
+			m.loadError = msg.claudeErr.Error()
+		}
+		if msg.codexErr != nil {
+			if m.loadError != "" {
+				m.loadError += " | "
+			}
+			m.loadError += msg.codexErr.Error()
+		}
+		if msg.statuses != nil {
 			m.statuses = msg.statuses
 		}
 		m.loading = false
 		return m, nil
 
 	case mcpInstallResultMsg:
+		m.lastActionMessage, m.lastActionError = formatMCPActionResult("Install", msg)
 		// Refresh status after install
 		m.loading = true
 		return m, m.refreshMCPStatuses()
 
 	case mcpRemoveResultMsg:
+		m.lastActionMessage, m.lastActionError = formatMCPActionResult("Remove", msg)
 		// Refresh status after remove
 		m.loading = true
 		return m, m.refreshMCPStatuses()
@@ -281,12 +289,26 @@ func (m MCPServersModel) View() string {
 	b.WriteString(header)
 	b.WriteString("\n\n")
 
+	if m.loadError != "" {
+		b.WriteString(OutputErrorStyle.Render("Error: " + m.loadError))
+		b.WriteString("\n\n")
+	} else if m.lastActionMessage != "" {
+		style := OutputLineStyle
+		if m.lastActionError {
+			style = OutputErrorStyle
+		}
+		b.WriteString(style.Render(m.lastActionMessage))
+		b.WriteString("\n\n")
+	}
+
 	// Status table
 	b.WriteString(m.renderServersTable())
 	b.WriteString("\n")
 
 	// Show action menu if in menu mode, otherwise show main menu
-	if m.menuMode && m.selectedServer != nil {
+	if m.preferenceMode {
+		b.WriteString(m.renderPreferenceMenu())
+	} else if m.menuMode && m.selectedServer != nil {
 		b.WriteString(m.renderActionMenu())
 	} else {
 		b.WriteString(m.renderMCPMenu())
@@ -295,7 +317,7 @@ func (m MCPServersModel) View() string {
 
 	// Help
 	var helpText string
-	if m.menuMode {
+	if m.preferenceMode || m.menuMode {
 		helpText = "↑↓ navigate • enter select • esc cancel"
 	} else {
 		helpText = "↑↓ navigate • enter select • r refresh • esc back"
@@ -341,68 +363,9 @@ func (m MCPServersModel) renderServersTable() string {
 	b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(sep))
 	b.WriteString("\n")
 
-	// Servers
 	for i, server := range m.servers {
-		// Determine Claude status display
-		var claudeStr, codexStr string
-		var claudeStyle, codexStyle lipgloss.Style
-
-		if m.loading {
-			claudeStr = m.spinner.View()
-			claudeStyle = StatusUnknownStyle
-			codexStr = m.spinner.View()
-			codexStyle = StatusUnknownStyle
-		} else {
-			// Claude status
-			if !m.cliAvailability.ClaudeInstalled {
-				claudeStr = "N/A"
-				claudeStyle = StatusUnknownStyle
-			} else {
-				status, hasStatus := m.statuses[server.ID]
-				if hasStatus && status.Claude.Connected {
-					claudeStr = IconCheckmark + " Added"
-					claudeStyle = StatusInstalledStyle
-				} else {
-					claudeStr = IconCross + " Missing"
-					claudeStyle = StatusMissingStyle
-				}
-			}
-
-			// Codex status
-			if !m.cliAvailability.CodexInstalled {
-				codexStr = "N/A"
-				codexStyle = StatusUnknownStyle
-			} else {
-				status, hasStatus := m.statuses[server.ID]
-				if hasStatus && status.Codex.Connected {
-					codexStr = IconCheckmark + " Added"
-					codexStyle = StatusInstalledStyle
-				} else {
-					codexStr = IconCross + " Missing"
-					codexStyle = StatusMissingStyle
-				}
-			}
-		}
-
-		// Format row
-		rowStyle := TableRowStyle
-		if i == m.cursor && m.cursor < len(m.servers) {
-			rowStyle = TableSelectedStyle
-		}
-
-		// Truncate description if needed
-		desc := server.Description
-		if len(desc) > colDescription {
-			desc = desc[:colDescription-3] + "..."
-		}
-
-		row := fmt.Sprintf("%-*s %-*s %-*s %-*s",
-			colServer, server.DisplayName,
-			colClaude, claudeStyle.Render(claudeStr),
-			colCodex, codexStyle.Render(codexStr),
-			colDescription, desc,
-		)
-		b.WriteString(rowStyle.Render(row))
+		row := m.renderServerRow(i, server, colServer, colClaude, colCodex, colDescription)
+		b.WriteString(row)
 		b.WriteString("\n")
 	}
 
@@ -422,7 +385,7 @@ func (m MCPServersModel) renderMCPMenu() string {
 	serverCount := len(m.servers)
 
 	// Menu items: Individual servers (0-6) + "Setup Secrets" (7) + "Back" (8)
-	menuItems := []string{"Setup Secrets", "Back"}
+	menuItems := []string{"Setup Secrets", "Set Default Target", "Back"}
 
 	b.WriteString("\nChoose:\n")
 
@@ -467,6 +430,11 @@ func (m MCPServersModel) renderActionMenu() string {
 
 // HandleKey processes key presses in MCP Servers view
 func (m *MCPServersModel) HandleKey(msg tea.KeyMsg) (tea.Cmd, bool) {
+	// Handle preference menu mode separately
+	if m.preferenceMode {
+		return m.handlePreferenceMenuKey(msg)
+	}
+
 	// Handle action menu mode separately
 	if m.menuMode {
 		return m.handleActionMenuKey(msg)
@@ -474,7 +442,7 @@ func (m *MCPServersModel) HandleKey(msg tea.KeyMsg) (tea.Cmd, bool) {
 
 	// Calculate menu boundaries
 	serverCount := len(m.servers)
-	menuItemCount := 2 // Setup Secrets + Back
+	menuItemCount := 3 // Setup Secrets + Set Default Target + Back
 	maxCursor := serverCount + menuItemCount - 1
 
 	switch msg.String() {
@@ -510,6 +478,10 @@ func (m *MCPServersModel) HandleKey(msg tea.KeyMsg) (tea.Cmd, bool) {
 			return func() tea.Msg {
 				return MCPShowSecretsWizardMsg{}
 			}, false
+		} else if m.cursor == serverCount+1 {
+			// "Set Default Target" selected
+			m.showPreferenceMenu()
+			return nil, false
 		} else {
 			// "Back" selected
 			return nil, true
@@ -530,55 +502,28 @@ func (m *MCPServersModel) showActionMenu(server *registry.MCPServer) {
 	claudeInstalled := m.cliAvailability.ClaudeInstalled
 	codexInstalled := m.cliAvailability.CodexInstalled
 
-	m.actionItems = []string{}
-
-	// Determine if server is installed in each CLI
 	claudeAdded := hasStatus && status.Claude.Connected
 	codexAdded := hasStatus && status.Codex.Connected
-
-	// Add install options
-	if claudeInstalled && codexInstalled {
-		// Both CLIs available
-		if !claudeAdded && !codexAdded {
-			// Not in either - offer all install options
-			m.actionItems = append(m.actionItems, "Install (Both)")
-			m.actionItems = append(m.actionItems, "Install (Claude only)")
-			m.actionItems = append(m.actionItems, "Install (Codex only)")
-		} else if !claudeAdded {
-			// Only missing from Claude
-			m.actionItems = append(m.actionItems, "Install (Claude only)")
-		} else if !codexAdded {
-			// Only missing from Codex
-			m.actionItems = append(m.actionItems, "Install (Codex only)")
-		}
-	} else if claudeInstalled && !codexInstalled {
-		// Only Claude available
-		if !claudeAdded {
-			m.actionItems = append(m.actionItems, "Install (Claude)")
-		}
-	} else if !claudeInstalled && codexInstalled {
-		// Only Codex available
-		if !codexAdded {
-			m.actionItems = append(m.actionItems, "Install (Codex)")
-		}
-	}
-
-	// Add remove options
-	if claudeInstalled && claudeAdded {
-		m.actionItems = append(m.actionItems, "Remove (Claude)")
-	}
-	if codexInstalled && codexAdded {
-		m.actionItems = append(m.actionItems, "Remove (Codex)")
-	}
-	if claudeInstalled && codexInstalled && claudeAdded && codexAdded {
-		// Offer bulk remove if in both
-		m.actionItems = append(m.actionItems, "Remove (Both)")
-	}
-
-	m.actionItems = append(m.actionItems, "Back")
+	m.actionItems = buildActionItems(claudeInstalled, codexInstalled, claudeAdded, codexAdded)
 
 	// Set default cursor based on user preference
 	m.setDefaultActionCursor()
+}
+
+func (m *MCPServersModel) showPreferenceMenu() {
+	m.preferenceMode = true
+	m.preferenceCursor = 0
+
+	items := []string{}
+	if m.cliAvailability.ClaudeInstalled && m.cliAvailability.CodexInstalled {
+		items = append(items, "Default: Both", "Default: Claude", "Default: Codex")
+	} else if m.cliAvailability.ClaudeInstalled {
+		items = append(items, "Default: Claude")
+	} else if m.cliAvailability.CodexInstalled {
+		items = append(items, "Default: Codex")
+	}
+	items = append(items, "Back")
+	m.preferenceItems = items
 }
 
 // setDefaultActionCursor sets the cursor to the user's preferred default option
@@ -683,23 +628,7 @@ func (m *MCPServersModel) handleActionMenuKey(msg tea.KeyMsg) (tea.Cmd, bool) {
 	return nil, false
 }
 
-// parseActionTarget extracts the CLI target from an action string
-func (m *MCPServersModel) parseActionTarget(action string) config.MCPCLITarget {
-	if strings.Contains(action, "(Both)") {
-		return config.MCPTargetBoth
-	} else if strings.Contains(action, "(Claude") {
-		return config.MCPTargetClaude
-	} else if strings.Contains(action, "(Codex") {
-		return config.MCPTargetCodex
-	}
-	// Default based on what's available
-	if m.cliAvailability.ClaudeInstalled && m.cliAvailability.CodexInstalled {
-		return config.MCPTargetBoth
-	} else if m.cliAvailability.ClaudeInstalled {
-		return config.MCPTargetClaude
-	}
-	return config.MCPTargetCodex
-}
+// handlePreferenceMenuKey processes key presses in preference menu mode
 
 // installMCPServerToTarget returns a command to install an MCP server to the specified target(s)
 func (m *MCPServersModel) installMCPServerToTarget(server *registry.MCPServer, target config.MCPCLITarget) tea.Cmd {
