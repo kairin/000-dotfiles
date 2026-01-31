@@ -5,8 +5,8 @@ package registry
 type InstallMethod string
 
 const (
-	MethodSource        InstallMethod = "source"  // feh
-	MethodSnap          InstallMethod = "snap"    // optional alternative
+	MethodSource        InstallMethod = "source"  // ghostty, feh
+	MethodSnap          InstallMethod = "snap"    // ghostty (alternative)
 	MethodCharmRepo     InstallMethod = "charm"   // gum, glow, vhs
 	MethodAPT           InstallMethod = "apt"     // fastfetch, zsh
 	MethodTarball       InstallMethod = "tarball" // go
@@ -53,8 +53,8 @@ type BundledTool struct {
 
 // Tool represents a single installable tool
 type Tool struct {
-	ID          string        // Unique identifier, e.g., "feh"
-	DisplayName string        // Human-readable name, e.g., "Feh"
+	ID          string        // Unique identifier, e.g., "ghostty"
+	DisplayName string        // Human-readable name, e.g., "Ghostty"
 	Description string        // Short description
 	Category    Category      // main or extras
 	Method      InstallMethod // Default installation method
@@ -67,7 +67,7 @@ type Tool struct {
 	Scripts ToolScripts
 
 	// Version detection
-	VersionCmd   []string // Command to get version, e.g., ["feh", "--version"]
+	VersionCmd   []string // Command to get version, e.g., ["ghostty", "--version"]
 	VersionRegex string   // Regex to extract version from output
 
 	// Special behaviors

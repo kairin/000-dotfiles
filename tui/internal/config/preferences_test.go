@@ -16,7 +16,7 @@ func TestPreferenceStore_SaveAndLoad(t *testing.T) {
 	store := NewPreferenceStoreWithPath(testPath)
 
 	// Save preference
-	err := store.SetToolMethod("feh", registry.MethodSource)
+	err := store.SetGhosttyMethod(registry.MethodSnap)
 	if err != nil {
 		t.Fatalf("Failed to save preference: %v", err)
 	}
@@ -27,13 +27,13 @@ func TestPreferenceStore_SaveAndLoad(t *testing.T) {
 	}
 
 	// Load preference
-	method, err := store.GetToolMethod("feh")
+	method, err := store.GetGhosttyMethod()
 	if err != nil {
 		t.Fatalf("Failed to load preference: %v", err)
 	}
 
-	if method != registry.MethodSource {
-		t.Errorf("Expected MethodSource, got %s", method)
+	if method != registry.MethodSnap {
+		t.Errorf("Expected MethodSnap, got %s", method)
 	}
 }
 
@@ -49,20 +49,20 @@ func TestPreferenceStore_LoadNonExistent(t *testing.T) {
 		t.Fatalf("Load should not fail for non-existent file: %v", err)
 	}
 
-	if prefs.ToolMethods == nil || len(prefs.ToolMethods) != 0 {
-		t.Error("Expected empty tool methods for non-existent file")
+	if prefs.GhosttyMethod != "" {
+		t.Error("Expected empty method for non-existent file")
 	}
 }
 
-func TestPreferenceStore_GetToolMethod_Empty(t *testing.T) {
+func TestPreferenceStore_GetGhosttyMethod_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
 	testPath := filepath.Join(tmpDir, "empty.json")
 
 	store := NewPreferenceStoreWithPath(testPath)
 
-	method, err := store.GetToolMethod("feh")
+	method, err := store.GetGhosttyMethod()
 	if err != nil {
-		t.Fatalf("GetToolMethod failed: %v", err)
+		t.Fatalf("GetGhosttyMethod failed: %v", err)
 	}
 
 	if method != "" {
@@ -77,7 +77,7 @@ func TestPreferenceStore_Clear(t *testing.T) {
 	store := NewPreferenceStoreWithPath(testPath)
 
 	// Save preference
-	err := store.SetToolMethod("feh", registry.MethodSource)
+	err := store.SetGhosttyMethod(registry.MethodSource)
 	if err != nil {
 		t.Fatalf("Failed to save: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestPreferenceStore_UpdateExisting(t *testing.T) {
 	store := NewPreferenceStoreWithPath(testPath)
 
 	// Save snap preference
-	err := store.SetToolMethod("feh", registry.MethodSource)
+	err := store.SetGhosttyMethod(registry.MethodSnap)
 	if err != nil {
 		t.Fatalf("Failed to save initial: %v", err)
 	}
@@ -116,19 +116,19 @@ func TestPreferenceStore_UpdateExisting(t *testing.T) {
 	prefs1, _ := store.Load()
 
 	// Update to source
-	err = store.SetToolMethod("feh", registry.MethodTarball)
+	err = store.SetGhosttyMethod(registry.MethodSource)
 	if err != nil {
 		t.Fatalf("Failed to update: %v", err)
 	}
 
 	// Load and verify
-	method, err := store.GetToolMethod("feh")
+	method, err := store.GetGhosttyMethod()
 	if err != nil {
 		t.Fatalf("Failed to load: %v", err)
 	}
 
-	if method != registry.MethodTarball {
-		t.Errorf("Expected MethodTarball after update, got %s", method)
+	if method != registry.MethodSource {
+		t.Errorf("Expected MethodSource after update, got %s", method)
 	}
 
 	// Verify timestamp was updated
@@ -145,7 +145,7 @@ func TestPreferenceStore_JSONFormat(t *testing.T) {
 	store := NewPreferenceStoreWithPath(testPath)
 
 	// Save preference
-	err := store.SetToolMethod("feh", registry.MethodSource)
+	err := store.SetGhosttyMethod(registry.MethodSnap)
 	if err != nil {
 		t.Fatalf("Failed to save: %v", err)
 	}
@@ -158,16 +158,12 @@ func TestPreferenceStore_JSONFormat(t *testing.T) {
 
 	// Verify JSON contains expected fields
 	content := string(data)
-	if !contains(content, "tool_methods") {
-		t.Error("JSON should contain tool_methods field")
+	if !contains(content, "ghostty_method") {
+		t.Error("JSON should contain ghostty_method field")
 	}
 
-	if !contains(content, "feh") {
-		t.Error("JSON should contain tool ID")
-	}
-
-	if !contains(content, "source") {
-		t.Error("JSON should contain method value")
+	if !contains(content, "snap") {
+		t.Error("JSON should contain snap value")
 	}
 
 	if !contains(content, "last_modified") {
@@ -196,8 +192,8 @@ func TestNewPreferenceStore_DefaultPath(t *testing.T) {
 		t.Error("Default path should contain .config")
 	}
 
-	if !contains(path, "dotfiles-installer") {
-		t.Error("Default path should contain dotfiles-installer")
+	if !contains(path, "ghostty-installer") {
+		t.Error("Default path should contain ghostty-installer")
 	}
 
 	if !contains(path, "preferences.json") {

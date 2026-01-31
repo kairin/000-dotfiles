@@ -68,7 +68,7 @@ func TestParseFastfetchJSON(t *testing.T) {
 	}
 }
 
-func TestRecommendInstallMethod_Ubuntu2404_ARM64_Snap(t *testing.T) {
+func TestRecommendGhosttyMethod_Ubuntu2404_ARM64_Snap(t *testing.T) {
 	info := &SystemInfo{
 		OS:           "ubuntu",
 		OSVersionID:  "24.04",
@@ -76,7 +76,7 @@ func TestRecommendInstallMethod_Ubuntu2404_ARM64_Snap(t *testing.T) {
 		HasSnap:      true,
 	}
 
-	rec := RecommendInstallMethod("feh", info)
+	rec := RecommendGhosttyMethod(info)
 
 	if rec.Method != registry.MethodSnap {
 		t.Errorf("Expected MethodSnap, got %s", rec.Method)
@@ -95,7 +95,7 @@ func TestRecommendInstallMethod_Ubuntu2404_ARM64_Snap(t *testing.T) {
 	}
 }
 
-func TestRecommendInstallMethod_Ubuntu2204_Snap(t *testing.T) {
+func TestRecommendGhosttyMethod_Ubuntu2204_Snap(t *testing.T) {
 	info := &SystemInfo{
 		OS:           "ubuntu",
 		OSVersionID:  "22.04",
@@ -103,7 +103,7 @@ func TestRecommendInstallMethod_Ubuntu2204_Snap(t *testing.T) {
 		HasSnap:      true,
 	}
 
-	rec := RecommendInstallMethod("feh", info)
+	rec := RecommendGhosttyMethod(info)
 
 	// Ubuntu 22.04 should recommend source build
 	if rec.Method != registry.MethodSource {
@@ -115,7 +115,7 @@ func TestRecommendInstallMethod_Ubuntu2204_Snap(t *testing.T) {
 	}
 }
 
-func TestRecommendInstallMethod_NoSnap(t *testing.T) {
+func TestRecommendGhosttyMethod_NoSnap(t *testing.T) {
 	info := &SystemInfo{
 		OS:           "ubuntu",
 		OSVersionID:  "24.04",
@@ -123,7 +123,7 @@ func TestRecommendInstallMethod_NoSnap(t *testing.T) {
 		HasSnap:      false,
 	}
 
-	rec := RecommendInstallMethod("feh", info)
+	rec := RecommendGhosttyMethod(info)
 
 	// No snap should force source build
 	if rec.Method != registry.MethodSource {
@@ -135,7 +135,7 @@ func TestRecommendInstallMethod_NoSnap(t *testing.T) {
 	}
 }
 
-func TestRecommendInstallMethod_Ubuntu2404_x86_64_Snap(t *testing.T) {
+func TestRecommendGhosttyMethod_Ubuntu2404_x86_64_Snap(t *testing.T) {
 	info := &SystemInfo{
 		OS:           "ubuntu",
 		OSVersionID:  "24.04",
@@ -143,7 +143,7 @@ func TestRecommendInstallMethod_Ubuntu2404_x86_64_Snap(t *testing.T) {
 		HasSnap:      true,
 	}
 
-	rec := RecommendInstallMethod("feh", info)
+	rec := RecommendGhosttyMethod(info)
 
 	// Ubuntu 24.04 x86_64 with snap should recommend snap
 	if rec.Method != registry.MethodSnap {
