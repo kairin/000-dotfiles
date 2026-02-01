@@ -1,9 +1,0 @@
-{
-    "timestamp": "2026-01-18T16:58:31+08:00",
-    "operation": "Dependency installation",
-    "duration": "1s",
-    "runner_type": "local",
-    "node_version": "v25.3.0",
-    "npm_version": "11.6.2",
-    "build_output_size": "1578613"
-}

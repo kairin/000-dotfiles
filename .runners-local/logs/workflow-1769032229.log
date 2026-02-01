@@ -1,7 +1,0 @@
-[2026-01-22 05:50:29] [WARNING] ⚠️ ShellCheck issues found in: astro-build-local.sh
-[2026-01-22 05:50:29] [WARNING] ⚠️ ShellCheck issues found in: documentation-sync-checker.sh
-[2026-01-22 05:50:29] [WARNING] ⚠️ ShellCheck issues found in: validate-modules.sh
-[2026-01-22 05:50:29] [WARNING] ⚠️ ShellCheck issues found in: benchmark-runner.sh
-[2026-01-22 05:50:29] [WARNING] ⚠️ ShellCheck issues found in: constitutional-compliance-check.sh
-[2026-01-22 05:50:29] [WARNING] ⚠️ ShellCheck issues found in: gh-cli-integration.sh
-[2026-01-22 05:50:29] [WARNING] ⚠️ ShellCheck issues found in: gh-pages-setup.sh
