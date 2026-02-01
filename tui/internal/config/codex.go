@@ -101,9 +101,15 @@ func IsClaudeInstalled() bool {
 
 // ReadCodexConfig reads the Codex config.toml file
 func ReadCodexConfig() (*CodexConfig, error) {
-	configPath, err := codexConfigPath()
-	if err != nil {
-		return nil, err
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return nil, fmt.Errorf("failed to resolve home directory for Codex config")
+	}
+	baseDir := filepath.Join(home, ".codex")
+	filename := filepath.Base("config.toml")
+	configPath := filepath.Join(baseDir, filename)
+	if !strings.HasPrefix(configPath, baseDir+string(os.PathSeparator)) {
+		return nil, fmt.Errorf("unexpected Codex config path: %s", configPath)
 	}
 
 	config := &CodexConfig{
@@ -122,7 +128,7 @@ func ReadCodexConfig() (*CodexConfig, error) {
 	}
 
 	// Read the file (path is resolved within ~/.codex).
-	data, err := os.ReadFile(GetCodexConfigPath())
+	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Codex config: %w", err)
 	}
