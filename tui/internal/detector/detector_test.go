@@ -76,7 +76,7 @@ func TestRecommendInstallMethod_Ubuntu2404_ARM64_Snap(t *testing.T) {
 		HasSnap:      true,
 	}
 
-	rec := RecommendInstallMethod("generic", info)
+	rec := RecommendInstallMethod("feh", info)
 
 	if rec.Method != registry.MethodSnap {
 		t.Errorf("Expected MethodSnap, got %s", rec.Method)
@@ -103,7 +103,7 @@ func TestRecommendInstallMethod_Ubuntu2204_Snap(t *testing.T) {
 		HasSnap:      true,
 	}
 
-	rec := RecommendInstallMethod("generic", info)
+	rec := RecommendInstallMethod("feh", info)
 
 	// Ubuntu 22.04 should recommend source build
 	if rec.Method != registry.MethodSource {
@@ -123,7 +123,7 @@ func TestRecommendInstallMethod_NoSnap(t *testing.T) {
 		HasSnap:      false,
 	}
 
-	rec := RecommendInstallMethod("generic", info)
+	rec := RecommendInstallMethod("feh", info)
 
 	// No snap should force source build
 	if rec.Method != registry.MethodSource {
@@ -143,7 +143,7 @@ func TestRecommendInstallMethod_Ubuntu2404_x86_64_Snap(t *testing.T) {
 		HasSnap:      true,
 	}
 
-	rec := RecommendInstallMethod("generic", info)
+	rec := RecommendInstallMethod("feh", info)
 
 	// Ubuntu 24.04 x86_64 with snap should recommend snap
 	if rec.Method != registry.MethodSnap {

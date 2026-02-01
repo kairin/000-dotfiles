@@ -5,8 +5,8 @@ package registry
 type InstallMethod string
 
 const (
-	MethodSource        InstallMethod = "source"  // feh, nerd-fonts
-	MethodSnap          InstallMethod = "snap"    // fastfetch (alternative)
+	MethodSource        InstallMethod = "source"  // feh
+	MethodSnap          InstallMethod = "snap"    // optional alternative
 	MethodCharmRepo     InstallMethod = "charm"   // gum, glow, vhs
 	MethodAPT           InstallMethod = "apt"     // fastfetch, zsh
 	MethodTarball       InstallMethod = "tarball" // go

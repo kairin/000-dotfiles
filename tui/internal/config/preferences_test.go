@@ -16,7 +16,7 @@ func TestPreferenceStore_SaveAndLoad(t *testing.T) {
 	store := NewPreferenceStoreWithPath(testPath)
 
 	// Save preference
-	err := store.SetToolMethod("feh", registry.MethodSnap)
+	err := store.SetToolMethod("feh", registry.MethodSource)
 	if err != nil {
 		t.Fatalf("Failed to save preference: %v", err)
 	}
@@ -32,8 +32,8 @@ func TestPreferenceStore_SaveAndLoad(t *testing.T) {
 		t.Fatalf("Failed to load preference: %v", err)
 	}
 
-	if method != registry.MethodSnap {
-		t.Errorf("Expected MethodSnap, got %s", method)
+	if method != registry.MethodSource {
+		t.Errorf("Expected MethodSource, got %s", method)
 	}
 }
 
@@ -49,8 +49,8 @@ func TestPreferenceStore_LoadNonExistent(t *testing.T) {
 		t.Fatalf("Load should not fail for non-existent file: %v", err)
 	}
 
-	if len(prefs.ToolMethods) != 0 {
-		t.Error("Expected no tool methods for non-existent file")
+	if prefs.ToolMethods == nil || len(prefs.ToolMethods) != 0 {
+		t.Error("Expected empty tool methods for non-existent file")
 	}
 }
 
@@ -106,8 +106,8 @@ func TestPreferenceStore_UpdateExisting(t *testing.T) {
 
 	store := NewPreferenceStoreWithPath(testPath)
 
-	// Save snap preference
-	err := store.SetToolMethod("feh", registry.MethodSnap)
+	// Save source preference
+	err := store.SetToolMethod("feh", registry.MethodSource)
 	if err != nil {
 		t.Fatalf("Failed to save initial: %v", err)
 	}
@@ -115,8 +115,8 @@ func TestPreferenceStore_UpdateExisting(t *testing.T) {
 	// Load first timestamp
 	prefs1, _ := store.Load()
 
-	// Update to source
-	err = store.SetToolMethod("feh", registry.MethodSource)
+	// Update to tarball to validate updates overwrite previous value
+	err = store.SetToolMethod("feh", registry.MethodTarball)
 	if err != nil {
 		t.Fatalf("Failed to update: %v", err)
 	}
@@ -127,8 +127,8 @@ func TestPreferenceStore_UpdateExisting(t *testing.T) {
 		t.Fatalf("Failed to load: %v", err)
 	}
 
-	if method != registry.MethodSource {
-		t.Errorf("Expected MethodSource after update, got %s", method)
+	if method != registry.MethodTarball {
+		t.Errorf("Expected MethodTarball after update, got %s", method)
 	}
 
 	// Verify timestamp was updated
@@ -145,7 +145,7 @@ func TestPreferenceStore_JSONFormat(t *testing.T) {
 	store := NewPreferenceStoreWithPath(testPath)
 
 	// Save preference
-	err := store.SetToolMethod("feh", registry.MethodSnap)
+	err := store.SetToolMethod("feh", registry.MethodSource)
 	if err != nil {
 		t.Fatalf("Failed to save: %v", err)
 	}
@@ -162,8 +162,12 @@ func TestPreferenceStore_JSONFormat(t *testing.T) {
 		t.Error("JSON should contain tool_methods field")
 	}
 
-	if !contains(content, "snap") {
-		t.Error("JSON should contain snap value")
+	if !contains(content, "feh") {
+		t.Error("JSON should contain tool ID")
+	}
+
+	if !contains(content, "source") {
+		t.Error("JSON should contain method value")
 	}
 
 	if !contains(content, "feh") {
