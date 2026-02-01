@@ -122,8 +122,7 @@ func ReadCodexConfig() (*CodexConfig, error) {
 	}
 
 	// Read the file (path is resolved within ~/.codex).
-	// #nosec G304 -- path is fixed to ~/.codex/config.toml via codexConfigPath
-	data, err := os.ReadFile(configPath) // nosemgrep: go.lang.security.audit.path-traversal.path-traversal
+	data, err := os.ReadFile(GetCodexConfigPath())
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Codex config: %w", err)
 	}
