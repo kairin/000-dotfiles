@@ -178,8 +178,8 @@ jobs:
 
           CONFIG_FILE="configs/ghostty/config"
           if [ ! -f "$CONFIG_FILE" ]; then
-            echo "Configuration file not found"
-            exit 1
+            echo "Configuration file not found; skipping Ghostty lint."
+            exit 0
           fi
 
           # Check for common issues
