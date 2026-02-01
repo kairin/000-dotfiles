@@ -35,4 +35,8 @@ jobs:
         if: env.CODACY_API_TOKEN != ''
         working-directory: tui
         run: |
+          if [ ! -s coverage.out ] || [ "$(wc -l < coverage.out)" -le 1 ]; then
+            echo "No coverage data to upload; skipping."
+            exit 0
+          fi
           bash <(curl -Ls https://coverage.codacy.com/get.sh) report -l Go -r coverage.out
