@@ -29,11 +29,10 @@ jobs:
 
       - name: Run Go tests with coverage
         working-directory: tui
-        run: go test ./... -coverprofile=coverage.out
+        run: go test ./... -coverprofile=../coverage.out
 
       - name: Upload coverage to Codacy
         if: env.CODACY_API_TOKEN != ''
-        working-directory: tui
         run: |
           if [ ! -s coverage.out ] || [ "$(wc -l < coverage.out)" -le 1 ]; then
             echo "No coverage data to upload; skipping."
