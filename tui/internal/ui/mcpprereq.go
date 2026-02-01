@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/kairin/dotfiles-installer/internal/config"
 	"github.com/kairin/dotfiles-installer/internal/registry"
 )
 
@@ -14,6 +15,9 @@ import (
 type MCPPrereqModel struct {
 	// Server being checked
 	server *registry.MCPServer
+
+	// Target CLI(s) for installation
+	target config.MCPCLITarget
 
 	// Check results
 	prereqResults []registry.PrerequisiteResult
@@ -31,6 +35,18 @@ type MCPPrereqModel struct {
 func NewMCPPrereqModel(server *registry.MCPServer) MCPPrereqModel {
 	return MCPPrereqModel{
 		server:        server,
+		target:        config.MCPTargetBoth, // Default target
+		prereqResults: server.CheckAllPrerequisites(),
+		secretResults: server.CheckSecrets(),
+		cursor:        0,
+	}
+}
+
+// NewMCPPrereqModelWithTarget creates a new prerequisites view with a specific target
+func NewMCPPrereqModelWithTarget(server *registry.MCPServer, target config.MCPCLITarget) MCPPrereqModel {
+	return MCPPrereqModel{
+		server:        server,
+		target:        target,
 		prereqResults: server.CheckAllPrerequisites(),
 		secretResults: server.CheckSecrets(),
 		cursor:        0,
@@ -223,4 +239,9 @@ func (m MCPPrereqModel) HasFailures() bool {
 // GetServer returns the server being checked
 func (m MCPPrereqModel) GetServer() *registry.MCPServer {
 	return m.server
+}
+
+// GetTarget returns the target CLI(s) for installation
+func (m MCPPrereqModel) GetTarget() config.MCPCLITarget {
+	return m.target
 }

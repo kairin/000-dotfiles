@@ -229,3 +229,6 @@ dotfiles-installer
 # Download logs (wget artifacts)
 wget-log
 wget-log.*
+
+# Local Codex CLI state
+.codex/
