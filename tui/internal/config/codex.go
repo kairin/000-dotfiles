@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -116,7 +117,9 @@ func ReadCodexConfig() (*CodexConfig, error) {
 		configPath: configPath,
 	}
 
-	info, exists, err := statCodexConfig(configPath)
+	fsys := os.DirFS(home)
+	relPath := filepath.Join(".codex", "config.toml")
+	info, exists, err := statCodexConfig(fsys, relPath)
 	if err != nil {
 		return nil, err
 	}
@@ -126,32 +129,22 @@ func ReadCodexConfig() (*CodexConfig, error) {
 	}
 
 	// Read the file (path is resolved within ~/.codex).
-	data, err := os.ReadFile(filepath.Join(home, ".codex", filepath.Base("config.toml")))
+	data, err := fs.ReadFile(fsys, relPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Codex config: %w", err)
 	}
 	config.rawText = string(data)
 	config.fileMode = info.Mode().Perm()
 
-	// Decode specifically for mcp_servers
-	// We use a temporary struct to get the typed data
-	var typedConfig struct {
-		MCPServers map[string]CodexMCPServer `toml:"mcp_servers"`
-	}
-
-	if err := toml.Unmarshal(data, &typedConfig); err != nil {
-		return nil, fmt.Errorf("failed to parse Codex config: %w", err)
-	}
-
-	if typedConfig.MCPServers != nil {
-		config.MCPServers = typedConfig.MCPServers
+	if err := parseCodexMCPServers(data, config); err != nil {
+		return nil, err
 	}
 
 	return config, nil
 }
 
-func statCodexConfig(path string) (os.FileInfo, bool, error) {
-	info, err := os.Stat(path)
+func statCodexConfig(fsys fs.FS, path string) (fs.FileInfo, bool, error) {
+	info, err := fs.Stat(fsys, path)
 	if os.IsNotExist(err) {
 		return nil, false, nil
 	}
@@ -159,6 +152,24 @@ func statCodexConfig(path string) (os.FileInfo, bool, error) {
 		return nil, false, fmt.Errorf("failed to stat Codex config: %w", err)
 	}
 	return info, true, nil
+}
+
+func parseCodexMCPServers(data []byte, config *CodexConfig) error {
+	// Decode specifically for mcp_servers
+	// We use a temporary struct to get the typed data
+	var typedConfig struct {
+		MCPServers map[string]CodexMCPServer `toml:"mcp_servers"`
+	}
+
+	if err := toml.Unmarshal(data, &typedConfig); err != nil {
+		return fmt.Errorf("failed to parse Codex config: %w", err)
+	}
+
+	if typedConfig.MCPServers != nil {
+		config.MCPServers = typedConfig.MCPServers
+	}
+
+	return nil
 }
 
 // WriteCodexConfig writes the Codex config.toml file
