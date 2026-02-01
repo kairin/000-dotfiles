@@ -35,5 +35,4 @@ jobs:
         if: env.CODACY_API_TOKEN != ''
         working-directory: tui
         run: |
-          bash <(curl -Ls https://coverage.codacy.com/get.sh)
-          ./codacy-coverage-reporter report -l Go -r coverage.out
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) report -l Go -r coverage.out
