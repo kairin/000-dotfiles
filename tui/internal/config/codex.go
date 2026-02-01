@@ -106,8 +106,7 @@ func ReadCodexConfig() (*CodexConfig, error) {
 		return nil, fmt.Errorf("failed to resolve home directory for Codex config")
 	}
 	baseDir := filepath.Join(home, ".codex")
-	filename := filepath.Base("config.toml")
-	configPath := filepath.Join(baseDir, filename)
+	configPath := filepath.Join(baseDir, "config.toml")
 	if !strings.HasPrefix(configPath, baseDir+string(os.PathSeparator)) {
 		return nil, fmt.Errorf("unexpected Codex config path: %s", configPath)
 	}
@@ -117,18 +116,17 @@ func ReadCodexConfig() (*CodexConfig, error) {
 		configPath: configPath,
 	}
 
-	// Check if file exists
-	info, err := os.Stat(configPath)
-	if os.IsNotExist(err) {
+	info, exists, err := statCodexConfig(configPath)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
 		// File doesn't exist, return empty config
 		return config, nil
 	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat Codex config: %w", err)
-	}
 
 	// Read the file (path is resolved within ~/.codex).
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(filepath.Join(home, ".codex", filepath.Base("config.toml")))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Codex config: %w", err)
 	}
@@ -150,6 +148,17 @@ func ReadCodexConfig() (*CodexConfig, error) {
 	}
 
 	return config, nil
+}
+
+func statCodexConfig(path string) (os.FileInfo, bool, error) {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to stat Codex config: %w", err)
+	}
+	return info, true, nil
 }
 
 // WriteCodexConfig writes the Codex config.toml file
