@@ -14,50 +14,60 @@ func (m MCPServersModel) View() string {
 	var b strings.Builder
 
 	// Header (magenta styling for MCP)
-	headerStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("135")). // Magenta for MCP
-		Bold(true)
-	header := headerStyle.Render(fmt.Sprintf("MCP Servers • %d Servers", registry.MCPServerCount()))
-	b.WriteString(header)
+	b.WriteString(m.renderHeader())
 	b.WriteString("\n\n")
 
-	if m.loadError != "" {
-		b.WriteString(OutputErrorStyle.Render("Error: " + m.loadError))
-		b.WriteString("\n\n")
-	} else if m.lastActionMessage != "" {
-		style := OutputLineStyle
-		if m.lastActionError {
-			style = OutputErrorStyle
-		}
-		b.WriteString(style.Render(m.lastActionMessage))
-		b.WriteString("\n\n")
-	}
+	b.WriteString(m.renderStatusBanner())
 
 	// Status table
 	b.WriteString(m.renderServersTable())
 	b.WriteString("\n")
 
-	// Show action menu if in menu mode, otherwise show main menu
-	if m.preferenceMode {
-		b.WriteString(m.renderPreferenceMenu())
-	} else if m.menuMode && m.selectedServer != nil {
-		b.WriteString(m.renderActionMenu())
-	} else {
-		b.WriteString(m.renderMCPMenu())
-	}
+	b.WriteString(m.renderMenu())
 	b.WriteString("\n")
 
 	// Help
-	var helpText string
-	if m.preferenceMode || m.menuMode {
-		helpText = "↑↓ navigate • enter select • esc cancel"
-	} else {
-		helpText = "↑↓ navigate • enter select • r refresh • esc back"
-	}
-	help := HelpStyle.Render(helpText)
-	b.WriteString(help)
+	b.WriteString(m.renderHelp())
 
 	return b.String()
+}
+
+func (m MCPServersModel) renderHeader() string {
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("135")). // Magenta for MCP
+		Bold(true)
+	return headerStyle.Render(fmt.Sprintf("MCP Servers • %d Servers", registry.MCPServerCount()))
+}
+
+func (m MCPServersModel) renderStatusBanner() string {
+	if m.loadError != "" {
+		return OutputErrorStyle.Render("Error: "+m.loadError) + "\n\n"
+	}
+	if m.lastActionMessage != "" {
+		style := OutputLineStyle
+		if m.lastActionError {
+			style = OutputErrorStyle
+		}
+		return style.Render(m.lastActionMessage) + "\n\n"
+	}
+	return ""
+}
+
+func (m MCPServersModel) renderMenu() string {
+	if m.preferenceMode {
+		return m.renderPreferenceMenu()
+	}
+	if m.menuMode && m.selectedServer != nil {
+		return m.renderActionMenu()
+	}
+	return m.renderMCPMenu()
+}
+
+func (m MCPServersModel) renderHelp() string {
+	if m.preferenceMode || m.menuMode {
+		return HelpStyle.Render("↑↓ navigate • enter select • esc cancel")
+	}
+	return HelpStyle.Render("↑↓ navigate • enter select • r refresh • esc back")
 }
 
 // renderServersTable renders the MCP servers status table with dual-CLI columns
