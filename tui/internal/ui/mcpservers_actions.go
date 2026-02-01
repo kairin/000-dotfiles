@@ -205,18 +205,10 @@ func (m *MCPServersModel) handleActionMenuSelection() (tea.Cmd, bool) {
 	m.resetActionMenu()
 
 	if strings.HasPrefix(action, "Install") {
-		if server != nil && (!server.AllPrerequisitesPassed() || !server.AllSecretsPresent()) {
-			return func() tea.Msg {
-				return MCPShowPrereqMsg{Server: server, Target: target}
-			}, false
-		}
-		return func() tea.Msg {
-			return MCPInstallServerMsg{Server: server, Target: target}
-		}, false
+		return m.handleInstallAction(server, target), false
 	}
-
 	if strings.HasPrefix(action, "Remove") {
-		return m.removeMCPServerFromTarget(server, target), false
+		return m.handleRemoveAction(server, target), false
 	}
 
 	return nil, false
@@ -231,6 +223,21 @@ func (m *MCPServersModel) moveMainCursor(delta int) {
 		return
 	}
 	m.cursor = shiftCursor(m.cursor, total, delta)
+}
+
+func (m *MCPServersModel) handleInstallAction(server *registry.MCPServer, target config.MCPCLITarget) tea.Cmd {
+	if server != nil && (!server.AllPrerequisitesPassed() || !server.AllSecretsPresent()) {
+		return func() tea.Msg {
+			return MCPShowPrereqMsg{Server: server, Target: target}
+		}
+	}
+	return func() tea.Msg {
+		return MCPInstallServerMsg{Server: server, Target: target}
+	}
+}
+
+func (m *MCPServersModel) handleRemoveAction(server *registry.MCPServer, target config.MCPCLITarget) tea.Cmd {
+	return m.removeMCPServerFromTarget(server, target)
 }
 
 func (m *MCPServersModel) handleMainMenuSelection() (tea.Cmd, bool) {
