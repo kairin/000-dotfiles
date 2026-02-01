@@ -30,7 +30,8 @@ setup_all() {
     echo "🔧 Setting up health checks test environment..."
 
     # Create test environment
-    export TEST_TEMP_DIR=$(mktemp -d)
+    TEST_TEMP_DIR=$(mktemp -d)
+export TEST_TEMP_DIR
     export TEST_LOG_DIR="$TEST_TEMP_DIR/logs"
     mkdir -p "$TEST_LOG_DIR"
 
@@ -176,19 +177,6 @@ test_daily_updates_script_exists() {
     echo "  ✅ PASS"
 }
 
-# Test: Update ghostty script exists
-test_update_ghostty_exists() {
-    ((TESTS_RUN++))
-    echo "  Testing: update_ghostty.sh exists"
-
-    # Assert
-    assert_file_exists "$SCRIPTS_DIR/update_ghostty.sh" \
-        "update_ghostty.sh should exist"
-
-    ((TESTS_PASSED++))
-    echo "  ✅ PASS"
-}
-
 # Test: Install node script exists for health checks
 test_install_node_exists() {
     ((TESTS_RUN++))
@@ -326,7 +314,6 @@ run_all_tests() {
     test_all_health_checks_executable || ((TESTS_FAILED++))
     test_health_checks_documented || ((TESTS_FAILED++))
     test_daily_updates_script_exists || ((TESTS_FAILED++))
-    test_update_ghostty_exists || ((TESTS_FAILED++))
     test_install_node_exists || ((TESTS_FAILED++))
     test_smart_commit_script_exists || ((TESTS_FAILED++))
     test_system_verification_scripts_exist || ((TESTS_FAILED++))

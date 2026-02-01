@@ -1,6 +1,6 @@
 # Daily Updates System
 
-Automated update management for all ghostty-config-files tools.
+Automated update management for all 000-dotfiles tools.
 
 ## Quick Start
 
@@ -76,7 +76,7 @@ This adds a cron entry:
 crontab -e
 
 # Add custom schedule (example: 6 AM on weekdays)
-0 6 * * 1-5 /home/kkk/Apps/ghostty-config-files/scripts/daily-updates.sh --non-interactive
+0 6 * * 1-5 /home/kkk/Apps/000-dotfiles/scripts/daily-updates.sh --non-interactive
 ```
 
 ### View Cron Logs
@@ -94,12 +94,10 @@ update-logs
 ### Automatic Backups
 
 Before applying updates, the system automatically backs up:
-- `~/.config/ghostty/` (Ghostty configuration)
 - `~/.zshrc` (ZSH configuration)
 - `~/.p10k.zsh` (Powerlevel10k configuration)
 - `~/.config/fastfetch/` (Fastfetch configuration)
 
-Backups are stored in `~/.config/ghostty-backups/`.
 
 ### Restore from Backup
 
@@ -108,10 +106,8 @@ Backups are stored in `~/.config/ghostty-backups/`.
 source scripts/006-logs/logger.sh
 
 # List available backups
-ls ~/.config/ghostty-backups/
 
 # Restore from specific backup
-restore_from_backup ~/.config/ghostty-backups/pre-update-20251115-090000
 ```
 
 ### Backup Retention
@@ -163,7 +159,6 @@ Updates are applied via reusing existing `scripts/004-reinstall/install_*.sh` sc
 
 | Tool | Install Script |
 |------|---------------|
-| Ghostty | `install_ghostty.sh` |
 | Fastfetch | `install_fastfetch.sh` |
 | Glow | `install_glow.sh` |
 | Go | `install_go.sh` |
@@ -198,7 +193,6 @@ ERROR: CI/CD validation failed
 **Solution**: Check the validation output. If critical, restore from backup:
 ```bash
 source scripts/006-logs/logger.sh
-restore_from_backup ~/.config/ghostty-backups/pre-update-YYYYMMDD-HHMMSS
 ```
 
 ### No Updates Detected

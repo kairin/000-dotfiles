@@ -91,7 +91,8 @@ cmd_convert() {
         return 1
     fi
 
-    local SELECTED=$(gum choose "${CAST_FILES[@]}" --header "Select recording to convert")
+    local SELECTED
+    SELECTED=$(gum choose "${CAST_FILES[@]}" --header "Select recording to convert")
     [[ -z "$SELECTED" ]] && return 0
 
     local BASE_NAME="${SELECTED%.cast}"

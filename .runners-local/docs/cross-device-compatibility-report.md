@@ -8,7 +8,7 @@
 
 ## 🎯 Executive Summary
 
-This report addresses the critical issue of local CI/CD infrastructure failing when the ghostty-config-files repository is cloned to different devices. The solution implements comprehensive health checking, automated prerequisite validation, and Context7 MCP integration for best practices verification.
+This report addresses the critical issue of local CI/CD infrastructure failing when the 000-dotfiles repository is cloned to different devices. The solution implements comprehensive health checking, automated prerequisite validation, and Context7 MCP integration for best practices verification.
 
 **Problem**: Local GitHub runners and CI/CD workflows fail on fresh clones due to missing prerequisites, incorrect environment configuration, and device-specific path dependencies.
 
@@ -25,7 +25,7 @@ This report addresses the critical issue of local CI/CD infrastructure failing w
 **Issue Severity**: 🔴 CRITICAL
 
 **Problems Identified**:
-1. **Repository path assumptions**: Documentation examples use `/home/kkk/Apps/ghostty-config-files/`
+1. **Repository path assumptions**: Documentation examples use `/home/kkk/Apps/000-dotfiles/`
 2. **Home directory references**: Self-hosted runner setup uses `$HOME/actions-runner` without validation
 3. **User-specific shell configs**: Environment variable loading hard-coded to specific paths
 
@@ -40,9 +40,9 @@ This report addresses the critical issue of local CI/CD infrastructure failing w
 REPO_DIR="$(git rev-parse --show-toplevel 2>/dev/null || dirname "$(dirname "$SCRIPT_DIR")")"
 
 # Shell config with dynamic path (user must update once)
-if [ -f "$HOME/path/to/ghostty-config-files/.env" ]; then
+if [ -f "$HOME/path/to/000-dotfiles/.env" ]; then
     set -a
-    source "$HOME/path/to/ghostty-config-files/.env"
+    source "$HOME/path/to/000-dotfiles/.env"
     set +a
 fi
 ```
@@ -235,13 +235,13 @@ claude mcp list               # Must show: context7 (connected), github (connect
 
 **File**: `docs-setup/new-device-setup.md`
 
-**Purpose**: Complete step-by-step guide for setting up ghostty-config-files repository on any device.
+**Purpose**: Complete step-by-step guide for setting up 000-dotfiles repository on any device.
 
 **Coverage**:
 1. **Fresh Ubuntu Install** (8-10 minutes)
    - One-command installation via `./start.sh`
    - Automatic prerequisite installation
-   - Complete Ghostty + AI tools setup
+   - Complete Developer + AI tools setup
 
 2. **Existing System Clone** (2-5 minutes)
    - Selective component installation
@@ -462,8 +462,8 @@ Total: 28 checks, 23 passed, 0 failed, 5 warnings
 **Test Scenario 1: Fresh Ubuntu Clone**
 ```bash
 # On NEW Ubuntu 25.10 machine:
-git clone https://github.com/kairin1/ghostty-config-files.git
-cd ghostty-config-files
+git clone https://github.com/kairin1/000-dotfiles.git
+cd 000-dotfiles
 ./.runners-local/workflows/health-check.sh --setup-guide
 
 # Expected:
@@ -476,8 +476,8 @@ cd ghostty-config-files
 **Test Scenario 2: Existing Developer System**
 ```bash
 # On machine with Node.js, git, but no gh CLI:
-git clone https://github.com/kairin1/ghostty-config-files.git ~/dev/ghostty
-cd ~/dev/ghostty
+git clone https://github.com/kairin1/000-dotfiles.git ~/dev/000-dotfiles
+cd ~/dev/000-dotfiles
 ./.runners-local/workflows/health-check.sh
 
 # Expected:
@@ -490,8 +490,8 @@ cd ~/dev/ghostty
 **Test Scenario 3: Multi-Device Sync**
 ```bash
 # On SECOND device (laptop):
-git clone https://github.com/kairin1/ghostty-config-files.git /opt/projects/ghostty
-cd /opt/projects/ghostty
+git clone https://github.com/kairin1/000-dotfiles.git /opt/projects/000-dotfiles
+cd /opt/projects/000-dotfiles
 ./.runners-local/workflows/health-check.sh
 
 # Copy .env from primary device OR regenerate API keys
@@ -499,9 +499,9 @@ cp /path/to/backup/.env .env
 
 # Update shell config with new path
 echo '
-if [ -f "/opt/projects/ghostty/.env" ]; then
+if [ -f "/opt/projects/000-dotfiles/.env" ]; then
     set -a
-    source "/opt/projects/ghostty/.env"
+    source "/opt/projects/000-dotfiles/.env"
     set +a
 fi' >> ~/.zshrc
 
@@ -564,8 +564,8 @@ Run health check on ANY device to validate prerequisites:
 
 ### Quick Setup
 ```bash
-git clone https://github.com/kairin1/ghostty-config-files.git
-cd ghostty-config-files
+git clone https://github.com/kairin1/000-dotfiles.git
+cd 000-dotfiles
 ./.runners-local/workflows/health-check.sh
 ```
 
@@ -644,7 +644,7 @@ The health check will identify missing components and generate setup instruction
 ### Current Device Validation (2025-11-17)
 
 **System**: Ubuntu (hostname: armaged)
-**Repository**: `/home/kkk/Apps/ghostty-config-files`
+**Repository**: `/home/kkk/Apps/000-dotfiles`
 
 **Results**:
 ```
@@ -740,7 +740,7 @@ env | grep CONTEXT7_API_KEY
 **Best Practice**:
 ```bash
 # ❌ WRONG: Hard-coded path
-REPO_DIR="/home/kkk/Apps/ghostty-config-files"
+REPO_DIR="/home/kkk/Apps/000-dotfiles"
 
 # ✅ CORRECT: Dynamic detection
 REPO_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -801,7 +801,7 @@ REPO_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 1. **Test on Fresh Ubuntu Clone** (Priority: HIGH)
    - Spin up new Ubuntu 25.10 VM
-   - Clone repository to different path (e.g., `/opt/projects/ghostty`)
+   - Clone repository to different path (e.g., `/opt/projects/000-dotfiles`)
    - Run health check and follow generated guide
    - Validate all 28 checks pass
    - Document any issues encountered
@@ -847,7 +847,7 @@ REPO_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 ## 📝 Conclusion
 
-This solution comprehensively addresses the cross-device local CI/CD compatibility issues identified in the ghostty-config-files repository. The implementation provides:
+This solution comprehensively addresses the cross-device local CI/CD compatibility issues identified in the 000-dotfiles repository. The implementation provides:
 
 1. **Automated Health Checking**: 28 comprehensive validation points across 6 categories
 2. **Guided Setup**: Device-specific setup instructions generated automatically
@@ -867,5 +867,5 @@ This solution comprehensively addresses the cross-device local CI/CD compatibili
 **Report Author**: Claude Code (AI Assistant)
 **Date**: 2025-11-17
 **Version**: 1.0
-**Repository**: ghostty-config-files
+**Repository**: 000-dotfiles
 **Branch**: main

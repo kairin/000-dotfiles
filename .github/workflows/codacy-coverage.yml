@@ -1,0 +1,45 @@
+name: Codacy Coverage
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    env:
+      CODACY_API_TOKEN: ${{ secrets.CODACY_API_TOKEN }}
+      CODACY_ORGANIZATION_PROVIDER: gh
+      CODACY_USERNAME: kairin
+      CODACY_PROJECT_NAME: 000-dotfiles
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache: true
+
+      - name: Run Go tests with coverage
+        working-directory: tui
+        run: go test ./... -coverprofile=../coverage.out
+
+      - name: Upload coverage to Codacy
+        if: env.CODACY_API_TOKEN != ''
+        run: |
+          if [ ! -s coverage.out ] || [ "$(wc -l < coverage.out)" -le 1 ]; then
+            echo "No coverage data to upload; skipping."
+            exit 0
+          fi
+          if ! grep -qE '^[^:]+\\.go:' coverage.out; then
+            echo "Coverage report has no Go file entries; skipping."
+            exit 0
+          fi
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) report -l Go -r coverage.out

@@ -10,7 +10,6 @@
 #
 # Example:
 #   generate_manifest.sh feh 3.11.2 source "curl verscmp xinerama"
-#   generate_manifest.sh ghostty 1.2.3 source
 #   generate_manifest.sh gum 0.14.0 go-install
 # =============================================================================
 
@@ -42,7 +41,9 @@ main() {
     if [ ! -f "$def_file" ]; then
         log "ERROR" "Artifact definition not found: $def_file"
         log "INFO" "Available tools:"
-        ls -1 "$ARTIFACT_DEFS_DIR"/*.artifacts 2>/dev/null | xargs -I{} basename {} .artifacts | sed 's/^/  - /'
+        find "$ARTIFACT_DEFS_DIR" -maxdepth 1 -name "*.artifacts" -print0 2>/dev/null \
+            | xargs -0 -I{} basename "{}" .artifacts \
+            | sed 's/^/  - /'
         exit 1
     fi
 
@@ -53,9 +54,6 @@ main() {
         case "$tool_name" in
             feh)
                 version=$(feh --version 2>/dev/null | head -1 | grep -oP '\d+\.\d+\.\d+' || echo "unknown")
-                ;;
-            ghostty)
-                version=$(ghostty --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+' || echo "unknown")
                 ;;
             gum)
                 version=$(gum --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+' || echo "unknown")

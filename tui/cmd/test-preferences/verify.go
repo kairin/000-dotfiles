@@ -1,3 +1,6 @@
+//go:build ignore
+// +build ignore
+
 package main
 
 import (
@@ -13,7 +16,7 @@ func main() {
 	store := config.NewPreferenceStore()
 
 	// Save a preference
-	err := store.SetGhosttyMethod(registry.MethodSource)
+	err := store.SetToolMethod("feh", registry.MethodSource)
 	if err != nil {
 		log.Fatalf("Failed to save: %v", err)
 	}

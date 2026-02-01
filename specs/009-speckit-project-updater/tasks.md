@@ -53,7 +53,7 @@
 ### Config Persistence (tui/internal/speckit/config.go)
 
 - [X] T012 Create tui/internal/speckit/config.go with package declaration
-- [X] T013 Implement getConfigPath() returning ~/.config/ghostty-installer/speckit-projects.json
+- [X] T013 Implement getConfigPath() returning ~/.config/dotfiles-installer/speckit-projects.json
 - [X] T014 Implement LoadConfig() (JSON load, returns *ProjectConfig, creates empty if missing)
 - [X] T015 Implement SaveConfig(*ProjectConfig) (JSON save with indentation)
 - [X] T016 Implement AddProject(path string) (validates .specify/ exists, adds to config)

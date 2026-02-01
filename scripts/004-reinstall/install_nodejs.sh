@@ -67,10 +67,12 @@ if [ -f "$HOME/.bashrc" ]; then SHELL_CONFIG="$HOME/.bashrc"; fi
 
 if ! grep -q "fnm env" "$SHELL_CONFIG"; then
     log "INFO" "Adding fnm to $SHELL_CONFIG..."
-    echo '' >> "$SHELL_CONFIG"
-    echo '# fnm' >> "$SHELL_CONFIG"
-    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$SHELL_CONFIG"
-    echo 'eval "$(fnm env --use-on-cd)"' >> "$SHELL_CONFIG"
+    {
+        printf '\n'
+        printf '%s\n' '# fnm'
+        printf '%s\n' "export PATH=\"\$HOME/.local/bin:\$PATH\""
+        printf '%s\n' "eval \"\$(fnm env --use-on-cd)\""
+    } >> "$SHELL_CONFIG"
 fi
 
 # ==============================================================================
@@ -79,14 +81,16 @@ fi
 log "INFO" "Verifying PATH configuration..."
 
 # Ensure ~/.local/bin is in PATH for future sessions
-if ! grep -q 'export PATH="\$HOME/.local/bin' "$SHELL_CONFIG"; then
-    log "WARNING" "~/.local/bin not explicitly in PATH, ensuring it's added..."
-    # Check if it's in a ghostty-config block (from configure_zsh.sh)
-    if ! grep -q 'ghostty-config:local-bin' "$SHELL_CONFIG"; then
-        echo '' >> "$SHELL_CONFIG"
-        echo '# Ensure ~/.local/bin is in PATH' >> "$SHELL_CONFIG"
-        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$SHELL_CONFIG"
-        log "SUCCESS" "Added ~/.local/bin to PATH in $SHELL_CONFIG"
+if ! grep -q "export PATH=\"\\$HOME/.local/bin" "$SHELL_CONFIG"; then
+    log "WARNING" "$HOME/.local/bin not explicitly in PATH, ensuring it's added..."
+    # Check if it's in a dotfiles-config block (from configure_zsh.sh)
+    if ! grep -q 'dotfiles-config:local-bin' "$SHELL_CONFIG"; then
+        {
+            printf '\n'
+            printf '%s\n' '# Ensure ~/.local/bin is in PATH'
+            printf '%s\n' "export PATH=\"\$HOME/.local/bin:\$PATH\""
+        } >> "$SHELL_CONFIG"
+        log "SUCCESS" "Added $HOME/.local/bin to PATH in $SHELL_CONFIG"
     fi
 fi
 

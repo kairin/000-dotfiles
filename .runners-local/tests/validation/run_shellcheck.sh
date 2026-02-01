@@ -50,7 +50,8 @@ check_shellcheck() {
         return 1
     fi
 
-    local version=$(shellcheck --version | grep "version:" | awk '{print $2}')
+    local version
+    version=$(shellcheck --version | grep "version:" | awk '{print $2}')
     echo "✅ ShellCheck installed (version $version)"
     return 0
 }
@@ -87,7 +88,9 @@ check_file() {
     else
         echo -e "  ${RED}✗${NC} $(basename "$file")"
         if [[ $show_output -eq 1 ]]; then
-            echo "$output" | sed 's/^/    /'
+            while IFS= read -r line; do
+                printf '    %s\n' "$line"
+            done <<< "$output"
         fi
         return 1
     fi
@@ -112,7 +115,8 @@ check_directory() {
     echo "📂 $dir_name"
     echo "────────────────────────────────────────────────────────"
 
-    local scripts=$(find_bash_scripts "$dir")
+    local scripts
+    scripts=$(find_bash_scripts "$dir")
 
     if [[ -z "$scripts" ]]; then
         echo -e "${YELLOW}⚠${NC} No bash scripts found"
@@ -144,7 +148,8 @@ check_directory() {
 detailed_check() {
     local dir="$1"
 
-    local scripts=$(find_bash_scripts "$dir")
+    local scripts
+    scripts=$(find_bash_scripts "$dir")
     [[ -z "$scripts" ]] && return 0
 
     echo ""

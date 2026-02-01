@@ -142,7 +142,9 @@ main() {
         echo "Usage: verify_manifest.sh <tool_name> [--verbose]" >&2
         echo "" >&2
         echo "Available tools:" >&2
-        ls -1 "$ARTIFACT_DEFS_DIR"/*.artifacts 2>/dev/null | xargs -I{} basename {} .artifacts | sed 's/^/  /' >&2
+        find "$ARTIFACT_DEFS_DIR" -maxdepth 1 -name "*.artifacts" -print0 2>/dev/null \
+            | xargs -0 -I{} basename "{}" .artifacts \
+            | sed 's/^/  /' >&2
         exit 5
     fi
 

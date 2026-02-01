@@ -23,10 +23,10 @@ func main() {
 	fmt.Printf("Desktop Environment: %s\n", sysInfo.DesktopEnv)
 	fmt.Printf("Summary: %s\n\n", sysInfo.GetSystemSummary())
 
-	// Get recommendation for Ghostty installation
-	recommendation := detector.RecommendGhosttyMethod(sysInfo)
+	// Get generic installation method recommendation
+	recommendation := detector.RecommendInstallMethod("generic", sysInfo)
 
-	fmt.Println("=== Ghostty Installation Recommendation ===")
+	fmt.Println("=== Installation Method Recommendation ===")
 	fmt.Printf("Recommended Method: %s\n", recommendation.Method)
 	fmt.Printf("Reason: %s\n", recommendation.Reason)
 	fmt.Printf("Estimated Time: %s\n", recommendation.EstimatedTime)

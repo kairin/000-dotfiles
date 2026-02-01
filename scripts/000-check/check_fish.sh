@@ -29,7 +29,7 @@ if command -v fish &> /dev/null; then
     FISH_PLUGINS_FILE="$HOME/.config/fish/fish_plugins"
     if [ -f "$FISH_PLUGINS_FILE" ]; then
         # Count non-empty, non-comment lines
-        PLUGIN_COUNT=$(grep -v '^#' "$FISH_PLUGINS_FILE" | grep -v '^$' | wc -l)
+        PLUGIN_COUNT=$(grep -cEv '^(#|$)' "$FISH_PLUGINS_FILE")
     fi
 
     # Check for Tide theme

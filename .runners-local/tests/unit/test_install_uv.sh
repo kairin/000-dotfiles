@@ -199,8 +199,10 @@ test_examples_readme_exists() {
 # Test: Module execution time <10s (constitutional requirement)
 #######################################
 test_execution_time_under_10s() {
-    local test_end_time=$(date +%s)
-    local execution_time=$((test_end_time - TEST_START_TIME))
+    local test_end_time
+    test_end_time=$(date +%s)
+    local execution_time
+    execution_time=$((test_end_time - TEST_START_TIME))
 
     if [[ ${execution_time} -lt 10 ]]; then
         assert_equals "1" "1" "Test execution time under 10 seconds (${execution_time}s)"

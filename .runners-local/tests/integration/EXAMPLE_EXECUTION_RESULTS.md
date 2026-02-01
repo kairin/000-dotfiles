@@ -313,7 +313,6 @@ Running integration test cases...
   ✅ PASS
   Testing: daily-updates.sh exists
   ✅ PASS
-  Testing: update_ghostty.sh exists
   ✅ PASS
   Testing: install_node.sh exists
   ✅ PASS
@@ -371,7 +370,6 @@ Running integration test cases...
   ✅ PASS
   Testing: daily-updates.sh exists
   ✅ PASS
-  Testing: update_ghostty.sh exists
   ✅ PASS
   Testing: Verification utilities exist for update validation
   ✅ PASS
@@ -383,7 +381,6 @@ Running integration test cases...
   ✅ PASS
   Testing: Update logs directory exists
   ✅ PASS
-  Testing: install_ghostty_config.sh exists
   ✅ PASS
   Testing: Update workflow is documented
   ✅ PASS

@@ -58,16 +58,6 @@ fi
 
 # 4. Configuration validation (BLOCKING if config changed)
 if git diff --cached --name-only | grep -q "config"; then
-    if command -v ghostty &> /dev/null; then
-        if ! ghostty +show-config > /dev/null 2>&1; then
-            echo "🚨 BLOCKING: Ghostty configuration invalid"
-            echo "Run 'ghostty +show-config' to see errors"
-            exit 1
-        fi
-        echo "✓ Ghostty configuration valid"
-    else
-        echo "⚠️ WARNING: ghostty command not found, skipping config validation"
-    fi
 fi
 
 echo "✅ All constitutional compliance checks passed"

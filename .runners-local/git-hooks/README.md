@@ -1,6 +1,6 @@
 # Constitutional Compliance Git Hooks
 
-This directory contains Git hooks that enforce constitutional compliance requirements for the ghostty-config-files repository.
+This directory contains Git hooks that enforce constitutional compliance requirements for the 000-dotfiles repository.
 
 ## Available Hooks
 
@@ -9,7 +9,6 @@ Validates before each commit:
 - AGENTS.md size (must be <40KB)
 - Symlink integrity (CLAUDE.md, GEMINI.md)
 - docs/.nojekyll file existence (critical for GitHub Pages)
-- Ghostty configuration validity (if config files changed)
 
 **Blocking conditions**: Size violation, config invalid
 **Auto-repair**: Symlinks, .nojekyll creation

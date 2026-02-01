@@ -126,6 +126,11 @@ main() {
     log "INFO" "Installing Google Antigravity..."
     log "INFO" "Using official APT repository method from https://antigravity.google/download/linux"
 
+    if check_existing_apt_install; then
+        log "SUCCESS" "Google Antigravity already installed"
+        exit 0
+    fi
+
     # Check if repository already exists and is configured
     if [[ -f "$SOURCES_LIST" ]] && [[ -f "$KEYRING_FILE" ]]; then
         log "INFO" "APT repository already configured, skipping setup"

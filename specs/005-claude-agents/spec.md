@@ -9,7 +9,7 @@
 
 ### User Story 1 - Fresh System Setup (Priority: P1)
 
-A developer clones the ghostty-config-files repository on a new computer and wants all 65 Claude Code agents available for use across all projects on that system.
+A developer clones the 000-dotfiles repository on a new computer and wants all 65 Claude Code agents available for use across all projects on that system.
 
 **Why this priority**: This is the primary use case - enabling cross-computer portability of Claude Code configuration. Without this, users must manually configure agents on each machine.
 

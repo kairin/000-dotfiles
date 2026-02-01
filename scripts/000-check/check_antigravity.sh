@@ -10,7 +10,7 @@ log "INFO" "Checking for Google Antigravity installation..."
 
 # Get latest available version from APT (with caching)
 get_antigravity_latest() {
-    local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ghostty-checks"
+    local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles-checks"
     local cache_file="${cache_dir}/antigravity_latest.txt"
     local cache_ttl=3600  # 1 hour
 

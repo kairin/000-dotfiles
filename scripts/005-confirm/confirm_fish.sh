@@ -46,7 +46,7 @@ log "INFO" "[3/6] Checking installed plugins..."
 
 FISH_PLUGINS_FILE="$FISH_CONFIG_DIR/fish_plugins"
 if [ -f "$FISH_PLUGINS_FILE" ]; then
-    PLUGIN_COUNT=$(grep -v '^#' "$FISH_PLUGINS_FILE" | grep -v '^$' | wc -l)
+    PLUGIN_COUNT=$(grep -cEv '^(#|$)' "$FISH_PLUGINS_FILE")
     log "SUCCESS" "$PLUGIN_COUNT plugins installed"
 
     # List key plugins

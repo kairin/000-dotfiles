@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# GitHub CLI-based local workflow simulation for ghostty-config-files
+# GitHub CLI-based local workflow simulation for 000-dotfiles
 # This script provides zero-cost local CI/CD capabilities
 
 set -euo pipefail
@@ -26,7 +26,8 @@ log() {
     local level="$1"
     shift
     local message="$*"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local color=""
 
     case "$level" in
@@ -74,7 +75,8 @@ start_timer() {
 end_timer() {
     local operation="$1"
     if [ -n "$TIMER_START" ]; then
-        local duration=$(($(date +%s) - TIMER_START))
+        local duration
+        duration=$(($(date +%s) - TIMER_START))
         log "INFO" "⏱️ $operation completed in ${duration}s"
         echo "{\"timestamp\":\"$(date -Iseconds)\",\"operation\":\"$operation\",\"duration\":\"${duration}s\"}" >> "$LOG_DIR/performance-$(date +%s).json"
         unset TIMER_START
@@ -83,52 +85,14 @@ end_timer() {
 
 # Configuration validation
 validate_config() {
-    log "STEP" "🔧 Validating Ghostty configuration..."
+    log "STEP" "🔧 Validating configuration..."
     start_timer
-
-    if command -v ghostty >/dev/null 2>&1; then
-        if ghostty +show-config >/dev/null 2>&1; then
-            log "SUCCESS" "✅ Ghostty configuration is valid"
-
-            # Check for 2025 optimizations
-            local config_file="$HOME/.config/ghostty/config"
-            if [ -f "$config_file" ]; then
-                local optimizations_found=0
-
-                if grep -q "linux-cgroup.*single-instance" "$config_file"; then
-                    log "SUCCESS" "✅ CGroup single-instance optimization found"
-                    optimizations_found=$((optimizations_found + 1))
-                fi
-
-                if grep -q "shell-integration.*detect" "$config_file"; then
-                    log "SUCCESS" "✅ Enhanced shell integration found"
-                    optimizations_found=$((optimizations_found + 1))
-                else
-                    log "INFO" "ℹ️ Enhanced shell integration not found"
-                fi
-
-                if grep -q "clipboard-paste-protection" "$config_file"; then
-                    log "SUCCESS" "✅ Clipboard paste protection found"
-                    optimizations_found=$((optimizations_found + 1))
-                else
-                    log "INFO" "ℹ️ Clipboard paste protection not found"
-                fi
-
-                log "INFO" "📊 Found $optimizations_found/3 2025 optimizations"
-            fi
-        else
-            log "ERROR" "❌ Ghostty configuration validation failed"
-            end_timer "Configuration validation"
-            return 1
-        fi
-    else
-        log "WARNING" "⚠️ Ghostty not found, skipping configuration validation"
-    fi
 
     # ShellCheck validation (Context7 Best Practice)
     log "INFO" "🔍 Running ShellCheck validation on shell scripts..."
     if command -v shellcheck >/dev/null 2>&1; then
-        local shellcheck_log="$LOG_DIR/shellcheck-$(date +%s).log"
+        local shellcheck_log
+        shellcheck_log="$LOG_DIR/shellcheck-$(date +%s).log"
         local total_scripts=0
         local passed_scripts=0
         local failed_scripts=0
@@ -161,7 +125,8 @@ validate_config() {
         log "INFO" "🔒 Running npm security audit..."
 
         if command -v npm >/dev/null 2>&1; then
-            local npm_audit_log="$LOG_DIR/npm-audit-$(date +%s).log"
+            local npm_audit_log
+            npm_audit_log="$LOG_DIR/npm-audit-$(date +%s).log"
 
             # Run npm audit and capture results
             if npm audit --production --json > "$npm_audit_log" 2>&1; then
@@ -202,7 +167,7 @@ validate_icons() {
     local issues=0
     local fixes_applied=0
 
-    # Check system icon directory (if Ghostty installed system-wide)
+    # Check system icon directory
     if [ -d "$system_dir" ]; then
         log "INFO" "Checking system icon directory: $system_dir"
 
@@ -361,7 +326,8 @@ validate_context7() {
         log "INFO" "🔍 Validating Astro configuration..."
 
         # Create temporary file for Context7 query
-        local temp_query=$(mktemp)
+        local temp_query
+        temp_query=$(mktemp)
         CLEANUP_NEEDED=1  # Signal cleanup to run
         cat > "$temp_query" <<'EOF'
 Review this Astro configuration for GitHub Pages deployment best practices. Check for:
@@ -388,7 +354,8 @@ EOF
     if [ -f "$REPO_DIR/package.json" ]; then
         log "INFO" "🔍 Validating package.json..."
 
-        local temp_query=$(mktemp)
+        local temp_query
+        temp_query=$(mktemp)
         cat > "$temp_query" <<'EOF'
 Review this package.json for Node.js and npm best practices. Check for:
 1. Proper dependency organization (dependencies vs devDependencies)
@@ -411,7 +378,8 @@ EOF
     if [ -f "$REPO_DIR/documentations/developer/guides/documentation-strategy.md" ]; then
         log "INFO" "🔍 Validating documentation structure..."
 
-        local temp_query=$(mktemp)
+        local temp_query
+        temp_query=$(mktemp)
         cat > "$temp_query" <<'EOF'
 Review this documentation strategy for completeness and best practices. Check for:
 1. Clear tier separation (docs/, website/src/, documentations/)
@@ -434,7 +402,8 @@ EOF
     if [ -f "$REPO_DIR/AGENTS.md" ]; then
         log "INFO" "🔍 Validating AGENTS.md MCP compliance..."
 
-        local temp_query=$(mktemp)
+        local temp_query
+        temp_query=$(mktemp)
         cat > "$temp_query" <<'EOF'
 Review this AGENTS.md file for MCP (Model Context Protocol) best practices. Check for:
 1. Clear command examples with expected outputs
@@ -454,7 +423,8 @@ EOF
     fi
 
     # Summary
-    local validation_count=$(find "$LOG_DIR" -name "context7-*-$(date +%s).log" 2>/dev/null | wc -l)
+    local validation_count
+    validation_count=$(find "$LOG_DIR" -name "context7-*-$(date +%s).log" 2>/dev/null | wc -l)
     if [ "$validation_count" -gt 0 ]; then
         log "SUCCESS" "✅ Completed $validation_count Context7 validations"
         log "INFO" "📊 Review detailed reports in: $LOG_DIR/context7-*.log"
@@ -478,7 +448,7 @@ simulate_build() {
 
         # Check dependencies
         local deps_ok=true
-        for cmd in ghostty node npm; do
+        for cmd in node npm; do
             if ! command -v "$cmd" >/dev/null 2>&1; then
                 log "WARNING" "⚠️ $cmd not found"
                 deps_ok=false
@@ -638,7 +608,8 @@ check_billing() {
 
         # Only compute numeric percentage when both values are integers
         if [[ "$minutes_used" =~ ^[0-9]+$ ]] && [[ "$included_minutes" =~ ^[0-9]+$ ]] && [ "$included_minutes" -ne 0 ]; then
-            local usage_percent=$((minutes_used * 100 / included_minutes))
+            local usage_percent
+            usage_percent=$((minutes_used * 100 / included_minutes))
             if [ $usage_percent -gt 80 ]; then
                 log "WARNING" "⚠️ High GitHub Actions usage: ${usage_percent}%"
             else
@@ -699,7 +670,8 @@ simulate_pages() {
 run_complete_workflow() {
     log "INFO" "🚀 Starting complete local workflow..."
 
-    local overall_start=$(date +%s)
+    local overall_start
+    overall_start=$(date +%s)
     local failed_steps=0
 
     # Run all workflow steps
@@ -713,7 +685,8 @@ run_complete_workflow() {
     check_billing || ((failed_steps++))
     simulate_pages || ((failed_steps++))
 
-    local overall_duration=$(($(date +%s) - overall_start))
+    local overall_duration
+    overall_duration=$(($(date +%s) - overall_start))
 
     if [ $failed_steps -eq 0 ]; then
         log "SUCCESS" "🎉 Complete workflow successful in ${overall_duration}s"
@@ -738,39 +711,36 @@ init_infrastructure() {
         log "INFO" "📊 Creating performance monitor script..."
         cat > "$SCRIPT_DIR/performance-monitor.sh" << 'EOF'
 #!/bin/bash
-# Performance monitoring for Ghostty
-echo "📊 Monitoring Ghostty performance..."
+# Performance monitoring for system metrics
+echo "📊 Monitoring system performance..."
 
 monitor_performance() {
     local test_mode="$1"
-    local log_dir="$(dirname "$0")/../logs"
+    local log_dir
+    log_dir="$(dirname "$0")/../logs"
 
-    # Startup time measurement
-    if command -v ghostty >/dev/null 2>&1; then
-        local startup_time
-        startup_time=$(time (ghostty --version >/dev/null 2>&1) 2>&1 | grep real | awk '{print $2}' || echo "0m0.000s")
+    local loadavg
+    loadavg=$(awk '{print $1" "$2" "$3}' /proc/loadavg 2>/dev/null || echo "unknown")
+    local mem_available_kb
+    mem_available_kb=$(awk '/MemAvailable/ {print $2}' /proc/meminfo 2>/dev/null || echo "unknown")
+    local root_available
+    root_available=$(df -h / 2>/dev/null | awk 'NR==2 {print $4}' || echo "unknown")
 
-        # Configuration load time
-        local config_time
-        config_time=$(time (ghostty +show-config >/dev/null 2>&1) 2>&1 | grep real | awk '{print $2}' || echo "0m0.000s")
-
-        # Store results
-        cat > "$log_dir/performance-$(date +%s).json" << EOL
+    cat > "$log_dir/performance-$(date +%s).json" << EOL
 {
     "timestamp": "$(date -Iseconds)",
-    "startup_time": "$startup_time",
-    "config_load_time": "$config_time",
     "test_mode": "$test_mode",
-    "optimizations": {
-        "cgroup_single_instance": $(grep -q "linux-cgroup.*single-instance" ~/.config/ghostty/config 2>/dev/null && echo "true" || echo "false"),
-        "shell_integration_detect": $(grep -q "shell-integration.*detect" ~/.config/ghostty/config 2>/dev/null && echo "true" || echo "false")
+    "system": {
+        "hostname": "$(hostname)",
+        "kernel": "$(uname -r)",
+        "uptime": "$(uptime -p 2>/dev/null || echo 'unknown')",
+        "loadavg": "$loadavg",
+        "mem_available_kb": "$mem_available_kb",
+        "root_available": "$root_available"
     }
 }
 EOL
-        echo "✅ Performance data collected"
-    else
-        echo "⚠️ Ghostty not found for performance testing"
-    fi
+    echo "✅ Performance data collected"
 }
 
 case "$1" in
@@ -789,7 +759,7 @@ EOF
         log "INFO" "📄 Creating Astro GitHub Pages setup script..."
         cat > "$SCRIPT_DIR/gh-pages-setup.sh" << 'EOF'
 #!/bin/bash
-# Astro GitHub Pages setup for ghostty-config-files
+# Astro GitHub Pages setup for 000-dotfiles
 echo "📄 Setting up zero-cost GitHub Pages with Astro..."
 
 REPO_DIR="$(dirname "$(dirname "$(dirname "$0")")")"
@@ -849,7 +819,7 @@ show_help() {
     echo "Commands:"
     echo "  init        Initialize local CI/CD infrastructure"
     echo "  local       Run complete local workflow simulation"
-    echo "  validate    Validate Ghostty configuration"
+    echo "  validate    Validate configuration"
     echo "  icons       Validate and auto-fix desktop icon integration"
     echo "  context7    Validate with Context7 MCP best practices (Priority 3)"
     echo "  test        Run performance tests"
@@ -864,7 +834,7 @@ show_help() {
     echo "Examples:"
     echo "  $0 init     # Initialize local CI/CD infrastructure"
     echo "  $0 all      # Run complete local workflow with Context7 validation"
-    echo "  $0 validate # Only validate Ghostty configuration"
+    echo "  $0 validate # Only validate configuration"
     echo "  $0 context7 # Only validate with Context7 MCP"
     echo ""
     echo "Context7 MCP Integration:"

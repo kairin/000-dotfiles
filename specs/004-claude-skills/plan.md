@@ -5,7 +5,7 @@
 
 ## Summary
 
-Create 4 Claude Code slash command skills (`/health-check`, `/deploy-site`, `/git-sync`, `/full-workflow`) that wrap existing local CI/CD infrastructure. Skills are markdown files with YAML frontmatter defining handoffs and instructions. Project detection enables full features in ghostty-config-files and basic features elsewhere.
+Create 4 Claude Code slash command skills (`/health-check`, `/deploy-site`, `/git-sync`, `/full-workflow`) that wrap existing local CI/CD infrastructure. Skills are markdown files with YAML frontmatter defining handoffs and instructions. Project detection enables full features in 000-dotfiles and basic features elsewhere.
 
 ## Technical Context
 
@@ -45,7 +45,6 @@ Create 4 Claude Code slash command skills (`/health-check`, `/deploy-site`, `/gi
 | Requirement | Status | Evidence |
 |-------------|--------|----------|
 | Run local CI/CD before commits | PASS | `/full-workflow` enforces this (FR-041, FR-042) |
-| Validate Ghostty configuration | PASS | Health check validates environment |
 | Zero GitHub Actions cost | PASS | All validation runs locally |
 
 ### IV. Modularity Limits

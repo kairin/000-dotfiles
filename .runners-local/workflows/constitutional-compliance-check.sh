@@ -90,31 +90,15 @@ if [ "$HOOKS_INSTALLED" = false ]; then
 fi
 echo "" | tee -a "$REPORT_FILE"
 
-# 6. Configuration Validation
-echo "## 6. Ghostty Configuration" | tee -a "$REPORT_FILE"
-if command -v ghostty &> /dev/null; then
-    if ghostty +show-config > /dev/null 2>&1; then
-        echo "✓ Ghostty configuration valid" | tee -a "$REPORT_FILE"
-    else
-        echo "✗ Ghostty configuration invalid" | tee -a "$REPORT_FILE"
-        ERRORS=$((ERRORS + 1))
-        OVERALL_STATUS="CRITICAL"
-    fi
-else
-    echo "⚠️ ghostty command not found, skipping validation" | tee -a "$REPORT_FILE"
-    WARNINGS=$((WARNINGS + 1))
-fi
-echo "" | tee -a "$REPORT_FILE"
-
-# 7. Branch Count (should only increase)
-echo "## 7. Branch Preservation" | tee -a "$REPORT_FILE"
-LOCAL_BRANCHES=$(git branch -a | grep -v HEAD | wc -l)
+# 6. Branch Count (should only increase)
+echo "## 6. Branch Preservation" | tee -a "$REPORT_FILE"
+LOCAL_BRANCHES=$(git branch -a | grep -c -v HEAD)
 echo "Total branches: $LOCAL_BRANCHES" | tee -a "$REPORT_FILE"
 echo "ℹ️ Branch count should only increase (preservation policy)" | tee -a "$REPORT_FILE"
 echo "" | tee -a "$REPORT_FILE"
 
-# 8. Recent Commit Compliance
-echo "## 8. Recent Commit Compliance" | tee -a "$REPORT_FILE"
+# 7. Recent Commit Compliance
+echo "## 7. Recent Commit Compliance" | tee -a "$REPORT_FILE"
 LATEST_COMMIT_MSG=$(git log -1 --pretty=%B)
 if echo "$LATEST_COMMIT_MSG" | grep -q "Co-Authored-By:"; then
     echo "✓ Latest commit has co-authorship" | tee -a "$REPORT_FILE"

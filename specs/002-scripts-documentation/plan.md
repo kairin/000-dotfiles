@@ -100,7 +100,6 @@ scripts/007-diagnostics/README.md           # P4: Boot diagnostics documentation
 ### 000-check - Detection Scripts
 | Script | Purpose |
 |--------|---------|
-| check_ghostty.sh | Detect Ghostty installation method |
 | ...
 
 [Continue for all stages]
@@ -152,7 +151,6 @@ Scripts for updating installed tools to latest versions.
 
 | Script | Tool | Method |
 |--------|------|--------|
-| update_ghostty.sh | Ghostty | snap refresh or source rebuild |
 | update_nodejs.sh | Node.js | fnm install latest |
 | ... (12 total)
 
@@ -169,7 +167,6 @@ Scripts for updating installed tools to latest versions.
 ```
 
 ## Logging
-- Logs written to: `~/.local/share/ghostty-updates/logs/`
 - View logs: `update-logs` alias
 
 ## Troubleshooting

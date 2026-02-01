@@ -128,7 +128,6 @@ main() {
 
     # Core tools
     check_tool "Feh" "feh"
-    check_tool "Ghostty" "ghostty"
     check_tool "Nerd Fonts" "nerdfonts"
     check_tool "Node.js" "nodejs"
     check_tool "Local AI Tools" "ai_tools"

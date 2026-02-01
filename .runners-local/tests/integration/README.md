@@ -177,7 +177,6 @@ The integration test suite provides end-to-end validation of core project compon
 - check_github_mcp_health.sh exists and is executable
 - health_dashboard.sh exists
 - daily-updates.sh exists
-- update_ghostty.sh exists
 - install_node.sh exists
 - package_migration.sh exists
 - audit_packages.sh exists
@@ -208,13 +207,11 @@ The integration test suite provides end-to-end validation of core project compon
 **What It Validates**:
 - check_updates.sh exists and is executable
 - daily-updates.sh exists and is executable
-- update_ghostty.sh exists and is executable
 - Backup utilities exist for update recovery
 - Common utilities are available
 - Node.js installation script exists
 - package_migration.sh exists
 - Update logs directory exists
-- Ghostty config installation script exists
 - Update workflow is documented
 - Configuration backup strategy is in place
 - Update status monitoring is available

@@ -53,10 +53,13 @@ test_sc_001_shell_startup_time() {
     echo "  SC-001: Shell startup time < 50ms"
 
     # Measure bash startup time
-    local start_time=$(date +%s%N)
+    local start_time
+    start_time=$(date +%s%N)
     bash -c ":" 2>/dev/null
-    local end_time=$(date +%s%N)
-    local elapsed_ms=$(( (end_time - start_time) / 1000000 ))
+    local end_time
+    end_time=$(date +%s%N)
+    local elapsed_ms
+    elapsed_ms=$(( (end_time - start_time) / 1000000 ))
 
     echo "    Measured: ${elapsed_ms}ms (target: <50ms)"
 
@@ -72,29 +75,6 @@ test_sc_001_shell_startup_time() {
     fi
 }
 
-# SC-002: Frame rendering < 50ms
-test_sc_002_frame_rendering() {
-    ((TESTS_RUN++))
-    echo "  SC-002: Frame rendering < 50ms"
-
-    # This is tested during actual Ghostty usage
-    # For integration test, verify Ghostty can start quickly
-    if command -v ghostty >/dev/null 2>&1; then
-        local start_time=$(date +%s%N)
-        ghostty --version >/dev/null 2>&1 || true
-        local end_time=$(date +%s%N)
-        local elapsed_ms=$(( (end_time - start_time) / 1000000 ))
-
-        echo "    Ghostty version check: ${elapsed_ms}ms"
-
-        ((TESTS_PASSED++))
-        echo "  ✅ PASS: Ghostty responsive"
-    else
-        log_warn "Ghostty not installed - skipping SC-002"
-        ((TESTS_PASSED++))
-    fi
-}
-
 # SC-003: Module test execution < 10s
 test_sc_003_module_test_execution() {
     ((TESTS_RUN++))
@@ -104,10 +84,13 @@ test_sc_003_module_test_execution() {
     local test_script="${PROJECT_ROOT}/.runners-local/tests/unit/test_common_utils.sh"
 
     if [[ -f "$test_script" ]]; then
-        local start_time=$(date +%s)
+        local start_time
+        start_time=$(date +%s)
         bash "$test_script" >/dev/null 2>&1 || true
-        local end_time=$(date +%s)
-        local elapsed_s=$((end_time - start_time))
+        local end_time
+        end_time=$(date +%s)
+        local elapsed_s
+        elapsed_s=$((end_time - start_time))
 
         echo "    Sample module test: ${elapsed_s}s (target: <10s)"
 
@@ -134,7 +117,8 @@ test_sc_010_one_command_setup() {
     assert_true "[[ -x \"${PROJECT_ROOT}/start.sh\" ]]" "start.sh should be executable"
 
     # Verify start.sh has proper shebang
-    local shebang=$(head -n1 "${PROJECT_ROOT}/start.sh")
+    local shebang
+    shebang=$(head -n1 "${PROJECT_ROOT}/start.sh")
     if [[ "$shebang" == "#!/bin/bash" ]]; then
         ((TESTS_PASSED++))
         echo "  ✅ PASS: One-command setup available (./start.sh)"
@@ -148,7 +132,7 @@ test_sc_010_one_command_setup() {
 # SC-011: Context menu integration
 test_sc_011_context_menu_integration() {
     ((TESTS_RUN++))
-    echo "  SC-011: Context menu 'Open in Ghostty' available"
+    echo "  SC-011: Context menu 'Open in Terminal' available"
 
     # Check if context menu installer exists
     assert_file_exists "${PROJECT_ROOT}/scripts/install_context_menu.sh" "Context menu installer should exist"
@@ -283,35 +267,6 @@ test_sc_024_cicd_success_rate() {
     fi
 }
 
-# SC-030: Memory usage < 100MB baseline
-test_sc_030_memory_usage() {
-    ((TESTS_RUN++))
-    echo "  SC-030: Memory usage < 100MB baseline"
-
-    # Check if Ghostty is running
-    if pgrep -x ghostty >/dev/null 2>&1; then
-        # Get memory usage of Ghostty
-        local mem_kb=$(ps -o rss= -C ghostty 2>/dev/null | awk '{sum+=$1} END {print sum}')
-        local mem_mb=$((mem_kb / 1024))
-
-        echo "    Ghostty memory usage: ${mem_mb}MB (target: <100MB baseline)"
-
-        if [[ $mem_mb -lt 100 ]]; then
-            ((TESTS_PASSED++))
-            echo "  ✅ PASS: Memory usage within target"
-        else
-            ((TESTS_FAILED++))
-            echo "  ⚠️  WARN: Memory usage exceeds target (${mem_mb}MB > 100MB)"
-            # Don't fail - depends on terminal content
-            ((TESTS_PASSED++))
-            ((TESTS_FAILED--))
-        fi
-    else
-        log_warn "Ghostty not running - skipping SC-030"
-        ((TESTS_PASSED++))
-    fi
-}
-
 # SC-031: Shell integration 100% feature detection
 test_sc_031_shell_integration() {
     ((TESTS_RUN++))
@@ -330,7 +285,8 @@ test_sc_040_module_contracts() {
     echo "  SC-040: Module contract compliance (18 modules)"
 
     # Count modules in scripts/
-    local module_count=$(find "${PROJECT_ROOT}/scripts" -maxdepth 1 -name "*.sh" -type f 2>/dev/null | wc -l)
+    local module_count
+    module_count=$(find "${PROJECT_ROOT}/scripts" -maxdepth 1 -name "*.sh" -type f 2>/dev/null | wc -l)
 
     echo "    Found $module_count modules"
 
@@ -350,9 +306,12 @@ test_sc_050_test_coverage() {
     echo "  SC-050: Test coverage >90%"
 
     # Count test files
-    local unit_tests=$(find "${PROJECT_ROOT}/.runners-local/tests/unit" -name "test_*.sh" 2>/dev/null | wc -l)
-    local integration_tests=$(find "${PROJECT_ROOT}/.runners-local/tests/integration" -name "test_*.sh" 2>/dev/null | wc -l)
-    local total_tests=$((unit_tests + integration_tests))
+    local unit_tests
+    unit_tests=$(find "${PROJECT_ROOT}/.runners-local/tests/unit" -name "test_*.sh" 2>/dev/null | wc -l)
+    local integration_tests
+    integration_tests=$(find "${PROJECT_ROOT}/.runners-local/tests/integration" -name "test_*.sh" 2>/dev/null | wc -l)
+    local total_tests
+    total_tests=$((unit_tests + integration_tests))
 
     echo "    Unit tests: $unit_tests"
     echo "    Integration tests: $integration_tests"
@@ -430,28 +389,24 @@ generate_performance_dashboard() {
     echo "════════════════════════════════════════════════════════"
 
     # Shell startup time
-    local start_time=$(date +%s%N)
+    local start_time
+    start_time=$(date +%s%N)
     bash -c ":" 2>/dev/null
-    local end_time=$(date +%s%N)
-    local shell_startup_ms=$(( (end_time - start_time) / 1000000 ))
+    local end_time
+    end_time=$(date +%s%N)
+    local shell_startup_ms
+    shell_startup_ms=$(( (end_time - start_time) / 1000000 ))
 
     echo "  Shell Startup: ${shell_startup_ms}ms (target: <50ms)"
 
-    # Ghostty responsiveness
-    if command -v ghostty >/dev/null 2>&1; then
-        local start_time=$(date +%s%N)
-        ghostty --version >/dev/null 2>&1 || true
-        local end_time=$(date +%s%N)
-        local ghostty_ms=$(( (end_time - start_time) / 1000000 ))
-        echo "  Ghostty Response: ${ghostty_ms}ms"
-    fi
-
     # Module count
-    local module_count=$(find "${PROJECT_ROOT}/scripts" -maxdepth 1 -name "*.sh" -type f 2>/dev/null | wc -l)
+    local module_count
+    module_count=$(find "${PROJECT_ROOT}/scripts" -maxdepth 1 -name "*.sh" -type f 2>/dev/null | wc -l)
     echo "  Modules: $module_count"
 
     # Test count
-    local test_count=$(find "${PROJECT_ROOT}/.runners-local/tests" -name "test_*.sh" 2>/dev/null | wc -l)
+    local test_count
+    test_count=$(find "${PROJECT_ROOT}/.runners-local/tests" -name "test_*.sh" 2>/dev/null | wc -l)
     echo "  Tests: $test_count"
 
     echo "════════════════════════════════════════════════════════"
@@ -471,7 +426,6 @@ run_all_tests() {
     # Performance Metrics (SC-001 to SC-003)
     echo "⚡ Performance Metrics (SC-001 to SC-003)"
     test_sc_001_shell_startup_time || ((TESTS_FAILED++))
-    test_sc_002_frame_rendering || ((TESTS_FAILED++))
     test_sc_003_module_test_execution || ((TESTS_FAILED++))
     echo ""
 
@@ -491,7 +445,6 @@ run_all_tests() {
     test_sc_022_automatic_rollback || ((TESTS_FAILED++))
     test_sc_023_system_state_capture || ((TESTS_FAILED++))
     test_sc_024_cicd_success_rate || ((TESTS_FAILED++))
-    test_sc_030_memory_usage || ((TESTS_FAILED++))
     test_sc_031_shell_integration || ((TESTS_FAILED++))
     echo ""
 

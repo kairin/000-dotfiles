@@ -8,7 +8,7 @@
 
 ## Problem Statement
 
-When users install speckit via `uvx specify-ai init` for a new project, it uses GitHub's default speckit template which includes the older branch naming pattern (`NNN-feature-name`). Users of this repository (ghostty-config-files) have adopted a constitutional branch naming policy that mandates the format `YYYYMMDD-HHMMSS-type-description`.
+When users install speckit via `uvx specify-ai init` for a new project, it uses GitHub's default speckit template which includes the older branch naming pattern (`NNN-feature-name`). Users of this repository (000-dotfiles) have adopted a constitutional branch naming policy that mandates the format `YYYYMMDD-HHMMSS-type-description`.
 
 Currently, there is no way to:
 1. Track which projects on the user's computer have speckit installed
@@ -163,7 +163,7 @@ As a user, I want to rollback a patched project to its previous state, so I can 
 ### Functional Requirements
 
 - **FR-001**: TUI MUST provide menu item in Extras view for "SpecKit Project Updater"
-- **FR-002**: System MUST persist project list to `~/.config/ghostty-installer/speckit-projects.json`
+- **FR-002**: System MUST persist project list to `~/.config/dotfiles-installer/speckit-projects.json`
 - **FR-003**: System MUST detect speckit presence via existence of `.specify/` directory
 - **FR-004**: System MUST compare files against canonical versions in this repo's `.specify/scripts/bash/`
 - **FR-005**: System MUST create timestamped backup before patching (`{project}/.specify/.backup-{YYYYMMDD-HHMMSS}/`)

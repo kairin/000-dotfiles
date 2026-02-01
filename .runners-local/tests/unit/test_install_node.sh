@@ -38,7 +38,8 @@ setup_all() {
     echo "🔧 Setting up test environment..."
 
     # Create temporary test directory
-    export TEST_TEMP_DIR=$(mktemp -d)
+    TEST_TEMP_DIR=$(mktemp -d)
+export TEST_TEMP_DIR
     echo "  Created temp directory: $TEST_TEMP_DIR"
 
     # Mock FNM directory for testing

@@ -15,7 +15,9 @@ TEMP_FILES=()
 
 cleanup_temp_files() {
     for temp_file in "${TEMP_FILES[@]}"; do
-        [ -f "$temp_file" ] && rm -f "$temp_file" 2>/dev/null || true
+        if [ -f "$temp_file" ]; then
+            rm -f "$temp_file" 2>/dev/null || true
+        fi
     done
 }
 trap cleanup_temp_files EXIT ERR INT TERM
@@ -36,7 +38,8 @@ log() {
     local level="$1"
     shift
     local message="$*"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local color=""
 
     case "$level" in
@@ -75,7 +78,8 @@ add_check_result() {
     local message="$3"
 
     # Create temporary JSON entry
-    local temp_entry=$(mktemp)
+    local temp_entry
+    temp_entry=$(mktemp)
     TEMP_FILES+=("$temp_entry")
     cat > "$temp_entry" <<EOF
 {
@@ -87,7 +91,8 @@ add_check_result() {
 EOF
 
     # Append to report (basic JSON array manipulation)
-    local temp_report=$(mktemp)
+    local temp_report
+    temp_report=$(mktemp)
     TEMP_FILES+=("$temp_report")
     if command -v jq >/dev/null 2>&1; then
         jq --argjson entry "$(cat "$temp_entry")" '.checks += [$entry]' "$REPORT_FILE" > "$temp_report"
@@ -98,7 +103,8 @@ EOF
 # Update summary counts
 update_summary() {
     if command -v jq >/dev/null 2>&1; then
-        local temp_report=$(mktemp)
+        local temp_report
+        temp_report=$(mktemp)
         TEMP_FILES+=("$temp_report")
         jq '.summary.total = (.checks | length) |
             .summary.passed = ([.checks[] | select(.status == "pass")] | length) |
@@ -237,7 +243,8 @@ check_agents_symlinks() {
 
     # Check CLAUDE.md symlink
     if [ -L "$REPO_DIR/CLAUDE.md" ]; then
-        local claude_target=$(readlink "$REPO_DIR/CLAUDE.md")
+        local claude_target
+        claude_target=$(readlink "$REPO_DIR/CLAUDE.md")
         if [ "$claude_target" != "AGENTS.md" ]; then
             status="warning"
             message="CLAUDE.md symlink points to $claude_target instead of AGENTS.md"
@@ -253,7 +260,8 @@ check_agents_symlinks() {
 
     # Check GEMINI.md symlink
     if [ -L "$REPO_DIR/GEMINI.md" ]; then
-        local gemini_target=$(readlink "$REPO_DIR/GEMINI.md")
+        local gemini_target
+        gemini_target=$(readlink "$REPO_DIR/GEMINI.md")
         if [ "$gemini_target" != "AGENTS.md" ]; then
             status="warning"
             message="GEMINI.md symlink points to $gemini_target instead of AGENTS.md"
@@ -293,11 +301,11 @@ check_user_guide_sync() {
     local tier2_count=${#tier2_guides[@]}
     local tier3_count=${#tier3_guides[@]}
 
-    if [ $tier2_count -eq 0 ] && [ $tier3_count -eq 0 ]; then
+    if [ "$tier2_count" -eq 0 ] && [ "$tier3_count" -eq 0 ]; then
         status="warning"
         message="No user guides found in either tier"
         log "WARNING" "⚠️ $message"
-    elif [ $tier2_count -ne $tier3_count ]; then
+    elif [ "$tier2_count" -ne "$tier3_count" ]; then
         status="warning"
         message="User guide count mismatch: Tier2=$tier2_count, Tier3=$tier3_count"
         log "WARNING" "⚠️ $message"
@@ -323,7 +331,8 @@ check_documentation_strategy() {
         log "WARNING" "⚠️ $message"
     else
         # Check if file has substantial content (> 1000 bytes)
-        local file_size=$(stat -f%z "$strategy_file" 2>/dev/null || stat -c%s "$strategy_file" 2>/dev/null)
+        local file_size
+        file_size=$(stat -f%z "$strategy_file" 2>/dev/null || stat -c%s "$strategy_file" 2>/dev/null)
         if [ "$file_size" -lt 1000 ]; then
             status="warning"
             message="documentation-strategy.md exists but appears incomplete (< 1KB)"
@@ -434,10 +443,14 @@ generate_summary_report() {
     update_summary
 
     if command -v jq >/dev/null 2>&1; then
-        local total=$(jq -r '.summary.total' "$REPORT_FILE")
-        local passed=$(jq -r '.summary.passed' "$REPORT_FILE")
-        local failed=$(jq -r '.summary.failed' "$REPORT_FILE")
-        local warnings=$(jq -r '.summary.warnings' "$REPORT_FILE")
+        local total
+        total=$(jq -r '.summary.total' "$REPORT_FILE")
+        local passed
+        passed=$(jq -r '.summary.passed' "$REPORT_FILE")
+        local failed
+        failed=$(jq -r '.summary.failed' "$REPORT_FILE")
+        local warnings
+        warnings=$(jq -r '.summary.warnings' "$REPORT_FILE")
 
         echo ""
         gum style \

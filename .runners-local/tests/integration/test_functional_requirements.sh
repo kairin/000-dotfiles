@@ -81,17 +81,6 @@ test_fr_003_node_fnm_installation() {
     fi
 }
 
-# FR-004: Ghostty terminal installation
-test_fr_004_ghostty_installation() {
-    ((TESTS_RUN++))
-    echo "  FR-004: Ghostty terminal installation from snap/source"
-
-    assert_file_exists "${PROJECT_ROOT}/scripts/install_ghostty.sh" "Ghostty installer should exist"
-
-    ((TESTS_PASSED++))
-    echo "  ✅ PASS: Ghostty installation configured"
-}
-
 # FR-005: ZSH configuration
 test_fr_005_zsh_configuration() {
     ((TESTS_RUN++))
@@ -120,7 +109,7 @@ test_fr_006_performance_targets() {
     fi
 }
 
-# FR-007: Configuration validation (ghostty +show-config)
+# FR-007: Configuration validation
 test_fr_007_config_validation() {
     ((TESTS_RUN++))
     echo "  FR-007: Configuration validation capability"
@@ -206,7 +195,8 @@ test_fr_030_integration_testing() {
     assert_dir_exists "${PROJECT_ROOT}/.runners-local/tests/integration" "Integration tests should exist"
 
     # Count integration test files
-    local test_count=$(find "${PROJECT_ROOT}/.runners-local/tests/integration" -name "test_*.sh" 2>/dev/null | wc -l)
+    local test_count
+    test_count=$(find "${PROJECT_ROOT}/.runners-local/tests/integration" -name "test_*.sh" 2>/dev/null | wc -l)
 
     if [[ $test_count -gt 0 ]]; then
         echo "    Found $test_count integration test files"
@@ -291,7 +281,6 @@ run_all_tests() {
     test_fr_001_snap_first_strategy || ((TESTS_FAILED++))
     test_fr_002_multi_fm_detection || ((TESTS_FAILED++))
     test_fr_003_node_fnm_installation || ((TESTS_FAILED++))
-    test_fr_004_ghostty_installation || ((TESTS_FAILED++))
     test_fr_005_zsh_configuration || ((TESTS_FAILED++))
     test_fr_006_performance_targets || ((TESTS_FAILED++))
     test_fr_007_config_validation || ((TESTS_FAILED++))

@@ -15,6 +15,9 @@ export MANAGE_NO_COLOR=1
 
 source "${PROJECT_ROOT}/scripts/task_display.sh"
 
+# Ensure arrays exist for ShellCheck and strict mode tests
+declare -A TASK_START_TIME TASK_END_TIME
+
 # Test counter
 TESTS_RUN=0
 TESTS_PASSED=0

@@ -2,7 +2,7 @@
 # check_fastfetch.sh
 
 # Cache configuration for GitHub API (avoid rate limiting)
-CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/ghostty-checks"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles-checks"
 CACHE_FILE="${CACHE_DIR}/fastfetch_latest.txt"
 CACHE_TTL=3600  # 1 hour
 

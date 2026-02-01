@@ -10,7 +10,6 @@ This document provides verification steps for testing the 5 TUI bug fixes.
 ## Prerequisites
 
 - Go 1.23+ installed
-- Terminal emulator (Ghostty recommended)
 - Repository cloned with `002-fix-tui-bugs` branch
 
 ## Build & Run

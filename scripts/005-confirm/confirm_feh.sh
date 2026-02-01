@@ -10,7 +10,7 @@ if command -v feh &> /dev/null; then
     log "SUCCESS" "Version: $VERSION"
     
     # Check if multiple versions exist (e.g. /usr/bin/feh vs /usr/local/bin/feh)
-    COUNT=$(type -a feh | grep "is" | wc -l)
+    COUNT=$(type -a feh | grep -c "is")
     if [ "$COUNT" -gt 1 ]; then
         log "WARNING" "Multiple versions of feh detected:"
         type -a feh | while read -r line; do log "WARNING" "$line"; done

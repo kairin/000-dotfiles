@@ -22,7 +22,8 @@ log() {
     local level="$1"
     shift
     local message="$*"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
 
     case "$level" in
         "ERROR") echo -e "${RED}[$timestamp] [ERROR] $message${NC}" ;;
@@ -92,7 +93,7 @@ setup_runner() {
 
         # Verify checksum
         local expected_hash
-        expected_hash=$(gh api repos/actions/runner/releases/latest --jq '.assets[] | select(.name | endswith("linux-x64-'$runner_version'.tar.gz")) | .browser_download_url' | xargs -I {} curl -sL {} | sha256sum | cut -d' ' -f1)
+        expected_hash=$(gh api repos/actions/runner/releases/latest --jq '.assets[] | select(.name | endswith("linux-x64-'"$runner_version"'.tar.gz")) | .browser_download_url' | xargs -I {} curl -sL {} | sha256sum | cut -d' ' -f1)
 
         tar xzf "$runner_file"
     fi
@@ -109,8 +110,10 @@ configure_runner() {
     # Get repository information
     local repo_info
     repo_info=$(gh repo view --json owner,name)
-    local owner=$(echo "$repo_info" | jq -r '.owner.login')
-    local repo_name=$(echo "$repo_info" | jq -r '.name')
+    local owner
+    owner=$(echo "$repo_info" | jq -r '.owner.login')
+    local repo_name
+    repo_name=$(echo "$repo_info" | jq -r '.name')
 
     # Get registration token
     local token
@@ -122,8 +125,9 @@ configure_runner() {
     fi
 
     # Configure runner with custom labels for Astro builds
-    local runner_name="astro-builder-$(hostname)-$(date +%s)"
-    local labels="self-hosted,linux,x64,astro,nodejs,ghostty-config"
+    local runner_name
+    runner_name="astro-builder-$(hostname)-$(date +%s)"
+    local labels="self-hosted,linux,x64,astro,nodejs"
 
     log "INFO" "🏷️ Configuring runner with labels: $labels"
 
@@ -145,7 +149,8 @@ configure_runner() {
 create_service() {
     log "INFO" "🔧 Creating systemd service for runner..."
 
-    local service_name="github-actions-runner-$(whoami)"
+    local service_name
+    service_name="github-actions-runner-$(whoami)"
     local service_file="/etc/systemd/system/$service_name.service"
 
     # Create service file
@@ -315,8 +320,10 @@ remove_runner() {
     if [ -f "./config.sh" ]; then
         local repo_info
         repo_info=$(gh repo view --json owner,name)
-        local owner=$(echo "$repo_info" | jq -r '.owner.login')
-        local repo_name=$(echo "$repo_info" | jq -r '.name')
+        local owner
+        owner=$(echo "$repo_info" | jq -r '.owner.login')
+        local repo_name
+        repo_name=$(echo "$repo_info" | jq -r '.name')
 
         local token
         token=$(gh api repos/"$owner"/"$repo_name"/actions/runners/remove-token --jq '.token')
@@ -391,7 +398,7 @@ Examples:
   $0 workflow   # Create Astro workflow
 
 Note: This script configures a self-hosted runner specifically for Astro builds
-with labels: [self-hosted, linux, x64, astro, nodejs, ghostty-config]
+with labels: [self-hosted, linux, x64, astro, nodejs]
 EOF
 }
 

@@ -15,7 +15,7 @@ else
     exit 1
 fi
 
-cd "$BUILD_DIR"
+cd "$BUILD_DIR" || exit 1
 
 log "INFO" "Building feh..."
 if make; then

@@ -30,7 +30,8 @@ log() {
     local level="$1"
     shift
     local message="$*"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local color=""
 
     case "$level" in
@@ -79,7 +80,8 @@ init_metrics_db() {
 }
 EOF
         if command -v jq >/dev/null 2>&1; then
-            local temp_db=$(mktemp)
+            local temp_db
+            temp_db=$(mktemp)
             jq --arg created "$(date -Iseconds)" '.created = $created | .last_updated = $created' "$METRICS_DB" > "$temp_db"
             mv "$temp_db" "$METRICS_DB"
         fi
@@ -115,10 +117,11 @@ collect_lighthouse_metrics() {
     sleep 5
 
     # Run Lighthouse
-    local lighthouse_output="$LIGHTHOUSE_DIR/lighthouse-$(date +%Y%m%d-%H%M%S).json"
+    local lighthouse_output
+    lighthouse_output="$LIGHTHOUSE_DIR/lighthouse-$(date +%Y%m%d-%H%M%S).json"
     log "INFO" "📊 Running Lighthouse audit..."
 
-    if timeout 60s lighthouse http://localhost:4321/ghostty-config-files/ \
+    if timeout 60s lighthouse http://localhost:4321/000-dotfiles/ \
         --output=json \
         --output-path="$lighthouse_output" \
         --chrome-flags="--headless" \
@@ -128,10 +131,14 @@ collect_lighthouse_metrics() {
 
         # Extract key metrics
         if command -v jq >/dev/null 2>&1 && [ -f "$lighthouse_output" ]; then
-            local performance=$(jq -r '.categories.performance.score * 100 | floor' "$lighthouse_output" 2>/dev/null || echo "0")
-            local accessibility=$(jq -r '.categories.accessibility.score * 100 | floor' "$lighthouse_output" 2>/dev/null || echo "0")
-            local best_practices=$(jq -r '.categories["best-practices"].score * 100 | floor' "$lighthouse_output" 2>/dev/null || echo "0")
-            local seo=$(jq -r '.categories.seo.score * 100 | floor' "$lighthouse_output" 2>/dev/null || echo "0")
+            local performance
+            performance=$(jq -r '.categories.performance.score * 100 | floor' "$lighthouse_output" 2>/dev/null || echo "0")
+            local accessibility
+            accessibility=$(jq -r '.categories.accessibility.score * 100 | floor' "$lighthouse_output" 2>/dev/null || echo "0")
+            local best_practices
+            best_practices=$(jq -r '.categories["best-practices"].score * 100 | floor' "$lighthouse_output" 2>/dev/null || echo "0")
+            local seo
+            seo=$(jq -r '.categories.seo.score * 100 | floor' "$lighthouse_output" 2>/dev/null || echo "0")
 
             log "INFO" "📊 Lighthouse Scores:"
             log "INFO" "  Performance: $performance/100"
@@ -155,15 +162,19 @@ collect_lighthouse_metrics() {
 collect_build_metrics() {
     log "STEP" "🏗️ Collecting build performance metrics..."
 
-    local build_start=$(date +%s)
-    local build_log="$LOG_DIR/build-$(date +%Y%m%d-%H%M%S).log"
+    local build_start
+    build_start=$(date +%s)
+    local build_log
+    build_log="$LOG_DIR/build-$(date +%Y%m%d-%H%M%S).log"
 
     cd "$REPO_DIR"
 
     # Run Astro build and measure time
     if npm run build > "$build_log" 2>&1; then
-        local build_end=$(date +%s)
-        local build_duration=$((build_end - build_start))
+        local build_end
+        build_end=$(date +%s)
+        local build_duration
+        build_duration=$((build_end - build_start))
 
         log "SUCCESS" "✅ Build completed in ${build_duration}s"
 
@@ -195,12 +206,15 @@ EOF
 collect_cicd_metrics() {
     log "STEP" "⚙️ Collecting CI/CD workflow metrics..."
 
-    local workflow_start=$(date +%s)
+    local workflow_start
+    workflow_start=$(date +%s)
 
     # Run complete workflow
     if "$SCRIPT_DIR/gh-workflow-local.sh" all > "$LOG_DIR/cicd-$(date +%Y%m%d-%H%M%S).log" 2>&1; then
-        local workflow_end=$(date +%s)
-        local workflow_duration=$((workflow_end - workflow_start))
+        local workflow_end
+        workflow_end=$(date +%s)
+        local workflow_duration
+        workflow_duration=$((workflow_end - workflow_start))
 
         log "SUCCESS" "✅ CI/CD workflow completed in ${workflow_duration}s"
 
@@ -233,7 +247,8 @@ add_metric_to_db() {
         return 0
     fi
 
-    local temp_db=$(mktemp)
+    local temp_db
+    temp_db=$(mktemp)
 
     # Create metric entry
     local metric_entry
@@ -281,7 +296,7 @@ generate_html_dashboard() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Performance Benchmarking Dashboard - Ghostty Config Files</title>
+    <title>Performance Benchmarking Dashboard - 000-dotfiles</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
@@ -434,7 +449,7 @@ generate_html_dashboard() {
     <div class="container">
         <header>
             <h1>⚡ Performance Benchmarking Dashboard</h1>
-            <p class="subtitle">Ghostty Configuration Files - Real-time Performance Metrics</p>
+            <p class="subtitle">000-dotfiles - Real-time Performance Metrics</p>
         </header>
 
         <div class="metrics-grid">

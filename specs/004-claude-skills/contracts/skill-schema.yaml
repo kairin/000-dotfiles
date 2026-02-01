@@ -92,7 +92,7 @@ components:
         deploymentUrl:
           type: string
           format: uri
-          example: "https://kairin.github.io/ghostty-config-files/"
+          example: "https://kairin.github.io/000-dotfiles/"
         nojekyllPresent:
           type: boolean
           example: true

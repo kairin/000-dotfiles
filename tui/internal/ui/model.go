@@ -999,7 +999,7 @@ func requestSudoAuth() tea.Cmd {
 }
 
 // startInstaller creates and starts the installer view
-// For multi-method tools (like ghostty), shows method selector first if no preference saved
+	// For multi-method tools, show method selector first if no preference saved
 // SMART ROUTING: If tool is installed and has update script, routes to UPDATE (non-destructive)
 // instead of UNINSTALL→REINSTALL (destructive) to preserve user data
 // Set forceReinstall=true to skip update routing and force clean reinstall

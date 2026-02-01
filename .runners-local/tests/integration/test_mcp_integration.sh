@@ -29,7 +29,8 @@ setup_all() {
     echo "🔧 Setting up MCP integration test environment..."
 
     # Create test environment
-    export TEST_TEMP_DIR=$(mktemp -d)
+    TEST_TEMP_DIR=$(mktemp -d)
+export TEST_TEMP_DIR
     export TEST_CONFIG="$TEST_TEMP_DIR/.config"
     mkdir -p "$TEST_CONFIG/claude"
     mkdir -p "$TEST_CONFIG/mcp"
@@ -213,7 +214,8 @@ test_context7_health_check_has_help() {
     echo "  Testing: Context7 health check script provides help"
 
     # Act - try to get help
-    local output=$("$PROJECT_ROOT/scripts/check_context7_health.sh" --help 2>&1 || echo "")
+    local output
+    output=$("$PROJECT_ROOT/scripts/check_context7_health.sh" --help 2>&1 || echo "")
 
     # Note: Some scripts might not have --help, so we just check if script is present
     # The actual execution test would require proper environment setup

@@ -21,7 +21,7 @@ MANIFEST_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$MANIFEST_LIB_DIR")"
 
 # Storage locations (dual storage for quick access + audit trail)
-CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/ghostty-installer/manifests"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles-installer/manifests"
 LOGS_MANIFEST_DIR="$REPO_ROOT/../logs/manifests"
 
 # Artifact definitions location

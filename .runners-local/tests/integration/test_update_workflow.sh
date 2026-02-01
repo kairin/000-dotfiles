@@ -30,7 +30,8 @@ setup_all() {
     echo "🔧 Setting up update workflow test environment..."
 
     # Create test environment
-    export TEST_TEMP_DIR=$(mktemp -d)
+    TEST_TEMP_DIR=$(mktemp -d)
+export TEST_TEMP_DIR
     export TEST_UPDATE_DIR="$TEST_TEMP_DIR/updates"
     export TEST_BACKUP_DIR="$TEST_TEMP_DIR/backups"
     mkdir -p "$TEST_UPDATE_DIR"
@@ -51,7 +52,7 @@ teardown_all() {
 # ============================================================
 # CONSTITUTIONAL COMPLIANCE NOTE
 # ============================================================
-# Tests previously expected update_ghostty.sh, backup_utils.sh, common.sh, progress.sh
+# Tests previously expected legacy update scripts (backup_utils.sh, common.sh, progress.sh)
 # These were REMOVED to comply with Script Proliferation Prevention principle.
 #
 # Update mechanism: scripts/004-reinstall/install_*.sh (reused for updates)
@@ -90,21 +91,6 @@ test_daily_updates_script_exists() {
         "daily-updates.sh should exist"
     assert_true "[[ -x \"$SCRIPTS_DIR/daily-updates.sh\" ]]" \
         "daily-updates.sh should be executable"
-
-    ((TESTS_PASSED++))
-    echo "  ✅ PASS"
-}
-
-# Test: Ghostty reinstall script exists (replaces update_ghostty.sh per constitutional compliance)
-test_ghostty_reinstall_script_exists() {
-    ((TESTS_RUN++))
-    echo "  Testing: install_ghostty.sh exists (update via reinstall)"
-
-    # Assert - Constitutional compliance: use 004-reinstall scripts for updates
-    assert_file_exists "$SCRIPTS_DIR/004-reinstall/install_ghostty.sh" \
-        "install_ghostty.sh should exist for updates"
-    assert_true "[[ -x \"$SCRIPTS_DIR/004-reinstall/install_ghostty.sh\" ]]" \
-        "install_ghostty.sh should be executable"
 
     ((TESTS_PASSED++))
     echo "  ✅ PASS"
@@ -182,19 +168,6 @@ test_update_logs_directory() {
     echo "  ✅ PASS"
 }
 
-# Test: Ghostty config installation script exists
-test_ghostty_config_script_exists() {
-    ((TESTS_RUN++))
-    echo "  Testing: install_ghostty_config.sh exists"
-
-    # Assert
-    assert_file_exists "$SCRIPTS_DIR/install_ghostty_config.sh" \
-        "install_ghostty_config.sh should exist"
-
-    ((TESTS_PASSED++))
-    echo "  ✅ PASS"
-}
-
 # Test: Update workflow documentation
 test_update_workflow_documentation() {
     ((TESTS_RUN++))
@@ -220,7 +193,7 @@ test_configuration_backup_strategy() {
 
     # Check if start.sh or update scripts mention backup
     local has_backup_strategy=false
-    if grep -q "backup\|Backup" "$SCRIPTS_DIR/check_updates.sh" "$SCRIPTS_DIR/update_ghostty.sh" 2>/dev/null; then
+    if grep -q "backup\|Backup" "$SCRIPTS_DIR/check_updates.sh" 2>/dev/null; then
         has_backup_strategy=true
     fi
 
@@ -254,7 +227,6 @@ test_update_workflow_components() {
         "$SCRIPTS_DIR/check_updates.sh"
         "$SCRIPTS_DIR/daily-updates.sh"
         "$SCRIPTS_DIR/006-logs/logger.sh"
-        "$SCRIPTS_DIR/004-reinstall/install_ghostty.sh"
     )
 
     for component in "${components[@]}"; do
@@ -345,13 +317,11 @@ run_all_tests() {
     # Run test cases
     test_check_updates_script_exists || ((TESTS_FAILED++))
     test_daily_updates_script_exists || ((TESTS_FAILED++))
-    test_ghostty_reinstall_script_exists || ((TESTS_FAILED++))
     test_verification_utilities_for_updates || ((TESTS_FAILED++))
     test_logger_utilities_for_updates || ((TESTS_FAILED++))
     test_node_installation_script_exists || ((TESTS_FAILED++))
     test_env_verification_exists || ((TESTS_FAILED++))
     test_update_logs_directory || ((TESTS_FAILED++))
-    test_ghostty_config_script_exists || ((TESTS_FAILED++))
     test_update_workflow_documentation || ((TESTS_FAILED++))
     test_configuration_backup_strategy || ((TESTS_FAILED++))
     test_update_status_monitoring || ((TESTS_FAILED++))

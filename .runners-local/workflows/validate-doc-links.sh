@@ -23,8 +23,9 @@ validate_markdown_links() {
     echo "Checking: $FILE"
 
     # Extract markdown links: [text](file.md)
-    grep -o '\[.*\](.*\.md[^)]*)' "$FILE" | while IFS= read -r link; do
+    while IFS= read -r link; do
         # Extract the file path from the link
+        local LINKED_FILE
         LINKED_FILE=$(echo "$link" | sed -n 's/.*(\([^)]*\))/\1/p' | sed 's/#.*//')
 
         # Skip external links
@@ -40,7 +41,7 @@ validate_markdown_links() {
             echo "  ✗ BROKEN: $LINKED_FILE"
             BROKEN_LINKS=$((BROKEN_LINKS + 1))
         fi
-    done
+    done < <(grep -o '\[.*\](.*\.md[^)]*)' "$FILE")
 
     echo ""
 }
@@ -54,9 +55,9 @@ validate_markdown_links "docs-setup/constitutional-compliance-criteria.md"
 
 # Check specs directory
 if [ -d "specs" ]; then
-    find specs -name "*.md" -type f | while read -r spec_file; do
+    while read -r spec_file; do
         validate_markdown_links "$spec_file"
-    done
+    done < <(find specs -name "*.md" -type f)
 fi
 
 echo "=== Summary ==="

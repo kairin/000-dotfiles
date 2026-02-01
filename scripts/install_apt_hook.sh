@@ -19,17 +19,16 @@ else
 fi
 
 # Write the file
-echo "$HOOK_CONTENT" | $CMD_PREFIX tee "$HOOK_FILE" > /dev/null
+if [ -n "$CMD_PREFIX" ]; then
+    echo "$HOOK_CONTENT" | sudo tee "$HOOK_FILE" > /dev/null
+else
+    echo "$HOOK_CONTENT" | tee "$HOOK_FILE" > /dev/null
+fi
 
-if [ $? -eq 0 ]; then
+if [ -f "$HOOK_FILE" ]; then
     log "SUCCESS" "APT hook installed to $HOOK_FILE"
     # Verify file content
-    if [ -f "$HOOK_FILE" ]; then
-        log "INFO" "Hook content verified."
-    else
-        log "ERROR" "File was not created."
-        exit 1
-    fi
+    log "INFO" "Hook content verified."
 else
     log "ERROR" "Failed to write APT hook."
     exit 1

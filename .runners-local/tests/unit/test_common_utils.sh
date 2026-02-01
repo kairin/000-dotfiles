@@ -39,7 +39,8 @@ setup_all() {
     echo "🔧 Setting up test environment..."
 
     # Create temporary test directory
-    export TEST_TEMP_DIR=$(mktemp -d)
+    TEST_TEMP_DIR=$(mktemp -d)
+export TEST_TEMP_DIR
     echo "  Created temp directory: $TEST_TEMP_DIR"
 
     # Create test files
@@ -120,7 +121,7 @@ test_get_project_root() {
 
     # Assert
     assert_equals 0 "$exit_code" "Should find project root"
-    assert_contains "$result" "ghostty-config-files" "Should return repository root"
+    assert_contains "$result" "000-dotfiles" "Should return repository root"
 
     ((TESTS_PASSED++))
     echo "  ✅ PASS"

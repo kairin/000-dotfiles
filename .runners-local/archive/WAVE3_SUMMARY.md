@@ -55,7 +55,7 @@
 
 **Key Validations**:
 - ✓ start.sh and manage.sh exist and are executable
-- ✓ Installation scripts present (Node.js, Spec Kit, UV, Ghostty, ZSH)
+- ✓ Installation scripts present (Node.js, Spec Kit, UV, Terminal, ZSH)
 - ✓ Configuration templates valid
 - ✓ Common utilities load without errors
 - ✓ Health check and update scripts present
@@ -72,7 +72,7 @@
   - ✓ Snap-first strategy
   - ✓ Multi-FM detection
   - ✓ Node.js via fnm
-  - ✓ Ghostty installation
+  - ✓ Terminal installation
   - ✓ ZSH configuration
   - ✓ Performance targets
   - ✓ Config validation
@@ -98,7 +98,7 @@
 **Categories**:
 - ⚡ Performance Metrics (SC-001 to SC-003): 3/3 passing
   - ✓ Shell startup: 3ms (target: <50ms) - **EXCEEDED**
-  - ✓ Ghostty response: 16ms
+  - ✓ Terminal response: 16ms
   - ✓ Module tests: 0s (target: <10s) - **EXCEEDED**
 
 - 🎯 User Experience (SC-010 to SC-014): 5/5 passing
@@ -177,7 +177,7 @@
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
 | Shell Startup | <50ms | 3ms | ✅ **97% faster** |
-| Ghostty Response | <50ms | 16ms | ✅ **68% faster** |
+| Terminal Response | <50ms | 16ms | ✅ **68% faster** |
 | Module Tests | <10s | 0s | ✅ **100% faster** |
 | Total Modules | 18+ | 33 | ✅ **183% more** |
 | Test Coverage | >90% | 100% | ✅ **Full coverage** |
