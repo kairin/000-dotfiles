@@ -13,11 +13,16 @@
 set -euo pipefail
 
 # Configuration
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-readonly LOG_DIR="${PROJECT_ROOT}/.update_cache/benchmark_logs"
-readonly TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-readonly LOG_FILE="${LOG_DIR}/benchmark_${TIMESTAMP}.log"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+readonly PROJECT_ROOT
+LOG_DIR="${PROJECT_ROOT}/.update_cache/benchmark_logs"
+readonly LOG_DIR
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+readonly TIMESTAMP
+LOG_FILE="${LOG_DIR}/benchmark_${TIMESTAMP}.log"
+readonly LOG_FILE
 readonly RESULTS_FILE="${LOG_DIR}/benchmark_results_${TIMESTAMP}.json"
 readonly BASELINE_FILE="${LOG_DIR}/baseline_benchmark.json"
 
@@ -55,7 +60,8 @@ log() {
     local level="$1"
     shift
     local message="$*"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
 
     echo "[${timestamp}] [${level}] ${message}" | tee -a "${LOG_FILE}"
 
@@ -122,16 +128,20 @@ benchmark_build_performance() {
     fi
 
     # Measure build time
-    local start_time=$(date +%s%3N)
+    local start_time
+    start_time=$(date +%s%3N)
     local build_success=false
 
     if cd "${PROJECT_ROOT}" && timeout 120 npm run build &>/dev/null; then
         build_success=true
     fi
 
-    local end_time=$(date +%s%3N)
-    local build_time_ms=$((end_time - start_time))
-    local build_time_s=$(echo "scale=2; ${build_time_ms} / 1000" | bc)
+    local end_time
+    end_time=$(date +%s%3N)
+    local build_time_ms
+    build_time_ms=$((end_time - start_time))
+    local build_time_s
+    build_time_s=$(echo "scale=2; ${build_time_ms} / 1000" | bc)
 
     store_result "build_time_ms" "${build_time_ms}" "ms"
     store_result "build_time_s" "${build_time_s}" "s"
@@ -164,7 +174,8 @@ benchmark_bundle_size() {
         fi
     done
 
-    local js_size_kb=$(echo "scale=2; ${js_size_bytes} / 1024" | bc)
+    local js_size_kb
+    js_size_kb=$(echo "scale=2; ${js_size_bytes} / 1024" | bc)
 
     # Calculate CSS bundle size
     local css_size_bytes=0
@@ -177,11 +188,14 @@ benchmark_bundle_size() {
         fi
     done
 
-    local css_size_kb=$(echo "scale=2; ${css_size_bytes} / 1024" | bc)
+    local css_size_kb
+    css_size_kb=$(echo "scale=2; ${css_size_bytes} / 1024" | bc)
 
     # Calculate total bundle size
-    local total_size_bytes=$((js_size_bytes + css_size_bytes))
-    local total_size_kb=$(echo "scale=2; ${total_size_bytes} / 1024" | bc)
+    local total_size_bytes
+    total_size_bytes=$((js_size_bytes + css_size_bytes))
+    local total_size_kb
+    total_size_kb=$(echo "scale=2; ${total_size_bytes} / 1024" | bc)
 
     store_result "js_bundle_bytes" "${js_size_bytes}" " bytes"
     store_result "js_bundle_kb" "${js_size_kb}" "KB"
@@ -232,7 +246,8 @@ benchmark_dev_server() {
 
     # Start dev server in background
     local dev_server_pid=""
-    local server_start_time=$(date +%s%3N)
+    local server_start_time
+    server_start_time=$(date +%s%3N)
 
     if cd "${PROJECT_ROOT}"; then
         npm run dev &>/dev/null &
@@ -251,16 +266,19 @@ benchmark_dev_server() {
             wait_time=$((wait_time + 1))
         done
 
-        local server_start_duration=$(( $(date +%s%3N) - server_start_time ))
+        local server_start_duration
+        server_start_duration=$(( $(date +%s%3N) - server_start_time ))
 
         if [[ "${server_ready}" == "true" ]]; then
             store_result "dev_server_start_time_ms" "${server_start_duration}" "ms"
 
             # Test server response time
-            local response_start=$(date +%s%3N)
+            local response_start
+            response_start=$(date +%s%3N)
             local response_code
             response_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4321 2>/dev/null || echo "000")
-            local response_time=$(( $(date +%s%3N) - response_start ))
+            local response_time
+            response_time=$(( $(date +%s%3N) - response_start ))
 
             store_result "dev_server_response_time_ms" "${response_time}" "ms"
             store_result "dev_server_response_code" "${response_code}"
@@ -392,14 +410,18 @@ benchmark_python_scripts() {
     )
 
     for script_cmd in "${python_scripts[@]}"; do
-        local script_name=$(echo "${script_cmd}" | cut -d' ' -f1)
+        local script_name
+        script_name=$(echo "${script_cmd}" | cut -d' ' -f1)
         local script_path="${PROJECT_ROOT}/scripts/${script_name}"
 
         if [[ -f "${script_path}" ]]; then
-            local start_time=$(date +%s%3N)
+            local start_time
+            start_time=$(date +%s%3N)
             if timeout 30 python3 "${script_path}" --help &>/dev/null; then
-                local end_time=$(date +%s%3N)
-                local execution_time=$((end_time - start_time))
+                local end_time
+                end_time=$(date +%s%3N)
+                local execution_time
+                execution_time=$((end_time - start_time))
 
                 store_result "python_${script_name%.*}_time_ms" "${execution_time}" "ms"
                 check_baseline "Python ${script_name}" "${execution_time}" "5000" "le"
@@ -421,16 +443,22 @@ benchmark_filesystem() {
     mkdir -p "${temp_dir}"
 
     # Write performance test
-    local write_start=$(date +%s%3N)
+    local write_start
+    write_start=$(date +%s%3N)
     dd if=/dev/zero of="${temp_dir}/test_file" bs=1M count=10 &>/dev/null
-    local write_end=$(date +%s%3N)
-    local write_time=$((write_end - write_start))
+    local write_end
+    write_end=$(date +%s%3N)
+    local write_time
+    write_time=$((write_end - write_start))
 
     # Read performance test
-    local read_start=$(date +%s%3N)
+    local read_start
+    read_start=$(date +%s%3N)
     dd if="${temp_dir}/test_file" of=/dev/null bs=1M &>/dev/null
-    local read_end=$(date +%s%3N)
-    local read_time=$((read_end - read_start))
+    local read_end
+    read_end=$(date +%s%3N)
+    local read_time
+    read_time=$((read_end - read_start))
 
     # Clean up
     rm -rf "${temp_dir}"

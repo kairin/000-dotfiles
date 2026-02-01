@@ -10,8 +10,10 @@ REPO_ROOT="$(dirname "$LOGS_DIR")"
 
 # Initialize log file
 init_log() {
-    local script_name=$(basename "$0" .sh)
-    local timestamp=$(date +"%Y%m%d-%H%M%S")
+    local script_name
+    local timestamp
+    script_name=$(basename "$0" .sh)
+    timestamp=$(date +"%Y%m%d-%H%M%S")
     LOG_FILE="$LOGS_DIR/${timestamp}-${script_name}.log"
     touch "$LOG_FILE"
     log "INFO" "Log initialized: $LOG_FILE"
@@ -21,7 +23,8 @@ init_log() {
 log() {
     local level="$1"
     local message="$2"
-    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    local timestamp
+    timestamp=$(date +"%Y-%m-%d %H:%M:%S")
     
     # Console output (colorized)
     case "$level" in
@@ -50,19 +53,19 @@ fi
 ensure_icon_infrastructure() {
     local icon_dir="$1"
     local use_sudo="${2:-}"
-    local cmd_prefix=""
+    local cmd_prefix=()
 
     if [ "$use_sudo" = "sudo" ]; then
-        cmd_prefix="sudo "
+        cmd_prefix=(sudo)
     fi
 
     # Create directory if needed
-    ${cmd_prefix}mkdir -p "$icon_dir"
+    "${cmd_prefix[@]}" mkdir -p "$icon_dir"
 
     # CRITICAL: Copy index.theme if missing (without it, icon cache is invalid)
     if [ ! -f "$icon_dir/index.theme" ]; then
         if [ -f "/usr/share/icons/hicolor/index.theme" ]; then
-            ${cmd_prefix}cp /usr/share/icons/hicolor/index.theme "$icon_dir/"
+            "${cmd_prefix[@]}" cp /usr/share/icons/hicolor/index.theme "$icon_dir/"
             log "SUCCESS" "Copied index.theme to $icon_dir"
             return 0
         else
@@ -78,10 +81,10 @@ ensure_icon_infrastructure() {
 rebuild_icon_cache() {
     local icon_dir="$1"
     local use_sudo="${2:-}"
-    local cmd_prefix=""
+    local cmd_prefix=()
 
     if [ "$use_sudo" = "sudo" ]; then
-        cmd_prefix="sudo "
+        cmd_prefix=(sudo)
     fi
 
     # Verify index.theme exists first
@@ -91,7 +94,7 @@ rebuild_icon_cache() {
     fi
 
     if command -v gtk-update-icon-cache &> /dev/null; then
-        if ${cmd_prefix}gtk-update-icon-cache --force "$icon_dir" 2>/dev/null; then
+        if "${cmd_prefix[@]}" gtk-update-icon-cache --force "$icon_dir" 2>/dev/null; then
             # Verify cache is valid (should be > 1KB; invalid cache is ~496 bytes)
             local cache_size
             cache_size=$(stat -c%s "$icon_dir/icon-theme.cache" 2>/dev/null || echo "0")
@@ -240,7 +243,8 @@ UPDATE_LOG_FILE=""
 # Usage: init_update_log
 # Creates: .runners-local/logs/update-summary-YYYYMMDD-HHMMSS.log
 init_update_log() {
-    local timestamp=$(date +"%Y%m%d-%H%M%S")
+    local timestamp
+    timestamp=$(date +"%Y%m%d-%H%M%S")
     UPDATE_LOG_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/../.runners-local/logs"
     mkdir -p "$UPDATE_LOG_DIR"
     UPDATE_LOG_FILE="${UPDATE_LOG_DIR}/update-summary-${timestamp}.log"
@@ -265,7 +269,8 @@ log_update_start() {
     local tool_name="$1"
     local current_version="${2:--}"
     local target_version="${3:--}"
-    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+    local timestamp
+    timestamp=$(date "+%Y-%m-%d %H:%M:%S")
 
     if [[ -n "$UPDATE_LOG_FILE" ]] && [[ -f "$UPDATE_LOG_FILE" ]]; then
         echo "UPDATE_START|${tool_name}|${current_version}|${target_version}|${timestamp}" >> "$UPDATE_LOG_FILE"
@@ -279,7 +284,8 @@ log_update_result() {
     local tool_name="$1"
     local status="$2"
     local message="${3:-}"
-    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+    local timestamp
+    timestamp=$(date "+%Y-%m-%d %H:%M:%S")
 
     if [[ -n "$UPDATE_LOG_FILE" ]] && [[ -f "$UPDATE_LOG_FILE" ]]; then
         echo "UPDATE_RESULT|${tool_name}|${status}|${message}|${timestamp}" >> "$UPDATE_LOG_FILE"
@@ -300,7 +306,8 @@ finalize_update_log() {
     local success="${2:-0}"
     local failed="${3:-0}"
     local skipped="${4:-0}"
-    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+    local timestamp
+    timestamp=$(date "+%Y-%m-%d %H:%M:%S")
     local duration="${5:-0}"
 
     if [[ -n "$UPDATE_LOG_FILE" ]] && [[ -f "$UPDATE_LOG_FILE" ]]; then
@@ -313,8 +320,10 @@ finalize_update_log() {
 # Show latest update summary (for update-logs alias)
 # Usage: show_latest_update_summary
 show_latest_update_summary() {
-    local log_dir="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/../.runners-local/logs"
-    local latest_log=$(ls -t "${log_dir}"/update-summary-*.log 2>/dev/null | head -1)
+    local log_dir
+    local latest_log
+    log_dir="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/../.runners-local/logs"
+    latest_log=$(find "$log_dir" -maxdepth 1 -name "update-summary-*.log" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
 
     if [[ -z "$latest_log" ]] || [[ ! -f "$latest_log" ]]; then
         echo "No update logs found in ${log_dir}"
@@ -326,7 +335,8 @@ show_latest_update_summary() {
     echo "════════════════════════════════════════════════════════════════"
 
     # Parse and display summary
-    local summary_line=$(grep "^SUMMARY|" "$latest_log" 2>/dev/null | tail -1)
+    local summary_line
+    summary_line=$(grep "^SUMMARY|" "$latest_log" 2>/dev/null | tail -1)
     if [[ -n "$summary_line" ]]; then
         echo "$summary_line" | awk -F'|' '{
             gsub(/total=/, "Total: ", $2)
@@ -357,23 +367,19 @@ show_latest_update_summary() {
 # =============================================================================
 
 # Backup directory
-BACKUP_DIR="${HOME}/.config/ghostty-backups"
+BACKUP_DIR="${HOME}/.config/dotfiles-backups"
 
 # Backup configurations before updates
 # Usage: backup_configs ["pre-update"|"manual"]
 backup_configs() {
     local backup_type="${1:-pre-update}"
-    local timestamp=$(date +"%Y%m%d-%H%M%S")
+    local timestamp
+    timestamp=$(date +"%Y%m%d-%H%M%S")
     local backup_path="${BACKUP_DIR}/${backup_type}-${timestamp}"
 
     mkdir -p "$backup_path"
 
     local backed_up=0
-
-    # Backup Ghostty config
-    if [[ -d "${HOME}/.config/ghostty" ]]; then
-        cp -r "${HOME}/.config/ghostty" "${backup_path}/ghostty" 2>/dev/null && ((backed_up++))
-    fi
 
     # Backup ZSH config
     if [[ -f "${HOME}/.zshrc" ]]; then
@@ -411,12 +417,6 @@ restore_from_backup() {
 
     local restored=0
 
-    # Restore Ghostty config
-    if [[ -d "${backup_path}/ghostty" ]]; then
-        rm -rf "${HOME}/.config/ghostty"
-        cp -r "${backup_path}/ghostty" "${HOME}/.config/ghostty" && ((restored++))
-    fi
-
     # Restore ZSH config
     if [[ -f "${backup_path}/zshrc" ]]; then
         cp "${backup_path}/zshrc" "${HOME}/.zshrc" && ((restored++))
@@ -449,7 +449,8 @@ cleanup_old_backups() {
         return 0
     fi
 
-    local backup_count=$(ls -d "${BACKUP_DIR}"/*/ 2>/dev/null | wc -l)
+    local backup_count
+    backup_count=$(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | wc -l)
 
     if [[ $backup_count -le $keep_count ]]; then
         log "INFO" "Backup cleanup: ${backup_count} backups (keeping ${keep_count})"
@@ -458,7 +459,8 @@ cleanup_old_backups() {
 
     local to_remove=$((backup_count - keep_count))
 
-    ls -dt "${BACKUP_DIR}"/*/ 2>/dev/null | tail -n "$to_remove" | while read -r old_backup; do
+    find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -printf "%T@ %p\n" 2>/dev/null \
+        | sort -nr | tail -n "$to_remove" | cut -d' ' -f2- | while read -r old_backup; do
         rm -rf "$old_backup"
         log "INFO" "Removed old backup: $(basename "$old_backup")"
     done

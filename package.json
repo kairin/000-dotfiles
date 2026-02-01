@@ -1,7 +1,7 @@
 {
-  "name": "ghostty-config-files",
+  "name": "000-dotfiles",
   "version": "1.0.0",
-  "description": "A comprehensive terminal environment setup featuring Ghostty terminal emulator with 2025 performance optimizations, right-click context menu integration, plus integrated AI tools (Claude Code, Gemini CLI) and Ptyxis terminal via Flatpak",
+  "description": "Comprehensive Ubuntu development environment setup with CLI tools, ZSH, MCP integration, and local CI/CD workflows",
   "type": "module",
   "main": "index.js",
   "directories": {
@@ -53,7 +53,7 @@
     "git:branches": "git branch -a",
     "clean": "rm -rf node_modules docs/_astro docs/index.html",
     "clean:docs": "rm -rf docs/* && touch docs/.nojekyll",
-    "clean:logs": "rm -rf /tmp/ghostty-start-logs/* ./.runners-local/logs/*",
+    "clean:logs": "rm -rf /tmp/dotfiles-start-logs/* ./.runners-local/logs/*",
     "install:all": "./start.sh",
     "update:check": "./scripts/check_updates.sh",
     "update:force": "./scripts/check_updates.sh --force",
@@ -61,12 +61,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kairin/ghostty-config-files.git"
+    "url": "git+https://github.com/kairin/000-dotfiles.git"
   },
   "keywords": [
-    "ghostty",
-    "terminal",
-    "terminal-emulator",
+    "dotfiles",
+    "ubuntu",
     "configuration",
     "zsh",
     "ai-tools",
@@ -76,9 +75,9 @@
   "author": "kairin",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/kairin/ghostty-config-files/issues"
+    "url": "https://github.com/kairin/000-dotfiles/issues"
   },
-  "homepage": "https://github.com/kairin/ghostty-config-files#readme",
+  "homepage": "https://github.com/kairin/000-dotfiles#readme",
   "engines": {
     "node": ">=25.0.0",
     "npm": ">=10.0.0"

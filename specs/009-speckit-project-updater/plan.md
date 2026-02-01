@@ -18,7 +18,7 @@ Add a SpecKit Project Updater feature to the TUI Extras menu that allows users t
 
 **Language/Version**: Go 1.23
 **Primary Dependencies**: Bubbletea v1.2.4, Bubbles v0.20.0, Lipgloss v1.0.0
-**Storage**: `~/.config/ghostty-installer/speckit-projects.json` (JSON config file)
+**Storage**: `~/.config/dotfiles-installer/speckit-projects.json` (JSON config file)
 **Testing**: Manual testing + `go build` validation
 **Target Platform**: Linux (Ubuntu 25.10)
 **Project Type**: Single Go module (TUI application)
@@ -131,7 +131,7 @@ ViewExtras
 
 ### Data Flow
 
-1. **Config Loading**: On TUI start, load `~/.config/ghostty-installer/speckit-projects.json`
+1. **Config Loading**: On TUI start, load `~/.config/dotfiles-installer/speckit-projects.json`
 2. **Project List**: Display tracked projects with cached status
 3. **Scan**: Compare project's `.specify/scripts/bash/` against canonical files
 4. **Preview**: Generate unified diff for changed files

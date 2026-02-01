@@ -48,7 +48,7 @@ done
 
 if [ -n "$MISSING_DEPS" ]; then
     log "INFO" "Installing desktop dependencies:$MISSING_DEPS"
-    if sudo apt-get update && sudo apt-get install -y $MISSING_DEPS; then
+    if sudo apt-get update && sudo apt-get install -y "$MISSING_DEPS"; then
         log "SUCCESS" "Desktop dependencies installed"
     else
         log "WARNING" "Some dependencies may be missing"

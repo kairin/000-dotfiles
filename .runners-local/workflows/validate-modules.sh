@@ -37,7 +37,8 @@ validate_contracts() {
     echo ""
 
     # Find all non-template modules
-    local module_files=$(find "$modules_dir" -maxdepth 1 -type f -name "*.sh" ! -name ".*" 2>/dev/null || echo "")
+    local module_files
+    module_files=$(find "$modules_dir" -maxdepth 1 -type f -name "*.sh" ! -name ".*" 2>/dev/null || echo "")
 
     if [[ -z "$module_files" ]]; then
         echo -e "${YELLOW}⚠${NC} No modules found in $modules_dir"
@@ -115,7 +116,8 @@ run_detailed_validation() {
     echo "Contract Validation (Detailed)"
     echo "────────────────────────────────────────────────────────"
 
-    local module_files=$(find "$modules_dir" -maxdepth 1 -type f -name "*.sh" ! -name ".*" 2>/dev/null || echo "")
+    local module_files
+    module_files=$(find "$modules_dir" -maxdepth 1 -type f -name "*.sh" ! -name ".*" 2>/dev/null || echo "")
 
     if [[ -n "$module_files" ]]; then
         while IFS= read -r module_file; do

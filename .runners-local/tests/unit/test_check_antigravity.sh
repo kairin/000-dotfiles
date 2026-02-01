@@ -1,6 +1,7 @@
 #!/bin/bash
 # Unit tests for scripts/000-check/check_antigravity.sh
 # Constitutional requirement: <10s execution time
+# shellcheck disable=SC2317
 
 set -euo pipefail
 

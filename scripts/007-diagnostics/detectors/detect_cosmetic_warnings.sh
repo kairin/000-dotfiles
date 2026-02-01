@@ -29,7 +29,7 @@ report_cosmetic() {
 
 # Use a temp file to avoid SIGPIPE issues with pipefail and grep -q
 TMPFILE=$(mktemp)
-trap "rm -f $TMPFILE" EXIT
+trap 'rm -f "$TMPFILE"' EXIT
 
 journalctl -b --no-pager 2>/dev/null > "$TMPFILE" || true
 

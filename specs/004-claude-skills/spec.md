@@ -11,7 +11,7 @@
 
 - Q: Should skills be project-level, user-level, or both for portability? → A: Both - templates in project (`.claude/commands/`), install script copies to user-level (`~/.claude/commands/`)
 - Q: How to handle existing `full-git-workflow` skill that overlaps with `/git-sync`? → A: Replace - new `/git-sync` supersedes `full-git-workflow`; delete the old one
-- Q: How should path resolution work for cross-project portability? → A: Project-aware - skills detect current project; Astro/health features only in ghostty-config-files, git features work everywhere
+- Q: How should path resolution work for cross-project portability? → A: Project-aware - skills detect current project; Astro/health features only in 000-dotfiles, git features work everywhere
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -115,14 +115,14 @@ As a developer, I want to run `/full-workflow` to execute a complete development
 
 **Project Detection Requirements:**
 
-- **FR-060**: Skills MUST detect if running in ghostty-config-files project (check for `.runners-local/` or `AGENTS.md`)
-- **FR-061**: When in ghostty-config-files: enable full feature set (health-check, deploy-site, git-sync, full-workflow)
+- **FR-060**: Skills MUST detect if running in 000-dotfiles project (check for `.runners-local/` or `AGENTS.md`)
+- **FR-061**: When in 000-dotfiles: enable full feature set (health-check, deploy-site, git-sync, full-workflow)
 - **FR-062**: When in other projects: `/git-sync` works with standard git; `/health-check` shows basic tool versions; `/deploy-site` reports "not available in this project"
 - **FR-063**: `/full-workflow` in other projects runs only generic stages (git sync) and skips project-specific stages
 
 **Health Check Skill (/health-check):**
 
-- **FR-010**: In ghostty-config-files: skill MUST execute `.runners-local/workflows/health-check.sh` for full diagnostics
+- **FR-010**: In 000-dotfiles: skill MUST execute `.runners-local/workflows/health-check.sh` for full diagnostics
 - **FR-010a**: In other projects: skill MUST check basic tools (git, gh, node) and report versions
 - **FR-011**: Skill MUST check: core tools (git, gh, node, npm, jq), MCP connectivity, Astro environment
 - **FR-012**: Skill MUST output structured summary with PASS/FAIL/WARNING status per component

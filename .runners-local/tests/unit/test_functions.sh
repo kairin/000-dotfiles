@@ -243,7 +243,7 @@ assert_exit_code() {
 
 # Mock a command with a custom script
 # Usage: mock_command <command_name> <mock_script>
-# Example: mock_command "ghostty" "echo 'mocked ghostty version 1.0'"
+# Example: mock_command "fastfetch" "echo 'mocked fastfetch version 1.0'"
 mock_command() {
     local command_name="$1"
     local mock_script="$2"
@@ -330,8 +330,10 @@ create_test_file() {
 # Usage: capture_output <command> [args...]
 # Sets: CAPTURED_STDOUT, CAPTURED_STDERR, CAPTURED_EXIT_CODE
 capture_output() {
-    local stdout_file=$(mktemp)
-    local stderr_file=$(mktemp)
+    local stdout_file
+    stdout_file=$(mktemp)
+    local stderr_file
+    stderr_file=$(mktemp)
 
     set +e
     "$@" > "$stdout_file" 2> "$stderr_file"
@@ -408,13 +410,17 @@ test_info() {
 # Usage: measure_time <command> [args...]
 # Returns: Execution time in milliseconds
 measure_time() {
-    local start_time=$(date +%s%N)
+    local start_time
+    start_time=$(date +%s%N)
 
     "$@" &>/dev/null || true
 
-    local end_time=$(date +%s%N)
-    local duration_ns=$((end_time - start_time))
-    local duration_ms=$((duration_ns / 1000000))
+    local end_time
+    end_time=$(date +%s%N)
+    local duration_ns
+    duration_ns=$((end_time - start_time))
+    local duration_ms
+    duration_ms=$((duration_ns / 1000000))
 
     echo "$duration_ms"
 }
@@ -425,7 +431,8 @@ assert_completes_within() {
     local max_ms="$1"
     shift
 
-    local duration_ms=$(measure_time "$@")
+    local duration_ms
+    duration_ms=$(measure_time "$@")
 
     if (( duration_ms <= max_ms )); then
         test_info "Completed in ${duration_ms}ms (limit: ${max_ms}ms)"
@@ -448,7 +455,8 @@ assert_completes_within() {
 _test_helpers_setup() {
     # Create temp directory if not exists
     if [[ -z "${TEST_TEMP_DIR:-}" ]]; then
-        export TEST_TEMP_DIR=$(mktemp -d)
+        TEST_TEMP_DIR=$(mktemp -d)
+export TEST_TEMP_DIR
         echo "  📁 Created test temp directory: $TEST_TEMP_DIR"
     fi
 }

@@ -15,7 +15,7 @@ fi
 # Check if agents are installed
 agents_count=0
 if [[ -d "$AGENTS_DIR" ]]; then
-    agents_count=$(ls -1 "$AGENTS_DIR" 2>/dev/null | wc -l)
+    agents_count=$(find "$AGENTS_DIR" -mindepth 1 -maxdepth 1 -print 2>/dev/null | wc -l)
 fi
 
 # Consider installed if we have at least 1 skill AND at least 1 agent

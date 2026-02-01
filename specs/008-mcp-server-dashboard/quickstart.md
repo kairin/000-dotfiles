@@ -5,7 +5,7 @@
 
 ## Overview
 
-This feature adds two dashboards to the existing Ghostty TUI installer:
+This feature adds two dashboards to the existing TUI installer:
 1. **MCP Servers Dashboard** - View and manage MCP server connections in `~/.claude.json`
 2. **Skills & Agents Dashboard** - View and manage skills/agents installation (replacing broken "Install Claude Config")
 

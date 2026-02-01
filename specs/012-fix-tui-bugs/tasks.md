@@ -247,7 +247,7 @@ Then: US5 (investigation - after US1-US4 complete to avoid conflicts)
 
 - All changes are within existing `tui/` directory
 - No new files created - modifying existing Go code only
-- Pre-existing module path issues (ghostty-installer vs dotfiles-installer) may affect `go build` but not code changes
+- Pre-existing module path issues (dotfiles-installer vs dotfiles-installer) may affect `go build` but not code changes
 - US5 (Stray Character) may require extended debugging - root cause not yet identified
 - Commit after each user story completion for easy rollback
 - Manual testing via quickstart.md is the primary verification method

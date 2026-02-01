@@ -5,11 +5,16 @@ set -euo pipefail
 IFS=$'\n\t'
 
 # Script configuration
-readonly SCRIPT_NAME=$(basename "$0")
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly REPO_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
-readonly DOCS_DIR="$REPO_DIR/docs"
-readonly NOJEKYLL_FILE="$DOCS_DIR/.nojekyll"
+SCRIPT_NAME=$(basename "$0")
+readonly SCRIPT_NAME
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+REPO_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+readonly REPO_DIR
+DOCS_DIR="$REPO_DIR/docs"
+readonly DOCS_DIR
+NOJEKYLL_FILE="$DOCS_DIR/.nojekyll"
+readonly NOJEKYLL_FILE
 
 # Colors for output
 readonly RED='\033[0;31m'
@@ -24,7 +29,8 @@ log() {
     local level="$1"
     shift
     local message="$*"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
 
     case "$level" in
         "ERROR") echo -e "${RED}[$timestamp] [ERROR] $message${NC}" >&2 ;;
@@ -130,8 +136,10 @@ verify_astro_build() {
     fi
 
     # Count assets
-    local html_count=$(find "$DOCS_DIR" -name "*.html" -type f 2>/dev/null | wc -l)
-    local asset_count=$(find "$DOCS_DIR/_astro" -type f 2>/dev/null | wc -l || echo "0")
+    local html_count
+    html_count=$(find "$DOCS_DIR" -name "*.html" -type f 2>/dev/null | wc -l)
+    local asset_count
+    asset_count=$(find "$DOCS_DIR/_astro" -type f 2>/dev/null | wc -l || echo "0")
 
     log "SUCCESS" "✅ Astro build output verified"
     log "INFO" "   HTML files: $html_count"
@@ -226,7 +234,7 @@ show_help() {
     cat << EOF
 Usage: $SCRIPT_NAME [OPTION]
 
-Zero-cost GitHub Pages setup with Astro.build for ghostty-config-files.
+Zero-cost GitHub Pages setup with Astro.build for 000-dotfiles.
 
 Options:
     --verify      Verify Astro build output and .nojekyll file (no changes)

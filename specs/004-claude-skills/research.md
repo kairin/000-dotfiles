@@ -46,7 +46,7 @@ No NEEDS CLARIFICATION items in Technical Context. All technical decisions are s
 **Decision**: Check for `.runners-local/` directory or `AGENTS.md` file
 
 **Rationale**:
-- These markers are unique to ghostty-config-files project
+- These markers are unique to 000-dotfiles project
 - Enables graceful degradation in other projects
 - Simple bash test: `[ -d ".runners-local" ] || [ -f "AGENTS.md" ]`
 

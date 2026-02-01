@@ -106,6 +106,7 @@ acquire_lock() {
 }
 
 release_lock() {
+    # shellcheck disable=SC2317
     rm -f "$LOCK_FILE"
 }
 
@@ -115,7 +116,6 @@ release_lock() {
 
 # Tool to install script mapping
 declare -A TOOL_SCRIPTS=(
-    ["Ghostty"]="install_ghostty.sh"
     ["Fastfetch"]="install_fastfetch.sh"
     ["Glow"]="install_glow.sh"
     ["Go"]="install_go.sh"
@@ -153,7 +153,8 @@ apply_update() {
     local current_version="$2"
     local target_version="$3"
 
-    local script_name=$(map_tool_to_script "$tool_name")
+    local script_name
+    script_name=$(map_tool_to_script "$tool_name")
     local script_path="${SCRIPT_DIR}/004-reinstall/${script_name}"
 
     if [[ -z "$script_name" ]] || [[ ! -x "$script_path" ]]; then
@@ -227,7 +228,8 @@ run_validation() {
 
 confirm_updates() {
     local updates="$1"
-    local count=$(echo "$updates" | grep -c '|' || echo "0")
+    local count
+    count=$(echo "$updates" | grep -c '|' || echo "0")
 
     if [[ $NON_INTERACTIVE -eq 1 ]]; then
         log "INFO" "Non-interactive mode: proceeding with ${count} update(s)"

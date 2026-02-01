@@ -226,6 +226,173 @@ func (m MCPServersModel) renderPreferenceMenu() string {
 	return b.String()
 }
 
+// HandleKey processes key presses in MCP Servers view
+func (m *MCPServersModel) HandleKey(msg tea.KeyMsg) (tea.Cmd, bool) {
+	if m.preferenceMode {
+		return m.handlePreferenceMenuKey(msg)
+	}
+	if m.menuMode {
+		return m.handleActionMenuKey(msg)
+	}
+
+	serverCount := len(m.servers)
+	menuItemCount := 3 // Setup Secrets + Set Default Target + Back
+	maxCursor := serverCount + menuItemCount - 1
+
+	switch msg.String() {
+	case "up", "k":
+		if m.cursor > 0 {
+			m.cursor--
+		} else {
+			m.cursor = maxCursor
+		}
+		return nil, false
+
+	case "down", "j":
+		if m.cursor < maxCursor {
+			m.cursor++
+		} else {
+			m.cursor = 0
+		}
+		return nil, false
+
+	case "r":
+		m.loading = true
+		return tea.Batch(
+			m.spinner.Tick,
+			m.refreshMCPStatuses(),
+		), false
+
+	case "enter":
+		if m.cursor < serverCount {
+			m.showActionMenu(m.servers[m.cursor])
+			return nil, false
+		}
+
+		menuIndex := m.cursor - serverCount
+		switch menuIndex {
+		case 0:
+			return func() tea.Msg { return MCPShowSecretsWizardMsg{} }, true
+		case 1:
+			m.openPreferenceMenu()
+			return nil, false
+		default:
+			return nil, true
+		}
+	}
+
+	return nil, false
+}
+
+// IsBackSelected returns true if "Back" is selected in the main menu.
+func (m MCPServersModel) IsBackSelected() bool {
+	if m.menuMode || m.preferenceMode {
+		return false
+	}
+	return m.cursor == len(m.servers)+2
+}
+
+func (m *MCPServersModel) openPreferenceMenu() {
+	m.preferenceMode = true
+	m.preferenceCursor = 0
+	m.preferenceItems = m.buildPreferenceItems()
+}
+
+func (m *MCPServersModel) buildPreferenceItems() []string {
+	items := []string{}
+	if m.cliAvailability.ClaudeInstalled && m.cliAvailability.CodexInstalled {
+		items = append(items, "Default: Both", "Default: Claude", "Default: Codex")
+	} else if m.cliAvailability.ClaudeInstalled {
+		items = append(items, "Default: Claude")
+	} else if m.cliAvailability.CodexInstalled {
+		items = append(items, "Default: Codex")
+	}
+	items = append(items, "Back")
+	return items
+}
+
+func (m *MCPServersModel) showActionMenu(server *registry.MCPServer) {
+	m.selectedServer = server
+	m.menuMode = true
+	m.actionCursor = 0
+	m.selectedAction = ""
+
+	status := m.statuses[server.ID]
+	claudeAdded := status.Claude.Connected
+	codexAdded := status.Codex.Connected
+
+	m.actionItems = buildActionItems(
+		m.cliAvailability.ClaudeInstalled,
+		m.cliAvailability.CodexInstalled,
+		claudeAdded,
+		codexAdded,
+	)
+}
+
+func (m *MCPServersModel) handleActionMenuKey(msg tea.KeyMsg) (tea.Cmd, bool) {
+	switch msg.String() {
+	case "up", "k":
+		if m.actionCursor > 0 {
+			m.actionCursor--
+		} else if len(m.actionItems) > 0 {
+			m.actionCursor = len(m.actionItems) - 1
+		}
+		return nil, false
+
+	case "down", "j":
+		if m.actionCursor < len(m.actionItems)-1 {
+			m.actionCursor++
+		} else {
+			m.actionCursor = 0
+		}
+		return nil, false
+
+	case "esc":
+		m.resetActionMenu()
+		return nil, false
+
+	case "enter":
+		if m.actionCursor >= len(m.actionItems) {
+			return nil, false
+		}
+		action := m.actionItems[m.actionCursor]
+		m.selectedAction = action
+		if action == "Back" {
+			m.resetActionMenu()
+			return nil, false
+		}
+
+		server := m.selectedServer
+		target := m.parseActionTarget(action)
+		m.resetActionMenu()
+
+		if strings.HasPrefix(action, "Install") {
+			if server != nil && (!server.AllPrerequisitesPassed() || !server.AllSecretsPresent()) {
+				return func() tea.Msg {
+					return MCPShowPrereqMsg{Server: server, Target: target}
+				}, false
+			}
+			return func() tea.Msg {
+				return MCPInstallServerMsg{Server: server, Target: target}
+			}, false
+		}
+
+		if strings.HasPrefix(action, "Remove") {
+			return m.removeMCPServerFromTarget(server, target), false
+		}
+	}
+
+	return nil, false
+}
+
+func (m *MCPServersModel) resetActionMenu() {
+	m.menuMode = false
+	m.selectedServer = nil
+	m.actionItems = nil
+	m.actionCursor = 0
+	m.selectedAction = ""
+}
+
 // parseActionTarget extracts the CLI target from an action string
 func (m *MCPServersModel) parseActionTarget(action string) config.MCPCLITarget {
 	if strings.Contains(action, "(Both)") {
@@ -238,6 +405,9 @@ func (m *MCPServersModel) parseActionTarget(action string) config.MCPCLITarget {
 		return config.MCPTargetCodex
 	}
 	if m.cliAvailability.ClaudeInstalled && m.cliAvailability.CodexInstalled {
+		if m.defaultTarget != "" {
+			return m.defaultTarget
+		}
 		return config.MCPTargetBoth
 	}
 	if m.cliAvailability.ClaudeInstalled {
@@ -376,4 +546,153 @@ func (m *MCPServersModel) resetPreferenceMenu() {
 	m.preferenceMode = false
 	m.preferenceItems = nil
 	m.preferenceCursor = 0
+}
+
+func (m *MCPServersModel) installMCPServerToTarget(server *registry.MCPServer, target config.MCPCLITarget) tea.Cmd {
+	return func() tea.Msg {
+		var claudeOK bool
+		var codexOK bool
+		var claudeErr error
+		var codexErr error
+
+		if server == nil {
+			return mcpInstallResultMsg{
+				serverID:  "",
+				target:    target,
+				claudeErr: fmt.Errorf("invalid MCP server"),
+			}
+		}
+
+		if target == config.MCPTargetBoth || target == config.MCPTargetClaude {
+			if !m.cliAvailability.ClaudeInstalled {
+				claudeErr = fmt.Errorf("Claude CLI not installed")
+			} else {
+				claudeOK, claudeErr = installMCPServerClaude(server)
+			}
+		}
+
+		if target == config.MCPTargetBoth || target == config.MCPTargetCodex {
+			if !m.cliAvailability.CodexInstalled {
+				codexErr = fmt.Errorf("Codex CLI not installed")
+			} else {
+				codexOK, codexErr = installMCPServerCodex(server)
+			}
+		}
+
+		return mcpInstallResultMsg{
+			serverID:  server.ID,
+			target:    target,
+			claudeOK:  claudeOK,
+			codexOK:   codexOK,
+			claudeErr: claudeErr,
+			codexErr:  codexErr,
+		}
+	}
+}
+
+func (m *MCPServersModel) removeMCPServerFromTarget(server *registry.MCPServer, target config.MCPCLITarget) tea.Cmd {
+	return func() tea.Msg {
+		var claudeOK bool
+		var codexOK bool
+		var claudeErr error
+		var codexErr error
+
+		if server == nil {
+			return mcpRemoveResultMsg{
+				serverID:  "",
+				target:    target,
+				claudeErr: fmt.Errorf("invalid MCP server"),
+			}
+		}
+
+		if target == config.MCPTargetBoth || target == config.MCPTargetClaude {
+			if !m.cliAvailability.ClaudeInstalled {
+				claudeErr = fmt.Errorf("Claude CLI not installed")
+			} else {
+				claudeOK, claudeErr = removeMCPServerClaude(server)
+			}
+		}
+
+		if target == config.MCPTargetBoth || target == config.MCPTargetCodex {
+			if !m.cliAvailability.CodexInstalled {
+				codexErr = fmt.Errorf("Codex CLI not installed")
+			} else {
+				codexOK, codexErr = removeMCPServerCodex(server)
+			}
+		}
+
+		return mcpRemoveResultMsg{
+			serverID:  server.ID,
+			target:    target,
+			claudeOK:  claudeOK,
+			codexOK:   codexOK,
+			claudeErr: claudeErr,
+			codexErr:  codexErr,
+		}
+	}
+}
+
+func installMCPServerClaude(server *registry.MCPServer) (bool, error) {
+	args := server.GetAddCommand()
+	cmd := exec.Command("claude", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(output))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return false, fmt.Errorf("Claude install failed: %s", msg)
+	}
+	return true, nil
+}
+
+func removeMCPServerClaude(server *registry.MCPServer) (bool, error) {
+	args := server.GetRemoveCommand()
+	cmd := exec.Command("claude", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(output))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return false, fmt.Errorf("Claude remove failed: %s", msg)
+	}
+	return true, nil
+}
+
+func installMCPServerCodex(server *registry.MCPServer) (bool, error) {
+	cfg, err := buildCodexMCPServer(server)
+	if err != nil {
+		return false, err
+	}
+	if err := config.AddCodexMCPServer(server.ID, cfg); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func removeMCPServerCodex(server *registry.MCPServer) (bool, error) {
+	if err := config.RemoveCodexMCPServer(server.ID); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func buildCodexMCPServer(server *registry.MCPServer) (config.CodexMCPServer, error) {
+	if server == nil {
+		return config.CodexMCPServer{}, fmt.Errorf("invalid MCP server")
+	}
+	if server.CodexConfig.URL != "" {
+		return config.CodexMCPServer{
+			URL:               server.CodexConfig.URL,
+			BearerTokenEnvVar: server.CodexConfig.BearerTokenEnvVar,
+		}, nil
+	}
+	if server.CodexConfig.Command != "" {
+		return config.CodexMCPServer{
+			Command: server.CodexConfig.Command,
+			Args:    server.CodexConfig.Args,
+		}, nil
+	}
+	return config.CodexMCPServer{}, fmt.Errorf("missing Codex config for %s", server.DisplayName)
 }

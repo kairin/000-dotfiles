@@ -25,7 +25,7 @@ done
 
 if [ -n "$MISSING_DEPS" ]; then
     log "INFO" "Installing missing dependencies:$MISSING_DEPS"
-    sudo stdbuf -oL apt-get install -y $MISSING_DEPS
+    sudo stdbuf -oL apt-get install -y "$MISSING_DEPS"
 fi
 
 log "SUCCESS" "Dependencies check complete (curl, git available)"

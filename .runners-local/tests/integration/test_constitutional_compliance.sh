@@ -180,7 +180,8 @@ test_principle_4_agent_file_integrity() {
     fi
 
     # Verify files have substantial content (>1000 bytes)
-    local claude_size=$(stat -f%z "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || stat -c%s "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null)
+    local claude_size
+    claude_size=$(stat -f%z "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || stat -c%s "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null)
     if [[ $claude_size -lt 1000 ]]; then
         ((TESTS_FAILED++))
         echo "  ❌ FAIL: CLAUDE.md too small (${claude_size} < 1000 bytes)"
@@ -287,27 +288,33 @@ generate_constitutional_audit() {
     echo "════════════════════════════════════════════════════════"
 
     # Audit CLAUDE.md for all NON-NEGOTIABLE items
-    local non_negotiable_count=$(grep -c "NON-NEGOTIABLE\|MANDATORY\|CRITICAL" "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || echo 0)
+    local non_negotiable_count
+    non_negotiable_count=$(grep -c "NON-NEGOTIABLE\|MANDATORY\|CRITICAL" "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || echo 0)
     echo "  NON-NEGOTIABLE Items in CLAUDE.md: $non_negotiable_count"
 
     # Check branch protection
-    local branch_protection=$(grep -c "NEVER DELETE BRANCH" "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || echo 0)
+    local branch_protection
+    branch_protection=$(grep -c "NEVER DELETE BRANCH" "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || echo 0)
     echo "  Branch Protection Mentions: $branch_protection"
 
     # Check .nojekyll protection
-    local nojekyll_protection=$(grep -c "nojekyll" "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || echo 0)
+    local nojekyll_protection
+    nojekyll_protection=$(grep -c "nojekyll" "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || echo 0)
     echo "  .nojekyll Protection Mentions: $nojekyll_protection"
 
     # Check local CI/CD mentions
-    local local_cicd=$(grep -c "local CI/CD\|Local CI/CD" "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || echo 0)
+    local local_cicd
+    local_cicd=$(grep -c "local CI/CD\|Local CI/CD" "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || echo 0)
     echo "  Local CI/CD Mentions: $local_cicd"
 
     # Check zero-cost mentions
-    local zero_cost=$(grep -c "zero.*cost\|Zero.*cost" "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || echo 0)
+    local zero_cost
+    zero_cost=$(grep -c "zero.*cost\|Zero.*cost" "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || echo 0)
     echo "  Zero-Cost Mentions: $zero_cost"
 
     # Check conversation logging
-    local conversation_log=$(grep -c "conversation.*log\|CONVERSATION_LOG" "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || echo 0)
+    local conversation_log
+    conversation_log=$(grep -c "conversation.*log\|CONVERSATION_LOG" "${PROJECT_ROOT}/CLAUDE.md" 2>/dev/null || echo 0)
     echo "  Conversation Logging Mentions: $conversation_log"
 
     echo ""

@@ -140,7 +140,7 @@ list_test_suites() {
 
     for i in "${!TEST_SUITES[@]}"; do
         suite="${TEST_SUITES[$i]}"
-        echo "  $(($i + 1)). $suite"
+        echo "  $((i + 1)). $suite"
 
         # Extract description from first comment
         if [[ -f "$TESTS_DIR/$suite" ]]; then
@@ -204,9 +204,12 @@ run_test_suite() {
 
     # Extract test counts from output
     if [[ -n "$output" ]]; then
-        local test_total=$(echo "$output" | grep "Total Tests:" | awk '{print $NF}' || echo "0")
-        local test_passed=$(echo "$output" | grep "Passed:" | awk '{print $NF}' || echo "0")
-        local test_failed=$(echo "$output" | grep "Failed:" | awk '{print $NF}' || echo "0")
+        local test_total
+        test_total=$(echo "$output" | grep "Total Tests:" | awk '{print $NF}' || echo "0")
+        local test_passed
+        test_passed=$(echo "$output" | grep "Passed:" | awk '{print $NF}' || echo "0")
+        local test_failed
+        test_failed=$(echo "$output" | grep "Failed:" | awk '{print $NF}' || echo "0")
 
         if [[ -n "$test_total" && "$test_total" != "0" ]]; then
             ((TOTAL_TESTS += test_total))

@@ -87,46 +87,6 @@ check_cache_validity() {
 # =============================================================================
 # Check icon files exist
 # =============================================================================
-check_ghostty_icons() {
-    echo "Checking Ghostty icon files..."
-
-    # Check user directory
-    local user_dir="$HOME/.local/share/icons/hicolor"
-    local found_user=0
-    for size in 512x512 256x256 128x128; do
-        if [ -f "$user_dir/$size/apps/com.mitchellh.ghostty.png" ]; then
-            found_user=1
-            break
-        fi
-    done
-
-    # Check system directory
-    local system_dir="/usr/local/share/icons/hicolor"
-    local found_system=0
-    for size in 512x512 256x256 128x128 32x32 16x16; do
-        if [ -f "$system_dir/$size/apps/ghostty.png" ]; then
-            found_system=1
-            break
-        fi
-    done
-
-    if [ $found_user -eq 1 ]; then
-        echo "  OK: Ghostty icon found in ~/.local/share/icons/hicolor/"
-    elif [ $found_system -eq 1 ]; then
-        echo "  OK: Ghostty icon found in /usr/local/share/icons/hicolor/"
-    else
-        echo "  WARNING: Ghostty icon NOT found in expected locations"
-    fi
-
-    # Check desktop entry
-    if grep -q "Icon=com.mitchellh.ghostty" "$HOME/.local/share/applications/ghostty.desktop" 2>/dev/null || \
-       grep -q "Icon=ghostty" "/usr/local/share/applications/ghostty.desktop" 2>/dev/null; then
-        echo "  OK: Ghostty desktop entry found"
-    else
-        echo "  INFO: Ghostty desktop entry not found (may be installed elsewhere)"
-    fi
-}
-
 check_feh_icons() {
     echo "Checking Feh icon files..."
 
@@ -258,7 +218,6 @@ fi
 
 # Check icon files
 echo "--- Icon Files ---"
-check_ghostty_icons
 check_feh_icons
 echo ""
 

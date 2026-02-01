@@ -18,8 +18,8 @@ This guide covers testing the agents consolidation feature.
 
 ```bash
 # Clone repository (if not already done)
-git clone https://github.com/kairin/ghostty-config-files.git
-cd ghostty-config-files
+git clone https://github.com/kairin/000-dotfiles.git
+cd 000-dotfiles
 
 # Run combined installer
 ./scripts/install-claude-config.sh
@@ -173,7 +173,7 @@ ls ~/.claude/commands/health-check.md 2>/dev/null || echo "Deprecated file remov
 
 ```bash
 # Ensure you're in repository root
-cd /path/to/ghostty-config-files
+cd /path/to/000-dotfiles
 ls scripts/install-claude-config.sh
 ```
 

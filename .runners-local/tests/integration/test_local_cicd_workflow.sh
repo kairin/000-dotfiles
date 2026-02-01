@@ -30,7 +30,8 @@ setup_all() {
     echo "🔧 Setting up local CI/CD workflow test environment..."
 
     # Create test environment
-    export TEST_TEMP_DIR=$(mktemp -d)
+    TEST_TEMP_DIR=$(mktemp -d)
+export TEST_TEMP_DIR
     export TEST_LOGS="$TEST_TEMP_DIR/logs"
     mkdir -p "$TEST_LOGS"
 

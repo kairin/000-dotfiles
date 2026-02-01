@@ -3,7 +3,7 @@
 import DocsLayout from '../../components/layout/DocsLayout.astro';
 ---
 
-<DocsLayout title="Installation" description="Detailed guide for installing Ghostty Configuration Files">
+<DocsLayout title="Installation" description="Detailed guide for installing 000-dotfiles">
   <h2>System Requirements</h2>
 
   <div class="alert alert-warning not-prose my-6">
@@ -57,8 +57,8 @@ import DocsLayout from '../../components/layout/DocsLayout.astro';
 
   <h3>2. Clone the Repository</h3>
   <div class="mockup-code not-prose my-4">
-    <pre data-prefix="$"><code>git clone https://github.com/kairin/ghostty-config-files</code></pre>
-    <pre data-prefix="$"><code>cd ghostty-config-files</code></pre>
+    <pre data-prefix="$"><code>git clone https://github.com/kairin/000-dotfiles</code></pre>
+    <pre data-prefix="$"><code>cd 000-dotfiles</code></pre>
   </div>
 
   <h3>3. Run the Installer</h3>
@@ -77,14 +77,12 @@ import DocsLayout from '../../components/layout/DocsLayout.astro';
       <p class="mt-2">│ APP            STATUS      VERSION       LATEST         METHOD          │</p>
       <p>│ ─────────────────────────────────────────────────────────────────────── │</p>
       <p>│ Feh            <span class="text-success">✓ OK</span>       0.28.1        -              APT             │</p>
-      <p>│ Ghostty        <span class="text-success">✓ OK</span>       1.2.3+tip     v1.2.3         Source          │</p>
       <p>│ Nerd Fonts     <span class="text-warning">↑ Update</span>   3.3.0         v3.4.0         GitHub          │</p>
       <p>│ Node.js        <span class="text-success">✓ OK</span>       v22.16.0      v22.16.0       fnm             │</p>
       <p>│ Local AI Tools <span class="text-success">✓ OK</span>       detected      -              npm             │</p>
       <p class="text-primary">╰───────────────────────────────────────────────────────────────────────────╯</p>
       <p class="mt-4">Choose:</p>
       <p class="mt-2">  <span class="text-success">▸</span> Feh</p>
-      <p>  <span class="text-base-content/50"> </span> Ghostty</p>
       <p>  <span class="text-base-content/50"> </span> Nerd Fonts</p>
       <p>  <span class="text-base-content/50"> </span> Node.js</p>
       <p>  <span class="text-base-content/50"> </span> Local AI Tools</p>
@@ -98,10 +96,10 @@ import DocsLayout from '../../components/layout/DocsLayout.astro';
 
   <div class="mockup-window border border-base-300 not-prose my-6">
     <div class="bg-base-200 px-4 py-6 font-mono text-sm">
-      <p class="text-primary">╭─────── Summary: ghostty ───────╮</p>
+      <p class="text-primary">╭─────── Summary: nodejs ───────╮</p>
       <p class="text-primary">│                                │</p>
-      <p class="mt-2">  # Ghostty Terminal</p>
-      <p class="mt-1 text-base-content/70">  GPU-accelerated terminal emulator...</p>
+      <p class="mt-2">  # Node.js</p>
+      <p class="mt-1 text-base-content/70">  JavaScript runtime with fnm version management...</p>
       <p class="text-primary mt-2">│                                │</p>
       <p class="text-primary">╰────────────────────────────────╯</p>
       <p class="mt-4 text-warning">    ↳ View Full Details uses pager:</p>
@@ -134,8 +132,8 @@ import DocsLayout from '../../components/layout/DocsLayout.astro';
   <h3>Verify Installation</h3>
   <p>Check that everything installed correctly:</p>
   <div class="mockup-code not-prose my-4">
-    <pre data-prefix="$"><code>ghostty --version</code></pre>
-    <pre data-prefix="ghostty" class="text-success"><code>1.2.3</code></pre>
+    <pre data-prefix="$"><code>node --version</code></pre>
+    <pre data-prefix="node" class="text-success"><code>v22.16.0</code></pre>
     <pre data-prefix="$"><code>echo $SHELL</code></pre>
     <pre data-prefix="" class="text-success"><code>/usr/bin/zsh</code></pre>
   </div>
@@ -151,8 +149,6 @@ import DocsLayout from '../../components/layout/DocsLayout.astro';
   <p>If you prefer to install components individually, each has its own script:</p>
 
   <div class="mockup-code not-prose my-4">
-    <pre data-prefix="#" class="text-base-content/50"><code>Install just Ghostty</code></pre>
-    <pre data-prefix="$"><code>./scripts/004-reinstall/install_ghostty.sh</code></pre>
     <pre data-prefix="#" class="text-base-content/50"><code>Install just Nerd Fonts</code></pre>
     <pre data-prefix="$"><code>./scripts/004-reinstall/install_nerdfonts.sh</code></pre>
   </div>

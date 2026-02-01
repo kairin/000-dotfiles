@@ -5,11 +5,16 @@
 set -euo pipefail
 
 # Constitutional configuration
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-readonly LOG_DIR="${PROJECT_ROOT}/.update_cache/gh_cli_logs"
-readonly TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-readonly LOG_FILE="${LOG_DIR}/gh_cli_${TIMESTAMP}.log"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+readonly PROJECT_ROOT
+LOG_DIR="${PROJECT_ROOT}/.update_cache/gh_cli_logs"
+readonly LOG_DIR
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+readonly TIMESTAMP
+LOG_FILE="${LOG_DIR}/gh_cli_${TIMESTAMP}.log"
+readonly LOG_FILE
 readonly MAX_WORKFLOW_TIME=300  # 5 minutes max
 
 # Ensure log directory exists
@@ -32,7 +37,8 @@ log() {
     local level="$1"
     shift
     local message="$*"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
 
     echo "[${timestamp}] [${level}] ${message}" | tee -a "${LOG_FILE}"
 
@@ -239,7 +245,8 @@ main() {
                 show_usage
                 exit 1
             fi
-            local current_branch=$(git branch --show-current)
+            local current_branch
+            current_branch=$(git branch --show-current)
             create_constitutional_pr "$2" "$3" "${current_branch}"
             ;;
         "help"|"--help"|"-h")

@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-01-18
 **Total Scripts**: 114
-**Purpose**: Comprehensive tool installation, management, and maintenance for the Ghostty Configuration Files project
+**Purpose**: Comprehensive tool installation, management, and maintenance for the 000-dotfiles project
 
 ## Overview
 
@@ -30,7 +30,6 @@ This directory contains shell scripts organized into numbered stage directories 
 Scripts follow the pattern: `<action>_<tool>.sh`
 
 Examples:
-- `check_ghostty.sh` - Check if Ghostty is installed
 - `update_nodejs.sh` - Update Node.js to latest version
 - `uninstall_zsh.sh` - Uninstall ZSH and related components
 
@@ -46,7 +45,6 @@ Detect whether tools are installed and their installation method.
 | `check_antigravity.sh` | Detect Antigravity font installation |
 | `check_fastfetch.sh` | Detect fastfetch system information tool |
 | `check_feh.sh` | Detect feh image viewer |
-| `check_ghostty.sh` | Detect Ghostty terminal (snap vs source) |
 | `check_glow.sh` | Detect glow markdown renderer |
 | `check_go.sh` | Detect Go programming language |
 | `check_gum.sh` | Detect gum TUI component library |
@@ -69,7 +67,6 @@ Cleanly remove tools and their configurations.
 | `uninstall_antigravity.sh` | Remove Antigravity font |
 | `uninstall_fastfetch.sh` | Remove fastfetch |
 | `uninstall_feh.sh` | Remove feh image viewer |
-| `uninstall_ghostty.sh` | Remove Ghostty terminal |
 | `uninstall_glow.sh` | Remove glow |
 | `uninstall_go.sh` | Remove Go |
 | `uninstall_gum.sh` | Remove gum |
@@ -91,7 +88,6 @@ Install tools for the first time including all dependencies.
 | `install_deps_antigravity.sh` | Install Antigravity font dependencies |
 | `install_deps_fastfetch.sh` | Install fastfetch dependencies |
 | `install_deps_feh.sh` | Install feh dependencies |
-| `install_deps_ghostty.sh` | Install Ghostty dependencies |
 | `install_deps_glow.sh` | Install glow dependencies |
 | `install_deps_go.sh` | Install Go dependencies |
 | `install_deps_gum.sh` | Install gum dependencies |
@@ -100,7 +96,6 @@ Install tools for the first time including all dependencies.
 | `install_deps_python_uv.sh` | Install Python UV dependencies |
 | `install_deps_vhs.sh` | Install VHS dependencies |
 | `install_deps_zsh.sh` | Install ZSH dependencies |
-| `install_ghostty_config.sh` | Install Ghostty configuration files |
 | `setup_mcp_config.sh` | Setup MCP server configuration |
 
 ---
@@ -115,7 +110,6 @@ Verify that all dependencies are correctly installed.
 | `verify_deps_antigravity.sh` | Verify Antigravity font dependencies |
 | `verify_deps_fastfetch.sh` | Verify fastfetch dependencies |
 | `verify_deps_feh.sh` | Verify feh dependencies |
-| `verify_deps_ghostty.sh` | Verify Ghostty dependencies |
 | `verify_deps_glow.sh` | Verify glow dependencies |
 | `verify_deps_go.sh` | Verify Go dependencies |
 | `verify_deps_gum.sh` | Verify gum dependencies |
@@ -137,7 +131,6 @@ Reinstall or upgrade existing tool installations.
 | `install_antigravity.sh` | Reinstall Antigravity font |
 | `install_fastfetch.sh` | Reinstall fastfetch |
 | `install_feh.sh` | Reinstall feh |
-| `install_ghostty.sh` | Reinstall Ghostty |
 | `install_glow.sh` | Reinstall glow |
 | `install_go.sh` | Reinstall Go |
 | `install_gum.sh` | Reinstall gum |
@@ -160,7 +153,6 @@ Confirm successful installation and display version information.
 | `confirm_antigravity.sh` | Confirm Antigravity font installation |
 | `confirm_fastfetch.sh` | Confirm fastfetch installation |
 | `confirm_feh.sh` | Confirm feh installation |
-| `confirm_ghostty.sh` | Confirm Ghostty installation |
 | `confirm_glow.sh` | Confirm glow installation |
 | `confirm_go.sh` | Confirm Go installation |
 | `confirm_gum.sh` | Confirm gum installation |
@@ -228,7 +220,6 @@ Update installed tools to their latest versions. See [007-update/README.md](007-
 | `update_ai_tools.sh` | Update AI CLI tools via npm |
 | `update_fastfetch.sh` | Update fastfetch |
 | `update_feh.sh` | Update feh |
-| `update_ghostty.sh` | Update Ghostty (snap refresh or source rebuild) |
 | `update_glow.sh` | Update glow |
 | `update_go.sh` | Update Go |
 | `update_gum.sh` | Update gum |
@@ -269,7 +260,6 @@ Utility scripts at the scripts directory root.
 | `check_updates.sh` | Check for available updates across all tools |
 | `configure_zsh.sh` | Configure ZSH with Oh My ZSH and plugins |
 | `daily-updates.sh` | Run daily update routine (cron-compatible) |
-| `ghostty-theme-switcher.sh` | Switch Ghostty theme based on system preference |
 | `install_apt_hook.sh` | Install APT hook for update notifications |
 
 ---
@@ -295,7 +285,6 @@ Utility scripts at the scripts directory root.
 | AI Tools | ✓ | ✓ | ✓ | ✓ |
 | Fastfetch | ✓ | ✓ | ✓ | ✓ |
 | Feh | ✓ | ✓ | ✓ | ✓ |
-| Ghostty | ✓ | ✓ | ✓ | ✓ |
 | Glow | ✓ | ✓ | ✓ | ✓ |
 | Go | ✓ | ✓ | ✓ | ✓ |
 | Gum | ✓ | ✓ | ✓ | ✓ |

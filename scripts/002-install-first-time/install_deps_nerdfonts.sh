@@ -28,7 +28,7 @@ wait_for_apt_lock
 sudo stdbuf -oL apt-get update
 
 log "INFO" "Installing: $DEPS"
-if sudo stdbuf -oL apt-get install -y $DEPS; then
+if sudo stdbuf -oL apt-get install -y "$DEPS"; then
     log "SUCCESS" "Dependencies installed successfully"
 else
     log "ERROR" "Failed to install dependencies"

@@ -8,8 +8,8 @@ interface Props {
 }
 
 const {
-  title = 'Ghostty Config Files',
-  tagline = 'Complete terminal environment setup for Ubuntu'
+  title = '000-dotfiles',
+  tagline = 'Complete development environment setup for Ubuntu'
 } = Astro.props;
 
 const base = import.meta.env.BASE_URL;
@@ -39,7 +39,7 @@ const base = import.meta.env.BASE_URL;
 
     <!-- Feature Pills -->
     <div class="mt-3 flex flex-wrap gap-1 justify-end">
-      <span class="badge badge-sm bg-sky-500/20 text-sky-300 border-sky-500/30">Ghostty v1.2.3+</span>
+      <span class="badge badge-sm bg-sky-500/20 text-sky-300 border-sky-500/30">Local CI/CD</span>
       <span class="badge badge-sm bg-emerald-500/20 text-emerald-300 border-emerald-500/30">ZSH + Oh My ZSH</span>
       <span class="badge badge-sm bg-violet-500/20 text-violet-300 border-violet-500/30">AI Tools</span>
       <span class="badge badge-sm bg-amber-500/20 text-amber-300 border-amber-500/30">Nerd Fonts</span>
@@ -48,15 +48,15 @@ const base = import.meta.env.BASE_URL;
     <!-- Quick Install (hidden to save space) -->
     <div class="hidden">
       <div class="mockup-code bg-gray-900/80 backdrop-blur text-sm shadow-xl">
-        <pre data-prefix="$" class="text-gray-300"><code>git clone https://github.com/kairin/ghostty-config-files</code></pre>
-        <pre data-prefix="$" class="text-gray-300"><code>cd ghostty-config-files && ./start.sh</code></pre>
+        <pre data-prefix="$" class="text-gray-300"><code>git clone https://github.com/kairin/000-dotfiles</code></pre>
+        <pre data-prefix="$" class="text-gray-300"><code>cd 000-dotfiles && ./start.sh</code></pre>
       </div>
     </div>
 
     <!-- CTA Buttons -->
     <div class="mt-3 flex flex-col gap-1">
       <a
-        href="https://github.com/kairin/ghostty-config-files"
+        href="https://github.com/kairin/000-dotfiles"
         target="_blank"
         rel="noopener"
         class="btn btn-primary btn-sm shadow-lg shadow-sky-500/25"

@@ -140,7 +140,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ```bash
 # Run daily compliance check (add to cron)
-0 9 * * * /home/kkk/Apps/ghostty-config-files/.runners-local/workflows/constitutional-compliance-check.sh >> /tmp/constitutional-compliance.log 2>&1
+0 9 * * * /home/kkk/Apps/000-dotfiles/.runners-local/workflows/constitutional-compliance-check.sh >> /tmp/constitutional-compliance.log 2>&1
 ```
 
 ## Quick Status Check
@@ -152,9 +152,9 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ## Documentation
 
-- **Full Criteria**: `/home/kkk/Apps/ghostty-config-files/docs-setup/constitutional-compliance-criteria.md`
-- **Implementation Summary**: `/home/kkk/Apps/ghostty-config-files/docs-setup/CONSTITUTIONAL_COMPLIANCE_SUMMARY.md`
-- **Git Hooks README**: `/home/kkk/Apps/ghostty-config-files/.runners-local/git-hooks/README.md`
+- **Full Criteria**: `/home/kkk/Apps/000-dotfiles/docs-setup/constitutional-compliance-criteria.md`
+- **Implementation Summary**: `/home/kkk/Apps/000-dotfiles/docs-setup/CONSTITUTIONAL_COMPLIANCE_SUMMARY.md`
+- **Git Hooks README**: `/home/kkk/Apps/000-dotfiles/.runners-local/git-hooks/README.md`
 - **AGENTS.md**: Constitutional requirements source
 
 ## Support

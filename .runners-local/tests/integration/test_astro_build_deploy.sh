@@ -29,7 +29,8 @@ setup_all() {
     echo "🔧 Setting up Astro build and deploy test environment..."
 
     # Create test environment
-    export TEST_TEMP_DIR=$(mktemp -d)
+    TEST_TEMP_DIR=$(mktemp -d)
+export TEST_TEMP_DIR
     export TEST_BUILD_DIR="$TEST_TEMP_DIR/build"
     mkdir -p "$TEST_BUILD_DIR"
 
@@ -213,7 +214,8 @@ test_build_output_not_empty() {
     echo "  Testing: docs directory contains build output"
 
     # Check if docs directory has files
-    local file_count=$(find "$PROJECT_ROOT/docs" -type f | wc -l)
+    local file_count
+    file_count=$(find "$PROJECT_ROOT/docs" -type f | wc -l)
 
     assert_true "[[ $file_count -gt 0 ]]" "docs directory should contain generated files"
 

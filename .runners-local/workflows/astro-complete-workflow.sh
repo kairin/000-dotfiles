@@ -49,7 +49,7 @@ main() {
     fi
 
     echo -e "${GREEN}🎉 Complete constitutional Astro workflow successful!${NC}"
-    echo -e "${GREEN}🌐 Site URL: https://kairin.github.io/ghostty-config-files/${NC}"
+    echo -e "${GREEN}🌐 Site URL: https://kairin.github.io/000-dotfiles/${NC}"
     echo ""
     echo "🔧 Next steps:"
     echo "- Wait 2-3 minutes for GitHub Pages to update"

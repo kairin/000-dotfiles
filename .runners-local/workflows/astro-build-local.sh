@@ -27,7 +27,8 @@ log() {
     local level="$1"
     shift
     local message="$*"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local color=""
 
     case "$level" in
@@ -50,7 +51,8 @@ start_timer() {
 end_timer() {
     local operation="$1"
     if [ -n "${TIMER_START:-}" ]; then
-        local duration=$(($(date +%s) - TIMER_START))
+        local duration
+        duration=$(($(date +%s) - TIMER_START))
         log "INFO" "⏱️ $operation completed in ${duration}s"
 
         # Store performance metrics for runner optimization
@@ -256,7 +258,7 @@ build_astro() {
             local css_size
             css_size=$(find "$BUILD_DIR" -name "*.css" -exec du -cb {} + 2>/dev/null | tail -1 | cut -f1 || echo "0")
 
-            log "INFO" "📈 JavaScript: $(numfmt --to=iec $js_size), CSS: $(numfmt --to=iec $css_size)"
+            log "INFO" "📈 JavaScript: $(numfmt --to=iec "$js_size"), CSS: $(numfmt --to=iec "$css_size")"
 
             # Constitutional compliance check (bundle size <100KB requirement)
             if [ "$js_size" -lt 102400 ]; then  # 100KB
@@ -300,7 +302,7 @@ validate_github_pages() {
     fi
 
     # Validate asset paths for GitHub Pages base path
-    if grep -q 'base.*ghostty-config-files' "$PROJECT_DIR/astro.config.mjs"; then
+    if grep -q 'base.*000-dotfiles' "$PROJECT_DIR/astro.config.mjs"; then
         log "SUCCESS" "✅ GitHub Pages base path configured"
     else
         log "WARNING" "⚠️ GitHub Pages base path not configured"
@@ -313,7 +315,8 @@ validate_github_pages() {
 generate_report() {
     log "STEP" "📊 Generating build report..."
 
-    local report_file="$LOG_DIR/astro-build-report-$(date +%s).json"
+    local report_file
+    report_file="$LOG_DIR/astro-build-report-$(date +%s).json"
     local build_size
     build_size=$(du -sb "$BUILD_DIR" 2>/dev/null | cut -f1 || echo "0")
 
@@ -325,7 +328,7 @@ generate_report() {
     "runner_labels": "${RUNNER_LABELS:-none}",
     "build_status": "success",
     "build_size_bytes": $build_size,
-    "build_size_human": "$(numfmt --to=iec $build_size)",
+    "build_size_human": "$(numfmt --to=iec "$build_size")",
     "file_count": $(find "$BUILD_DIR" -type f | wc -l),
     "astro_version": "$(npm list astro --depth=0 2>/dev/null | grep astro@ | sed 's/.*astro@//' || echo 'unknown')",
     "node_version": "$(node --version)",
@@ -345,7 +348,8 @@ EOF
 run_complete_build() {
     log "INFO" "🚀 Starting complete Astro build workflow..."
 
-    local overall_start=$(date +%s)
+    local overall_start
+    overall_start=$(date +%s)
     local failed_steps=0
 
     # Environment setup
@@ -359,7 +363,8 @@ run_complete_build() {
     validate_github_pages || ((failed_steps++))
     generate_report
 
-    local overall_duration=$(($(date +%s) - overall_start))
+    local overall_duration
+    overall_duration=$(($(date +%s) - overall_start))
 
     if [ $failed_steps -eq 0 ]; then
         log "SUCCESS" "🎉 Complete Astro build successful in ${overall_duration}s"

@@ -40,7 +40,6 @@
 
 **Goal**: Create `/scripts/README.md` with searchable index of all 114 scripts
 
-**Independent Test**: Search README for "ghostty" → find `check_ghostty.sh`, `update_ghostty.sh`, etc. within 10 seconds
 
 ### Implementation for User Story 1
 

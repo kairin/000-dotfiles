@@ -30,7 +30,8 @@ setup_all() {
     echo "🔧 Setting up full installation test environment..."
 
     # Create isolated test environment
-    export TEST_TEMP_DIR=$(mktemp -d)
+    TEST_TEMP_DIR=$(mktemp -d)
+export TEST_TEMP_DIR
     export TEST_HOME="$TEST_TEMP_DIR/home"
     export TEST_APPS="$TEST_HOME/Apps"
     mkdir -p "$TEST_HOME/.config"
@@ -73,7 +74,8 @@ test_start_script_help() {
     echo "  Testing: start.sh --help output"
 
     # Act
-    local output=$("$PROJECT_ROOT/start.sh" --help 2>&1 || echo "COMMAND_FAILED")
+    local output
+    output=$("$PROJECT_ROOT/start.sh" --help 2>&1 || echo "COMMAND_FAILED")
 
     # Assert
     assert_not_equals "COMMAND_FAILED" "$output" "start.sh --help should succeed"
@@ -90,7 +92,6 @@ test_start_script_validates_config() {
 
     # Assert config directories exist
     assert_dir_exists "$PROJECT_ROOT/configs" "configs directory should exist"
-    assert_dir_exists "$PROJECT_ROOT/configs/ghostty" "ghostty config should exist"
 
     ((TESTS_PASSED++))
     echo "  ✅ PASS"
@@ -115,7 +116,8 @@ test_manage_script_help() {
     echo "  Testing: manage.sh --help output"
 
     # Act
-    local output=$("$PROJECT_ROOT/manage.sh" --help 2>&1 || echo "COMMAND_FAILED")
+    local output
+    output=$("$PROJECT_ROOT/manage.sh" --help 2>&1 || echo "COMMAND_FAILED")
 
     # Assert
     assert_not_equals "COMMAND_FAILED" "$output" "manage.sh --help should succeed"
@@ -144,8 +146,6 @@ test_config_templates_valid() {
     echo "  Testing: Configuration templates are accessible"
 
     # Assert config files exist
-    assert_dir_exists "$PROJECT_ROOT/configs/ghostty" "Ghostty config directory should exist"
-    assert_file_exists "$PROJECT_ROOT/configs/ghostty/dircolors" "dircolors template should exist"
 
     ((TESTS_PASSED++))
     echo "  ✅ PASS"
@@ -228,7 +228,6 @@ test_update_scripts_present() {
     echo "  Testing: Update scripts are present"
 
     # Assert
-    assert_file_exists "$PROJECT_ROOT/scripts/update_ghostty.sh" "update_ghostty.sh should exist"
     assert_file_exists "$PROJECT_ROOT/scripts/check_updates.sh" "check_updates.sh should exist"
     assert_file_exists "$PROJECT_ROOT/scripts/daily-updates.sh" "daily-updates.sh should exist"
 

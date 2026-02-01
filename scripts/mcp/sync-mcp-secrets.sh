@@ -209,9 +209,11 @@ cmd_shell() {
     if grep -q "mcp-secrets" "$SHELL_RC" 2>/dev/null; then
         echo -e "${YELLOW}Already configured in $SHELL_RC${NC}"
     else
-        echo "" >> "$SHELL_RC"
-        echo "# MCP Secrets (synced between machines)" >> "$SHELL_RC"
-        echo "$SOURCE_LINE" >> "$SHELL_RC"
+        {
+            printf '\n'
+            printf '%s\n' "# MCP Secrets (synced between machines)"
+            printf '%s\n' "$SOURCE_LINE"
+        } >> "$SHELL_RC"
         echo -e "${GREEN}Added to $SHELL_RC${NC}"
     fi
 

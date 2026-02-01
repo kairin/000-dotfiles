@@ -97,7 +97,7 @@ Skills automatically detect the current project:
 
 | Project | Feature Set |
 |---------|------------|
-| ghostty-config-files | Full features (all 4 skills) |
+| 000-dotfiles | Full features (all 4 skills) |
 | Other projects | Basic features (git-sync, basic health-check) |
 
 Detection markers:

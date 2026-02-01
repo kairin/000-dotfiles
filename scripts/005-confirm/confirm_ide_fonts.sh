@@ -44,7 +44,8 @@ check_nerdfonts() {
 # Create backup of settings file
 backup_settings() {
     local settings_file="$1"
-    local backup_file="${settings_file}.backup-$(date +%Y%m%d-%H%M%S)"
+    local backup_file
+    backup_file="${settings_file}.backup-$(date +%Y%m%d-%H%M%S)"
 
     if [ -f "$settings_file" ]; then
         cp "$settings_file" "$backup_file"
@@ -78,8 +79,10 @@ configure_antigravity() {
     fi
 
     # Check current configuration
-    local current_terminal_font=$(jq -r '.["terminal.integrated.fontFamily"] // ""' "$settings_file" 2>/dev/null)
-    local current_editor_font=$(jq -r '.["editor.fontFamily"] // ""' "$settings_file" 2>/dev/null)
+    local current_terminal_font
+    current_terminal_font=$(jq -r '.["terminal.integrated.fontFamily"] // ""' "$settings_file" 2>/dev/null)
+    local current_editor_font
+    current_editor_font=$(jq -r '.["editor.fontFamily"] // ""' "$settings_file" 2>/dev/null)
 
     # Check if already configured with Nerd Fonts
     if [[ "$current_terminal_font" == *"Nerd Font"* ]] && [[ "$current_editor_font" == *"Nerd Font"* ]]; then
@@ -93,25 +96,30 @@ configure_antigravity() {
     # Apply font configuration (merge with existing settings)
     log "INFO" "Applying Nerd Font configuration..."
 
-    local temp_file=$(mktemp)
-    jq --arg tf "$FONT_CONFIG_TERMINAL" \
-       --arg ef "$FONT_CONFIG_EDITOR, monospace" \
-       --argjson ts "$FONT_SIZE_TERMINAL" \
-       --argjson es "$FONT_SIZE_EDITOR" \
-       '. + {
-           "terminal.integrated.fontFamily": $tf,
-           "terminal.integrated.fontSize": $ts,
-           "terminal.integrated.fontLigatures.enabled": true,
-           "editor.fontFamily": $ef,
-           "editor.fontSize": $es,
-           "editor.fontLigatures": true
-       }' "$settings_file" > "$temp_file"
-
-    if [ $? -eq 0 ] && [ -s "$temp_file" ]; then
-        mv "$temp_file" "$settings_file"
-        log "SUCCESS" "Antigravity font configuration applied (with terminal ligatures)"
-        log "INFO" "Terminal font: $FONT_CONFIG_TERMINAL ($FONT_SIZE_TERMINAL pt)"
-        log "INFO" "Editor font: $FONT_CONFIG_EDITOR ($FONT_SIZE_EDITOR pt)"
+    local temp_file
+    temp_file=$(mktemp)
+    if jq --arg tf "$FONT_CONFIG_TERMINAL" \
+        --arg ef "$FONT_CONFIG_EDITOR, monospace" \
+        --argjson ts "$FONT_SIZE_TERMINAL" \
+        --argjson es "$FONT_SIZE_EDITOR" \
+        '. + {
+            "terminal.integrated.fontFamily": $tf,
+            "terminal.integrated.fontSize": $ts,
+            "terminal.integrated.fontLigatures.enabled": true,
+            "editor.fontFamily": $ef,
+            "editor.fontSize": $es,
+            "editor.fontLigatures": true
+        }' "$settings_file" > "$temp_file"; then
+        if [ -s "$temp_file" ]; then
+            mv "$temp_file" "$settings_file"
+            log "SUCCESS" "Antigravity font configuration applied (with terminal ligatures)"
+            log "INFO" "Terminal font: $FONT_CONFIG_TERMINAL ($FONT_SIZE_TERMINAL pt)"
+            log "INFO" "Editor font: $FONT_CONFIG_EDITOR ($FONT_SIZE_EDITOR pt)"
+        else
+            rm -f "$temp_file"
+            log "ERROR" "Failed to apply Antigravity configuration"
+            return 1
+        fi
     else
         rm -f "$temp_file"
         log "ERROR" "Failed to apply Antigravity configuration"
@@ -147,8 +155,10 @@ configure_vscode() {
     fi
 
     # Check current configuration
-    local current_terminal_font=$(jq -r '.["terminal.integrated.fontFamily"] // ""' "$settings_file" 2>/dev/null)
-    local current_editor_font=$(jq -r '.["editor.fontFamily"] // ""' "$settings_file" 2>/dev/null)
+    local current_terminal_font
+    current_terminal_font=$(jq -r '.["terminal.integrated.fontFamily"] // ""' "$settings_file" 2>/dev/null)
+    local current_editor_font
+    current_editor_font=$(jq -r '.["editor.fontFamily"] // ""' "$settings_file" 2>/dev/null)
 
     # Check if already configured with Nerd Fonts
     if [[ "$current_terminal_font" == *"Nerd Font"* ]] && [[ "$current_editor_font" == *"Nerd Font"* ]]; then
@@ -162,23 +172,28 @@ configure_vscode() {
     # Apply font configuration (merge with existing settings)
     log "INFO" "Applying Nerd Font configuration..."
 
-    local temp_file=$(mktemp)
-    jq --arg tf "$FONT_CONFIG_TERMINAL" \
-       --arg ef "$FONT_CONFIG_EDITOR, monospace" \
-       --argjson ts "$FONT_SIZE_TERMINAL" \
-       --argjson es "$FONT_SIZE_EDITOR" \
-       '. + {
-           "terminal.integrated.fontFamily": $tf,
-           "terminal.integrated.fontSize": $ts,
-           "terminal.integrated.fontLigatures.enabled": true,
-           "editor.fontFamily": $ef,
-           "editor.fontSize": $es,
-           "editor.fontLigatures": true
-       }' "$settings_file" > "$temp_file"
-
-    if [ $? -eq 0 ] && [ -s "$temp_file" ]; then
-        mv "$temp_file" "$settings_file"
-        log "SUCCESS" "VS Code font configuration applied (with terminal ligatures)"
+    local temp_file
+    temp_file=$(mktemp)
+    if jq --arg tf "$FONT_CONFIG_TERMINAL" \
+        --arg ef "$FONT_CONFIG_EDITOR, monospace" \
+        --argjson ts "$FONT_SIZE_TERMINAL" \
+        --argjson es "$FONT_SIZE_EDITOR" \
+        '. + {
+            "terminal.integrated.fontFamily": $tf,
+            "terminal.integrated.fontSize": $ts,
+            "terminal.integrated.fontLigatures.enabled": true,
+            "editor.fontFamily": $ef,
+            "editor.fontSize": $es,
+            "editor.fontLigatures": true
+        }' "$settings_file" > "$temp_file"; then
+        if [ -s "$temp_file" ]; then
+            mv "$temp_file" "$settings_file"
+            log "SUCCESS" "VS Code font configuration applied (with terminal ligatures)"
+        else
+            rm -f "$temp_file"
+            log "ERROR" "Failed to apply VS Code configuration"
+            return 1
+        fi
     else
         rm -f "$temp_file"
         log "ERROR" "Failed to apply VS Code configuration"
@@ -214,8 +229,10 @@ main() {
         log "SUCCESS" "IDE font configuration complete"
 
         # Generate artifact manifest for future verification
-        local script_dir="$(dirname "$0")"
-        local font_count=$(fc-list : family | grep -ci "Nerd" || echo "0")
+        local script_dir
+        script_dir="$(dirname "$0")"
+        local font_count
+        font_count=$(fc-list : family | grep -ci "Nerd" || echo "0")
         "$script_dir/generate_manifest.sh" ide_fonts "${font_count}-fonts" config > /dev/null 2>&1 || log "WARNING" "Failed to generate manifest"
         log "SUCCESS" "Artifact manifest generated for pre-reinstall verification"
     else

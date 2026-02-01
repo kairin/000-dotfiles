@@ -24,7 +24,7 @@ fi
 
 # Remove all agents
 if [[ -d "$AGENTS_DIR" ]]; then
-    agents_count=$(ls -1 "$AGENTS_DIR" 2>/dev/null | wc -l)
+    agents_count=$(find "$AGENTS_DIR" -mindepth 1 -maxdepth 1 -print 2>/dev/null | wc -l)
     if [[ "$agents_count" -gt 0 ]]; then
         rm -rf "${AGENTS_DIR:?}"/*
         echo "✓ Removed $agents_count agent file(s) from $AGENTS_DIR"

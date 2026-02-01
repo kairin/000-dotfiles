@@ -34,7 +34,8 @@ setup_all() {
     echo "🔧 Setting up test environment..."
 
     # Create temporary test directory
-    export TEST_TEMP_DIR=$(mktemp -d)
+    TEST_TEMP_DIR=$(mktemp -d)
+export TEST_TEMP_DIR
     echo "  Created temp directory: $TEST_TEMP_DIR"
 
     # Override cache directory for tests
@@ -82,8 +83,10 @@ test_equivalence_score_exact_match() {
     local snap_data='{"name":"firefox","version":"120.0"}'
 
     # Act
-    local result=$(calculate_equivalence_score "$apt_pkg" "$apt_version" "$snap_data")
-    local total_score=$(echo "$result" | jq '.total_score')
+    local result
+    result=$(calculate_equivalence_score "$apt_pkg" "$apt_version" "$snap_data")
+    local total_score
+    total_score=$(echo "$result" | jq '.total_score')
 
     # Assert
     assert_equals "70" "$total_score" "Exact name and version should score 70 (20+30+15+10 default)"
@@ -107,8 +110,10 @@ test_equivalence_score_partial_match() {
     local snap_data='{"name":"firefox-esr","version":"120.0"}'
 
     # Act
-    local result=$(calculate_equivalence_score "$apt_pkg" "$apt_version" "$snap_data")
-    local name_score=$(echo "$result" | jq '.breakdown.name_match')
+    local result
+    result=$(calculate_equivalence_score "$apt_pkg" "$apt_version" "$snap_data")
+    local name_score
+    name_score=$(echo "$result" | jq '.breakdown.name_match')
 
     # Assert
     assert_equals "15" "$name_score" "Partial name match should score 15"
@@ -132,8 +137,10 @@ test_equivalence_score_version_mismatch() {
     local snap_data='{"name":"firefox","version":"121.0"}'
 
     # Act
-    local result=$(calculate_equivalence_score "$apt_pkg" "$apt_version" "$snap_data")
-    local version_score=$(echo "$result" | jq '.breakdown.version_compat')
+    local result
+    result=$(calculate_equivalence_score "$apt_pkg" "$apt_version" "$snap_data")
+    local version_score
+    version_score=$(echo "$result" | jq '.breakdown.version_compat')
 
     # Assert
     assert_equals "20" "$version_score" "Different version but snap exists should score 20"
@@ -155,8 +162,10 @@ test_publisher_verification_verified() {
     local snap_data='{"publisher":{"id":"canonical","username":"canonical","validation":"verified"}}'
 
     # Act
-    local result=$(verify_snap_publisher "$snap_data")
-    local is_verified=$(echo "$result" | jq '.is_verified')
+    local result
+    result=$(verify_snap_publisher "$snap_data")
+    local is_verified
+    is_verified=$(echo "$result" | jq '.is_verified')
 
     # Assert
     assert_equals "true" "$is_verified" "Verified publisher should return is_verified=true"
@@ -178,8 +187,10 @@ test_publisher_verification_starred() {
     local snap_data='{"publisher":{"id":"mozilla","username":"mozilla","validation":"starred"}}'
 
     # Act
-    local result=$(verify_snap_publisher "$snap_data")
-    local is_verified=$(echo "$result" | jq '.is_verified')
+    local result
+    result=$(verify_snap_publisher "$snap_data")
+    local is_verified
+    is_verified=$(echo "$result" | jq '.is_verified')
 
     # Assert
     assert_equals "true" "$is_verified" "Starred publisher should return is_verified=true"
@@ -201,8 +212,10 @@ test_publisher_verification_unverified() {
     local snap_data='{"publisher":{"id":"random-dev","username":"randomdev","validation":"unverified"}}'
 
     # Act
-    local result=$(verify_snap_publisher "$snap_data")
-    local is_verified=$(echo "$result" | jq '.is_verified')
+    local result
+    result=$(verify_snap_publisher "$snap_data")
+    local is_verified
+    is_verified=$(echo "$result" | jq '.is_verified')
 
     # Assert
     assert_equals "false" "$is_verified" "Unverified publisher should return is_verified=false"
@@ -224,7 +237,8 @@ test_format_text_report_basic() {
     local packages_json='[{"name":"firefox","version":"120.0","install_method":"apt","size_kb":234567}]'
 
     # Act
-    local result=$(format_text_report "$packages_json")
+    local result
+    result=$(format_text_report "$packages_json")
 
     # Assert
     assert_contains "$result" "Package Migration Audit Report" "Report should contain header"
@@ -250,7 +264,8 @@ test_cache_ttl_validation_hit() {
     local CACHE_TTL_SECONDS=3600
 
     # Get cache age
-    local cache_age=$(( $(date +%s) - $(stat -c %Y "$cache_file" 2>/dev/null || echo 0) ))
+    local cache_age
+    cache_age=$(( $(date +%s) - $(stat -c %Y "$cache_file" 2>/dev/null || echo 0) ))
 
     # Assert
     assert_true "[[ $cache_age -lt $CACHE_TTL_SECONDS ]]" "Fresh cache should be within TTL"
@@ -276,7 +291,8 @@ test_cache_ttl_validation_miss() {
     local CACHE_TTL_SECONDS=0
     sleep 1
 
-    local cache_age=$(( $(date +%s) - $(stat -c %Y "$cache_file" 2>/dev/null || echo 0) ))
+    local cache_age
+    cache_age=$(( $(date +%s) - $(stat -c %Y "$cache_file" 2>/dev/null || echo 0) ))
 
     # Assert
     assert_false "[[ $cache_age -lt $CACHE_TTL_SECONDS ]]" "Old cache should exceed TTL"

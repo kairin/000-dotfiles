@@ -15,7 +15,6 @@ Update scripts perform in-place upgrades that preserve existing configurations a
 | `update_ai_tools.sh` | AI CLI Tools | npm global update |
 | `update_fastfetch.sh` | Fastfetch | apt/source rebuild |
 | `update_feh.sh` | Feh | apt upgrade |
-| `update_ghostty.sh` | Ghostty | snap refresh or source rebuild |
 | `update_glow.sh` | Glow | go install |
 | `update_go.sh` | Go | Atomic tarball replacement |
 | `update_gum.sh` | Gum | go install |
@@ -35,7 +34,6 @@ Update scripts perform in-place upgrades that preserve existing configurations a
 
 Examples:
 ```bash
-./scripts/007-update/update_ghostty.sh
 ./scripts/007-update/update_nodejs.sh
 ./scripts/007-update/update_go.sh
 ```
@@ -61,11 +59,8 @@ Options:
 
 ## Update Strategies
 
-### Ghostty (`update_ghostty.sh`)
 
 Detects installation method and updates accordingly:
-- **Snap installation**: `snap refresh ghostty`
-- **Source installation**: Rebuilds from git via `install_ghostty.sh`
 
 ### Node.js (`update_nodejs.sh`)
 
@@ -98,7 +93,9 @@ All update scripts use the shared logging system.
 
 ### Log Location
 
-Logs are written to: `~/.local/share/ghostty-updates/logs/`
+Update logs are written to:
+- `scripts/006-logs/` (per-script logs)
+- `.runners-local/logs/` (update summaries)
 
 ### View Logs
 
@@ -109,8 +106,8 @@ update-logs
 
 Or manually:
 ```bash
-ls -la ~/.local/share/ghostty-updates/logs/
-cat ~/.local/share/ghostty-updates/logs/latest.log
+ls -la scripts/006-logs
+ls -la .runners-local/logs
 ```
 
 ## Troubleshooting
@@ -124,12 +121,7 @@ cat ~/.local/share/ghostty-updates/logs/latest.log
 | "Already at latest" | No update available | Normal - script exits successfully |
 | "Download failed" | Network issue | Check internet connection and retry |
 
-### Ghostty Update Fails
 
-1. Check installation method: `which ghostty`
-2. For snap: `snap list ghostty`
-3. For source: Verify `/usr/local/bin/ghostty` exists
-4. Check logs in `~/.local/share/ghostty-updates/logs/`
 
 ### Node.js Globals Missing After Update
 

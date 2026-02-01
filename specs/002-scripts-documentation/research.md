@@ -30,7 +30,6 @@ This feature is documentation-only work. Research phase focused on understanding
 | root | Utility scripts | 6 |
 
 **Script Naming Convention**: `<action>_<tool>.sh`
-- Examples: `check_ghostty.sh`, `update_nodejs.sh`, `uninstall_zsh.sh`
 
 ### MCP Documentation Analysis
 

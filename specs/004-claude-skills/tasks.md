@@ -35,7 +35,7 @@
 - [x] T003 [US1] Add description field: "Quick system diagnostics and environment check"
 - [x] T004 [US1] Add handoff to `/deploy-site` in frontmatter
 - [x] T005 [US1] Add project detection logic (check for `.runners-local/` or `AGENTS.md`)
-- [x] T006 [US1] Add full diagnostics section (ghostty-config-files project)
+- [x] T006 [US1] Add full diagnostics section (000-dotfiles project)
 - [x] T007 [US1] Add basic diagnostics section (other projects fallback)
 - [x] T008 [US1] Add structured output format (PASS/FAIL/WARNING per component)
 - [x] T009 [US1] Add remediation suggestions for failures
@@ -55,7 +55,7 @@
 - [x] T010 [US2] Create skill file `.claude/commands/deploy-site.md` with YAML frontmatter
 - [x] T011 [US2] Add description field: "Build and deploy Astro website to GitHub Pages"
 - [x] T012 [US2] Add handoff to `/git-sync` in frontmatter
-- [x] T013 [US2] Add project detection logic (only works in ghostty-config-files)
+- [x] T013 [US2] Add project detection logic (only works in 000-dotfiles)
 - [x] T014 [US2] Add dependency installation step (npm install)
 - [x] T015 [US2] Add Astro build step with script reference
 - [x] T016 [US2] Add .nojekyll verification/creation step

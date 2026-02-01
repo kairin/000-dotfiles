@@ -2,19 +2,23 @@
 
 #######################################
 # Script: performance-monitor.sh
-# Purpose: Monitor Ghostty terminal performance and system metrics
+# Purpose: Monitor system performance and environment metrics
 # Usage: ./performance-monitor.sh [--test|--baseline|--compare|--weekly-report|--help]
-# Dependencies: ghostty, jq (optional), time
+# Dependencies: jq (optional), coreutils
 #######################################
 
 set -euo pipefail
 IFS=$'\n\t'
 
 # Script configuration
-readonly SCRIPT_NAME=$(basename "$0")
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly LOG_DIR="$SCRIPT_DIR/../logs"
-readonly REPO_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+SCRIPT_NAME=$(basename "$0")
+readonly SCRIPT_NAME
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+LOG_DIR="$SCRIPT_DIR/../logs"
+readonly LOG_DIR
+REPO_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+readonly REPO_DIR
 
 # Ensure log directory exists
 mkdir -p "$LOG_DIR"
@@ -31,7 +35,8 @@ log() {
     local level="$1"
     shift
     local message="$*"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
 
     case "$level" in
         "ERROR") echo -e "${RED}[$timestamp] [ERROR] $message${NC}" >&2 ;;
@@ -62,77 +67,39 @@ trap cleanup EXIT INT TERM
 
 # Dependency checking
 check_dependencies() {
-    local missing_deps=()
-
-    if ! command -v ghostty >/dev/null 2>&1; then
-        missing_deps+=("ghostty")
-    fi
-
     # jq is optional but recommended
     if ! command -v jq >/dev/null 2>&1; then
         log "WARNING" "jq not found - JSON output will be basic"
     fi
-
-    if [ ${#missing_deps[@]} -gt 0 ]; then
-        error_exit "Missing required dependencies: ${missing_deps[*]}"
-    fi
 }
 
-# Monitor Ghostty performance
-monitor_ghostty_performance() {
+# Monitor system performance
+monitor_system_performance() {
     local test_mode="${1:-default}"
 
-    log "INFO" "📊 Monitoring Ghostty performance (mode: $test_mode)..."
+    log "INFO" "📊 Monitoring system performance (mode: $test_mode)..."
 
-    # Startup time measurement
-    local startup_time="0m0.000s"
-    if command -v ghostty >/dev/null 2>&1; then
-        startup_time=$( (time ghostty --version >/dev/null 2>&1) 2>&1 | grep real | awk '{print $2}' || echo "0m0.000s")
-    else
-        log "WARNING" "Ghostty not available for startup time measurement"
-    fi
-
-    # Configuration load time
-    local config_time="0m0.000s"
-    if ghostty +show-config >/dev/null 2>&1; then
-        config_time=$( (time ghostty +show-config >/dev/null 2>&1) 2>&1 | grep real | awk '{print $2}' || echo "0m0.000s")
-    else
-        log "WARNING" "Unable to measure configuration load time"
-    fi
-
-    # Check for 2025 optimizations
-    local config_file="$HOME/.config/ghostty/config"
-    local cgroup_opt="false"
-    local shell_integration_opt="false"
-
-    if [ -f "$config_file" ]; then
-        if grep -q "linux-cgroup.*single-instance" "$config_file" 2>/dev/null; then
-            cgroup_opt="true"
-            log "SUCCESS" "✅ CGroup single-instance optimization enabled"
-        fi
-
-        if grep -q "shell-integration.*detect" "$config_file" 2>/dev/null; then
-            shell_integration_opt="true"
-            log "SUCCESS" "✅ Shell integration auto-detection enabled"
-        fi
-    fi
+    local loadavg
+    loadavg=$(awk '{print $1" "$2" "$3}' /proc/loadavg 2>/dev/null || echo "unknown")
+    local mem_available_kb
+    mem_available_kb=$(awk '/MemAvailable/ {print $2}' /proc/meminfo 2>/dev/null || echo "unknown")
+    local root_available
+    root_available=$(df -h / 2>/dev/null | awk 'NR==2 {print $4}' || echo "unknown")
 
     # Generate performance report
-    local output_file="$LOG_DIR/performance-$(date +%s).json"
+    local output_file
+    output_file="$LOG_DIR/performance-$(date +%s).json"
     cat > "$output_file" << EOF
 {
     "timestamp": "$(date -Iseconds)",
     "test_mode": "$test_mode",
-    "startup_time": "$startup_time",
-    "config_load_time": "$config_time",
-    "optimizations": {
-        "cgroup_single_instance": $cgroup_opt,
-        "shell_integration_detect": $shell_integration_opt
-    },
     "system": {
         "hostname": "$(hostname)",
         "kernel": "$(uname -r)",
-        "uptime": "$(uptime -p 2>/dev/null || echo 'unknown')"
+        "uptime": "$(uptime -p 2>/dev/null || echo 'unknown')",
+        "loadavg": "$loadavg",
+        "mem_available_kb": "$mem_available_kb",
+        "root_available": "$root_available"
     }
 }
 EOF
@@ -151,7 +118,8 @@ generate_weekly_report() {
     log "INFO" "📈 Generating weekly performance report..."
 
     # Find all performance logs from the last 7 days
-    local report_file="$LOG_DIR/weekly-report-$(date +%Y%m%d).txt"
+    local report_file
+    report_file="$LOG_DIR/weekly-report-$(date +%Y%m%d).txt"
     local logs_found=0
 
     {
@@ -167,7 +135,7 @@ generate_weekly_report() {
                 logs_found=$((logs_found + 1))
                 echo "--- $(basename "$file") ---"
                 if command -v jq >/dev/null 2>&1; then
-                    jq -r '. | "Time: \(.timestamp)\nStartup: \(.startup_time)\nConfig Load: \(.config_load_time)\nOptimizations: CGroup=\(.optimizations.cgroup_single_instance), Shell=\(.optimizations.shell_integration_detect)\n"' "$file" 2>/dev/null || cat "$file"
+                    jq -r '. | "Time: \(.timestamp)\nLoadavg: \(.system.loadavg)\nMem Available (KB): \(.system.mem_available_kb)\nRoot Available: \(.system.root_available)\n"' "$file" 2>/dev/null || cat "$file"
                 else
                     cat "$file"
                 fi
@@ -195,7 +163,7 @@ show_help() {
     cat << EOF
 Usage: $SCRIPT_NAME [OPTION]
 
-Monitor Ghostty terminal performance and generate performance reports.
+Monitor system performance and generate performance reports.
 
 Options:
     --test          Run performance test and collect metrics
@@ -215,7 +183,6 @@ Examples:
         Establish a baseline for performance comparison
 
 Dependencies:
-    Required: ghostty
     Optional: jq (for enhanced JSON output)
 
 Output:
@@ -245,20 +212,20 @@ main() {
     # Process command
     case "$mode" in
         --test)
-            monitor_ghostty_performance "test"
+            monitor_system_performance "test"
             ;;
         --baseline)
-            monitor_ghostty_performance "baseline"
+            monitor_system_performance "baseline"
             ;;
         --compare)
-            monitor_ghostty_performance "compare"
+            monitor_system_performance "compare"
             log "INFO" "Comparison feature will be implemented in future version"
             ;;
         --weekly-report)
             generate_weekly_report
             ;;
         *)
-            monitor_ghostty_performance "default"
+            monitor_system_performance "default"
             ;;
     esac
 }

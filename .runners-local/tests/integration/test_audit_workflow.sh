@@ -33,7 +33,8 @@ setup_all() {
     echo "🔧 Setting up integration test environment..."
 
     # Create temporary test directory
-    export TEST_TEMP_DIR=$(mktemp -d)
+    TEST_TEMP_DIR=$(mktemp -d)
+export TEST_TEMP_DIR
     echo "  Created temp directory: $TEST_TEMP_DIR"
 
     # Override cache directory for tests
@@ -61,7 +62,8 @@ test_audit_workflow_text_output() {
     echo "  Testing: Full audit workflow with text output"
 
     # Act
-    local output=$("$PM_SCRIPT" audit 2>/dev/null || echo "COMMAND_FAILED")
+    local output
+    output=$("$PM_SCRIPT" audit 2>/dev/null || echo "COMMAND_FAILED")
 
     # Assert
     assert_not_equals "COMMAND_FAILED" "$output" "Audit command should succeed"
@@ -78,7 +80,8 @@ test_audit_workflow_json_output() {
     echo "  Testing: Full audit workflow with JSON output"
 
     # Act
-    local output=$("$PM_SCRIPT" audit --json 2>/dev/null || echo "[]")
+    local output
+    output=$("$PM_SCRIPT" audit --json 2>/dev/null || echo "[]")
 
     # Assert - verify valid JSON
     echo "$output" | jq '.' >/dev/null 2>&1
@@ -87,7 +90,8 @@ test_audit_workflow_json_output() {
     assert_equals "0" "$jq_exit" "Output should be valid JSON"
 
     # Verify it's an array
-    local is_array=$(echo "$output" | jq 'type' 2>/dev/null)
+    local is_array
+    is_array=$(echo "$output" | jq 'type' 2>/dev/null)
     assert_equals "\"array\"" "$is_array" "JSON output should be an array"
 
     ((TESTS_PASSED++))
@@ -102,7 +106,8 @@ test_audit_workflow_no_cache() {
 
     # Act - run twice to test cache bypass
     "$PM_SCRIPT" audit --json > /dev/null 2>&1
-    local output=$("$PM_SCRIPT" audit --no-cache --json 2>/dev/null || echo "[]")
+    local output
+    output=$("$PM_SCRIPT" audit --no-cache --json 2>/dev/null || echo "[]")
 
     # Assert - verify fresh audit executed
     echo "$output" | jq '.' >/dev/null 2>&1
@@ -145,7 +150,8 @@ test_status_command() {
     echo "  Testing: Status command integration"
 
     # Act
-    local output=$("$PM_SCRIPT" status 2>/dev/null || echo "COMMAND_FAILED")
+    local output
+    output=$("$PM_SCRIPT" status 2>/dev/null || echo "COMMAND_FAILED")
 
     # Assert
     assert_not_equals "COMMAND_FAILED" "$output" "Status command should succeed"
@@ -163,7 +169,8 @@ test_version_command() {
     echo "  Testing: Version command integration"
 
     # Act
-    local output=$("$PM_SCRIPT" version 2>/dev/null || echo "COMMAND_FAILED")
+    local output
+    output=$("$PM_SCRIPT" version 2>/dev/null || echo "COMMAND_FAILED")
 
     # Assert
     assert_not_equals "COMMAND_FAILED" "$output" "Version command should succeed"
@@ -180,7 +187,8 @@ test_audit_script_direct() {
     echo "  Testing: Direct audit_packages.sh execution"
 
     # Act
-    local output=$("$AUDIT_SCRIPT" --json 2>/dev/null || echo "[]")
+    local output
+    output=$("$AUDIT_SCRIPT" --json 2>/dev/null || echo "[]")
 
     # Assert
     echo "$output" | jq '.' >/dev/null 2>&1

@@ -43,7 +43,7 @@ Context7 Queries: FAILED (API authentication issue - proceeding with best practi
 - **Dependencies**:
   - Sources: None (standalone)
   - Calls: `performance-monitor.sh`, `gh-pages-setup.sh`
-  - External: `ghostty`, `gh`, `npm`, `shellcheck`, `jq`, `claude`
+  - External: `terminal`, `gh`, `npm`, `shellcheck`, `jq`, `claude`
 - **Purpose**: Main workflow orchestrator for local CI/CD simulation with zero GitHub Actions cost
 - **Error Handling**:
   - `set -euo pipefail` for strict error handling
@@ -83,15 +83,15 @@ Context7 Queries: FAILED (API authentication issue - proceeding with best practi
   - `error_exit()` (lines 45-48)
   - `cleanup()` (lines 51-58)
   - `check_dependencies()` (lines 64-79)
-  - `monitor_ghostty_performance()` (lines 82-147)
+  - `monitor_terminal_performance()` (lines 82-147)
   - `generate_weekly_report()` (lines 150-191)
   - `show_help()` (lines 194-230)
   - `main()` (lines 233-264)
 - **Dependencies**:
   - Sources: None
   - Calls: None
-  - External: `ghostty`, `jq`, `time`, `find`
-- **Purpose**: Performance monitoring for Ghostty terminal and system metrics
+  - External: `terminal`, `jq`, `time`, `find`
+- **Purpose**: Performance monitoring for Terminal terminal and system metrics
 - **Error Handling**:
   - `set -euo pipefail`
   - Trap-based cleanup with `trap cleanup EXIT INT TERM`
@@ -1088,7 +1088,7 @@ time ./new-script.sh all > /dev/null
 2. `cleanup()` - Trap-based cleanup handler
 3. `start_timer()` - Start performance timer
 4. `end_timer()` - End timer and log duration
-5. `validate_config()` - Ghostty config validation + ShellCheck + npm audit
+5. `validate_config()` - Terminal config validation + ShellCheck + npm audit
 6. `test_performance()` - Run performance tests
 7. `validate_context7()` - Context7 MCP validation
 8. `simulate_build()` - Build simulation
@@ -1120,7 +1120,7 @@ time ./new-script.sh all > /dev/null
 2. `error_exit()` - Error exit handler
 3. `cleanup()` - Cleanup with trap
 4. `check_dependencies()` - Dependency validation
-5. `monitor_ghostty_performance()` - Ghostty performance monitoring
+5. `monitor_terminal_performance()` - Terminal performance monitoring
 6. `generate_weekly_report()` - Weekly report generation
 7. `show_help()` - Help message
 8. `main()` - Main entry point

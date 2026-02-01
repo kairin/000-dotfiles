@@ -6,17 +6,20 @@
 set -e
 
 # Define your hosts here (space-separated)
-HOSTS=""
+HOSTS_INPUT=""
+HOSTS=()
 
 # Use command-line arguments if provided
 if [ $# -gt 0 ]; then
-    HOSTS="$@"
+    HOSTS=("$@")
+elif [ -n "$HOSTS_INPUT" ]; then
+    read -r -a HOSTS <<< "$HOSTS_INPUT"
 fi
 
-if [ -z "$HOSTS" ]; then
+if [ ${#HOSTS[@]} -eq 0 ]; then
     echo "Error: No hosts specified."
     echo "Usage: $0 hostname1 hostname2 ..."
-    echo "Or edit the HOSTS variable in this script"
+    echo "Or edit the HOSTS_INPUT variable in this script"
     exit 1
 fi
 
@@ -28,11 +31,11 @@ if [ ! -f "$SUDOERS_FILE" ]; then
     exit 1
 fi
 
-echo "Deploying sudoers configuration to: $HOSTS"
+echo "Deploying sudoers configuration to: ${HOSTS[*]}"
 echo "Sudoers file: $SUDOERS_FILE"
 echo ""
 
-for host in $HOSTS; do
+for host in "${HOSTS[@]}"; do
     echo ">>> Deploying to $host..."
 
     # Copy file to remote temp location

@@ -50,7 +50,7 @@ if [ -n "$SINGLE_FONT" ]; then
     matching_files=$(find "$FONTS_DIR" -maxdepth 1 -name "$PATTERN" -type f 2>/dev/null)
     if [ -n "$matching_files" ]; then
         count=$(echo "$matching_files" | wc -l)
-        rm -f "$FONTS_DIR"/$PATTERN 2>/dev/null
+        rm -f "$FONTS_DIR"/"$PATTERN" 2>/dev/null
         log "SUCCESS" "Removed $count files from fonts directory"
         ((REMOVED_COUNT += count))
     fi
@@ -106,7 +106,7 @@ for pattern in "${FONT_PATTERNS[@]}"; do
     matching_files=$(find "$FONTS_DIR" -maxdepth 1 -name "$pattern" -type f 2>/dev/null)
     if [ -n "$matching_files" ]; then
         count=$(echo "$matching_files" | wc -l)
-        rm -f "$FONTS_DIR"/$pattern 2>/dev/null
+        rm -f "$FONTS_DIR"/"$pattern" 2>/dev/null
         log "SUCCESS" "Removed $count files matching $pattern"
         ((REMOVED_COUNT += count))
     fi

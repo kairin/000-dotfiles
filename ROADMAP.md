@@ -2,7 +2,7 @@
 
 > **Version**: 3.4-Wave-Structure | **Last Updated**: 2026-01-18 | **Status**: Active
 
-This document tracks planned features, outstanding tasks, and maintenance items for the Ghostty Configuration Files project.
+This document tracks planned features, outstanding tasks, and maintenance items for the 000-dotfiles project.
 
 ---
 
@@ -33,7 +33,6 @@ This project treats your **personal developer environment** the same way infrast
 
 | Category | Components | Status |
 |----------|-----------|--------|
-| **Terminal** | Ghostty config, Catppuccin themes, Nerd Fonts | ✅ Complete |
 | **Shell** | ZSH, Oh My ZSH, PowerLevel10k | ✅ Complete |
 | **AI Tools** | Claude Code agents/permissions, Gemini CLI | ✅ Complete |
 | **Development** | Go, Node.js (fnm), Python (uv) | ✅ Complete |
@@ -69,7 +68,6 @@ The project supports both **fresh installs** and **updates to existing systems**
 | Scenario | Command | What Happens |
 |----------|---------|--------------|
 | **Fresh install** | `git clone && ./start.sh` | Installs everything from scratch |
-| **Update existing** | `cd ghostty-config-files && git pull && ./start.sh` | Detects installed tools, updates only what's needed |
 | **Daily auto-update** | `./scripts/daily-updates.sh` (cron) | Runs at 9 AM, updates all tools |
 | **Check before update** | `./start.sh` → "Check Updates" | Shows what would change |
 
@@ -80,7 +78,6 @@ The project supports both **fresh installs** and **updates to existing systems**
 Track your fleet of Ubuntu systems:
 
 ```
-~/.ghostty-fleet/
 ├── inventory.json         # List of machines with this config
 ├── machine-001.json       # Per-machine version snapshots
 ├── machine-002.json
@@ -251,7 +248,6 @@ Track your fleet of Ubuntu systems:
 |---|------|--------|----------|--------|
 | 24 | Create ViewToolDetail component | 2 hr | **High** | ✅ Done |
 | 25 | Simplify main dashboard (3 tools in table) | 1 hr | **High** | ✅ Done |
-| 26 | Add Ghostty/Feh as menu items | 1 hr | **High** | ✅ Done |
 | 27 | Convert Extras to navigation menu | 1.5 hr | **High** | ✅ Done |
 
 **Total**: ~5.5 hours | **Status**: ✅ COMPLETE
@@ -264,7 +260,6 @@ Track your fleet of Ubuntu systems:
 **Solution implemented**:
 - Created `tui/internal/ui/tooldetail.go` - reusable ViewToolDetail component (~378 lines)
 - Main table: Node.js, AI Tools, Antigravity only (3 tools)
-- Ghostty and Feh accessible via menu → detail view
 - Extras: navigation menu → individual detail views
 
 **New/Modified TUI Files:**
@@ -329,7 +324,6 @@ Track your fleet of Ubuntu systems:
 
 | # | Task | Effort | Priority | Notes |
 |---|------|--------|----------|-------|
-| 38 | Create `~/.ghostty-fleet/inventory.json` | 2 hr | **High** | Track all machines with this config |
 | 39 | Per-machine version snapshots | 2 hr | Medium | Record tool versions on each system |
 | 40 | Sync status reporting | 2 hr | Medium | Show drift between machines |
 | 41 | MCP server configuration sync | 2 hr | **High** | Same MCP servers on all machines |

@@ -188,7 +188,7 @@ assert_equals "${HOME}/.config/Claude" "${CLAUDE_CONFIG_DIR}" "Claude config dir
 assert_equals "${HOME}/.config/Claude/claude_desktop_config.json" "${CLAUDE_CONFIG_FILE}" "Claude config file path correct"
 
 # Test 4.3: AI context cache directory
-assert_equals "${HOME}/.cache/ghostty-ai-context" "${AI_CONTEXT_CACHE_DIR}" "AI context cache directory path correct"
+assert_equals "${HOME}/.cache/dotfiles-ai-context" "${AI_CONTEXT_CACHE_DIR}" "AI context cache directory path correct"
 
 echo
 

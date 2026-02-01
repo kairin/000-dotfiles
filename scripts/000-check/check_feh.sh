@@ -4,7 +4,7 @@ source "$(dirname "$0")/../006-logs/logger.sh"
 log "INFO" "Checking for existing feh installation..."
 
 # Cache configuration for GitHub API (avoid rate limiting)
-CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/ghostty-checks"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles-checks"
 CACHE_FILE="${CACHE_DIR}/feh_latest.txt"
 CACHE_TTL=3600  # 1 hour
 

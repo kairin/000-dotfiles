@@ -119,7 +119,8 @@ main() {
     echo ""
 
     # Calculate success rate
-    local success_rate=$((SUITES_PASSED * 100 / TOTAL_SUITES))
+    local success_rate
+    success_rate=$((SUITES_PASSED * 100 / TOTAL_SUITES))
     echo "Success Rate: ${success_rate}%"
     echo ""
 

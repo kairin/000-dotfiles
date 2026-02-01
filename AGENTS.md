@@ -298,8 +298,8 @@ cd tui && go run ./cmd/installer        # DEVELOPER ONLY - Run from source
 **Token Count**: ~1,200 tokens
 
 ### Recent Changes (v4.0)
-- **Migration**: Consolidated from ghostty-config-files repository
-- **TUI Installer**: Renamed to dotfiles-installer, removed Ghostty tool
+- **Migration**: Consolidated from prior repository
+- **TUI Installer**: Renamed to dotfiles-installer, removed terminal-specific tool
 - **Focus**: General developer environment setup, not terminal-specific
 - **Simplified**: Removed terminal-specific validation steps
 

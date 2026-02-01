@@ -11,20 +11,24 @@ import (
 func main() {
 	store := config.NewPreferenceStore()
 
-	fmt.Println("=== Testing Preference Management ===\n")
+	fmt.Println("=== Testing Preference Management ===")
+	fmt.Println()
 
 	// Check if preference exists
 	fmt.Println("1. Checking for existing preference...")
-	method, err := store.GetGhosttyMethod()
+	method, err := store.GetToolMethod("feh")
 	if err != nil {
-		fmt.Printf("   No existing preference: %v\n", err)
+		log.Fatalf("Failed to read preference: %v", err)
+	}
+	if method == "" {
+		fmt.Println("   No existing preference")
 	} else {
 		fmt.Printf("   Existing preference: %s\n", method)
 	}
 
 	// Save a new preference
 	fmt.Println("\n2. Saving new preference (source)...")
-	err = store.SetGhosttyMethod(registry.MethodSource)
+	err = store.SetToolMethod("feh", registry.MethodSource)
 	if err != nil {
 		log.Fatalf("Failed to save preference: %v", err)
 	}
@@ -32,7 +36,7 @@ func main() {
 
 	// Load the preference
 	fmt.Println("\n3. Loading saved preference...")
-	method, err = store.GetGhosttyMethod()
+	method, err = store.GetToolMethod("feh")
 	if err != nil {
 		log.Fatalf("Failed to load preference: %v", err)
 	}
@@ -40,7 +44,7 @@ func main() {
 
 	// Update preference
 	fmt.Println("\n4. Updating preference to snap...")
-	err = store.SetGhosttyMethod(registry.MethodSnap)
+	err = store.SetToolMethod("feh", registry.MethodSnap)
 	if err != nil {
 		log.Fatalf("Failed to update preference: %v", err)
 	}
@@ -48,7 +52,7 @@ func main() {
 
 	// Verify update
 	fmt.Println("\n5. Verifying updated preference...")
-	method, err = store.GetGhosttyMethod()
+	method, err = store.GetToolMethod("feh")
 	if err != nil {
 		log.Fatalf("Failed to load preference: %v", err)
 	}
@@ -67,9 +71,12 @@ func main() {
 
 	// Verify cleared
 	fmt.Println("\n8. Verifying preference is cleared...")
-	method, err = store.GetGhosttyMethod()
+	method, err = store.GetToolMethod("feh")
 	if err != nil {
-		fmt.Printf("   ✓ No preference found (as expected): %v\n", err)
+		log.Fatalf("Failed to read preference: %v", err)
+	}
+	if method == "" {
+		fmt.Println("   ✓ No preference found (as expected)")
 	} else {
 		fmt.Printf("   ✗ Unexpected preference: %s\n", method)
 	}

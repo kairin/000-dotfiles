@@ -13,7 +13,6 @@ Fix 5 TUI bugs affecting user experience: terminal copy/paste restoration (#197)
 **Primary Dependencies**: Bubbletea (TUI framework), Lipgloss (styling), Bubbles (components)
 **Storage**: N/A (in-memory state only)
 **Testing**: Manual verification via `go run ./cmd/installer`, `go build`, `go vet`, `go fmt`
-**Target Platform**: Linux (Ubuntu 25.04+), terminal emulators (Ghostty, GNOME Terminal)
 **Project Type**: Single project (TUI application)
 **Performance Goals**: N/A (bug fixes, not performance optimization)
 **Constraints**: Must not break existing TUI functionality; all changes confined to existing files

@@ -5,7 +5,7 @@ FONTS_DIR="$HOME/.local/share/fonts"
 
 # Get latest version from GitHub with caching
 get_nerdfonts_latest() {
-    local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ghostty-checks"
+    local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles-checks"
     local cache_file="${cache_dir}/nerdfonts_latest.txt"
     local cache_ttl=3600  # 1 hour
 

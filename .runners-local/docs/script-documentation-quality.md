@@ -84,7 +84,7 @@ All 12 workflow scripts demonstrate **excellent documentation quality** with com
 
 **Function Headers**:
 - `check_dependencies()` - Documents optional vs. required dependencies
-- `monitor_ghostty_performance()` - Describes test modes
+- `monitor_system_performance()` - Describes test modes
 - `cleanup()` - Documents trap handling
 
 **Usage Information**: ✅ Complete with flag options
@@ -132,10 +132,10 @@ Usage: ./performance-monitor.sh [--test|--baseline|--compare|--weekly-report|--h
 - Zero-cost local CI/CD purpose clearly stated
 - Comprehensive cleanup trap handler documentation
 - Performance timing functions well-documented
-- 2025 Ghostty optimization checks integrated
+- 2025 configuration checks integrated
 
 **Function Headers**:
-- `validate_config()` - Documents Ghostty configuration validation
+- `validate_config()` - Documents configuration validation
 - `start_timer()` / `end_timer()` - Performance tracking documented
 - `cleanup()` - Trap handler with cleanup logic
 

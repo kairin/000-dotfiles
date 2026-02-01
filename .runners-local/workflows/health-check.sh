@@ -2,7 +2,7 @@
 
 # Local CI/CD Health Checker
 # Validates prerequisites, environment, and infrastructure for cross-device compatibility
-# Part of ghostty-config-files zero-cost local CI/CD system
+# Part of 000-dotfiles zero-cost local CI/CD system
 
 set -euo pipefail
 
@@ -38,7 +38,8 @@ log() {
     local level="$1"
     shift
     local message="$*"
-    local timestamp_str=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp_str
+    timestamp_str=$(date '+%Y-%m-%d %H:%M:%S')
     local color=""
 
     case "$level" in
@@ -117,7 +118,8 @@ check_core_tools() {
 
     # GitHub CLI
     if command -v gh >/dev/null 2>&1; then
-        local gh_version=$(gh --version | head -n1 | awk '{print $3}')
+        local gh_version
+        gh_version=$(gh --version | head -n1 | awk '{print $3}')
         record_check "core_tools" "gh_cli" "passed" "version: $gh_version"
         log "SUCCESS" "✅ GitHub CLI: $gh_version"
     else
@@ -127,7 +129,8 @@ check_core_tools() {
 
     # Node.js
     if command -v node >/dev/null 2>&1; then
-        local node_version=$(node -v | sed 's/v//' | cut -d. -f1)
+        local node_version
+        node_version=$(node -v | sed 's/v//' | cut -d. -f1)
         if [ "$node_version" -ge 25 ]; then
             record_check "core_tools" "node_js" "passed" "version: v$node_version (target: 25+)"
             log "SUCCESS" "✅ Node.js: v$node_version (target)"
@@ -145,7 +148,8 @@ check_core_tools() {
 
     # npm
     if command -v npm >/dev/null 2>&1; then
-        local npm_version=$(npm -v)
+        local npm_version
+        npm_version=$(npm -v)
         record_check "core_tools" "npm" "passed" "version: $npm_version"
         log "SUCCESS" "✅ npm: $npm_version"
     else
@@ -155,7 +159,8 @@ check_core_tools() {
 
     # git
     if command -v git >/dev/null 2>&1; then
-        local git_version=$(git --version | awk '{print $3}')
+        local git_version
+        git_version=$(git --version | awk '{print $3}')
         record_check "core_tools" "git" "passed" "version: $git_version"
         log "SUCCESS" "✅ git: $git_version"
     else
@@ -165,7 +170,8 @@ check_core_tools() {
 
     # jq
     if command -v jq >/dev/null 2>&1; then
-        local jq_version=$(jq --version | sed 's/jq-//')
+        local jq_version
+        jq_version=$(jq --version | sed 's/jq-//')
         record_check "core_tools" "jq" "passed" "version: $jq_version"
         log "SUCCESS" "✅ jq: $jq_version"
     else
@@ -175,7 +181,8 @@ check_core_tools() {
 
     # curl
     if command -v curl >/dev/null 2>&1; then
-        local curl_version=$(curl --version | head -n1 | awk '{print $2}')
+        local curl_version
+        curl_version=$(curl --version | head -n1 | awk '{print $2}')
         record_check "core_tools" "curl" "passed" "version: $curl_version"
         log "SUCCESS" "✅ curl: $curl_version"
     else
@@ -185,7 +192,8 @@ check_core_tools() {
 
     # bash
     if command -v bash >/dev/null 2>&1; then
-        local bash_version=$(bash --version | head -n1 | awk '{print $4}')
+        local bash_version
+        bash_version=$(bash --version | head -n1 | awk '{print $4}')
         record_check "core_tools" "bash" "passed" "version: $bash_version"
         log "SUCCESS" "✅ bash: $bash_version"
     else
@@ -244,8 +252,10 @@ check_local_cicd_infrastructure() {
     # Check workflows/ directory
     if [ -d "$REPO_DIR/.runners-local/workflows" ]; then
         # Count executable scripts
-        local executable_count=$(find "$REPO_DIR/.runners-local/workflows" -name "*.sh" -type f -executable 2>/dev/null | wc -l)
-        local total_count=$(find "$REPO_DIR/.runners-local/workflows" -name "*.sh" -type f 2>/dev/null | wc -l)
+        local executable_count
+        executable_count=$(find "$REPO_DIR/.runners-local/workflows" -name "*.sh" -type f -executable 2>/dev/null | wc -l)
+        local total_count
+        total_count=$(find "$REPO_DIR/.runners-local/workflows" -name "*.sh" -type f 2>/dev/null | wc -l)
 
         if [ "$executable_count" -eq "$total_count" ]; then
             record_check "local_cicd" "workflow_scripts" "passed" "$executable_count/$total_count scripts executable"
@@ -296,7 +306,8 @@ check_mcp_connectivity() {
     # MCP servers should be configured at user level for all projects to access
     if [ -f "$HOME/.claude.json" ]; then
         if jq -e '.mcpServers' "$HOME/.claude.json" > /dev/null 2>&1; then
-            local server_count=$(jq '.mcpServers | keys | length' "$HOME/.claude.json" 2>/dev/null || echo "0")
+            local server_count
+            server_count=$(jq '.mcpServers | keys | length' "$HOME/.claude.json" 2>/dev/null || echo "0")
             record_check "mcp_servers" "user_config" "passed" "$server_count servers at user level"
             log "SUCCESS" "✅ MCP config: ~/.claude.json ($server_count servers)"
         else
@@ -304,7 +315,7 @@ check_mcp_connectivity() {
             log "WARNING" "⚠️  ~/.claude.json exists but no mcpServers configured"
         fi
     else
-        record_check "mcp_servers" "user_config" "warning" "~/.claude.json not found"
+        record_check "mcp_servers" "user_config" "warning" "$HOME/.claude.json not found"
         log "WARNING" "⚠️  User-level MCP config not found (~/.claude.json)"
     fi
 
@@ -314,11 +325,14 @@ check_mcp_connectivity() {
         log "SUCCESS" "✅ Claude Code CLI available"
 
         # Use claude mcp list for actual connectivity check (source of truth)
-        local mcp_output=$(timeout 10s claude mcp list 2>/dev/null || echo "")
+        local mcp_output
+        mcp_output=$(timeout 10s claude mcp list 2>/dev/null || echo "")
         # Count "Connected" (case-insensitive) - grep -c returns number, || 0 for safety
-        local connected_count=$(echo "$mcp_output" | grep -ci "connected" || echo 0)
+        local connected_count
+        connected_count=$(echo "$mcp_output" | grep -ci "connected" || echo 0)
         # Count server entries (lines containing colon and path)
-        local total_count=$(echo "$mcp_output" | grep -c ":" || echo 0)
+        local total_count
+        total_count=$(echo "$mcp_output" | grep -c ":" || echo 0)
 
         if [ "$connected_count" -gt 0 ] 2>/dev/null; then
             record_check "mcp_servers" "connectivity" "passed" "$connected_count servers connected"
@@ -356,15 +370,18 @@ check_mcp_config_conflicts() {
         log "WARNING" "⚠️  Project-level .mcp.json detected at $REPO_DIR/.mcp.json"
 
         # Extract server names from both configs
-        local user_servers=$(jq -r '.mcpServers | keys[]' "$HOME/.claude.json" 2>/dev/null | sort)
-        local project_servers=$(jq -r '.mcpServers | keys[]' "$REPO_DIR/.mcp.json" 2>/dev/null | sort)
+        local user_servers
+        user_servers=$(jq -r '.mcpServers | keys[]' "$HOME/.claude.json" 2>/dev/null | sort)
+        local project_servers
+        project_servers=$(jq -r '.mcpServers | keys[]' "$REPO_DIR/.mcp.json" 2>/dev/null | sort)
 
         if [ -z "$project_servers" ]; then
             log "INFO" "   .mcp.json has no servers defined (safe to delete)"
             record_check "mcp_servers" "config_conflict" "warning" "empty project .mcp.json"
         else
             # Find conflicts (servers defined in BOTH configs)
-            local conflicts=$(comm -12 <(echo "$user_servers") <(echo "$project_servers") 2>/dev/null)
+            local conflicts
+            conflicts=$(comm -12 <(echo "$user_servers") <(echo "$project_servers") 2>/dev/null)
 
             if [ -n "$conflicts" ]; then
                 record_check "mcp_servers" "config_conflict" "failed" "conflicting servers detected"
@@ -409,8 +426,8 @@ check_astro_environment() {
 
     # Check package.json
     if [ -n "$ASTRO_DIR" ]; then
-        record_check "astro_build" "package_json" "passed" "exists at ${ASTRO_DIR#$REPO_DIR/}"
-        log "SUCCESS" "✅ Astro package.json exists (${ASTRO_DIR#$REPO_DIR/})"
+        record_check "astro_build" "package_json" "passed" "exists at ${ASTRO_DIR#"$REPO_DIR"/}"
+        log "SUCCESS" "✅ Astro package.json exists (${ASTRO_DIR#"$REPO_DIR"/})"
     else
         record_check "astro_build" "package_json" "warning" "not found (optional)"
         log "WARNING" "⚠️  Astro website not found (optional component)"
@@ -424,7 +441,7 @@ check_astro_environment() {
         log "SUCCESS" "✅ Dependencies installed"
     else
         record_check "astro_build" "node_modules" "warning" "not installed"
-        log "WARNING" "⚠️  Dependencies not installed - run: cd ${ASTRO_DIR#$REPO_DIR/} && npm install"
+        log "WARNING" "⚠️  Dependencies not installed - run: cd ${ASTRO_DIR#"$REPO_DIR"/} && npm install"
     fi
 
     # Check astro.config.mjs
@@ -473,7 +490,8 @@ check_astro_environment() {
 # ═══════════════════════════════════════════════════════════
 
 check_self_hosted_runner() {
-    local policy=$(detect_cicd_policy)
+    local policy
+    policy=$(detect_cicd_policy)
 
     log "STEP" "🏃 Checking CI/CD policy and runner status..."
     log "INFO" "   Detected policy: $policy"
@@ -496,7 +514,8 @@ check_self_hosted_runner() {
                 log "SUCCESS" "✅ Self-hosted runner installed"
 
                 # Check if systemd service configured
-                local service_name="github-actions-runner-$(whoami)"
+                local service_name
+                service_name="github-actions-runner-$(whoami)"
                 if systemctl list-unit-files | grep -q "$service_name" 2>/dev/null; then
                     record_check "runner" "systemd_service" "passed" "service configured"
                     log "SUCCESS" "✅ Systemd service configured"

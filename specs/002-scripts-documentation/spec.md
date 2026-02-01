@@ -9,11 +9,9 @@
 
 ### User Story 1 - Script Discovery via Master Index (Priority: P1)
 
-A developer or AI assistant needs to find the right script for a specific task (e.g., "how do I update Ghostty?" or "where is the uninstall script for Node.js?"). Currently, with 114 scripts across 11 directories and no index, discovery requires manual exploration or grep searches.
 
 **Why this priority**: This is the highest-value deliverable. Without a master index, both humans and AI waste time navigating the scripts directory. The index enables efficient task execution and reduces errors from using wrong scripts.
 
-**Independent Test**: Can be fully tested by searching the README for any tool name (e.g., "ghostty", "nodejs", "zsh") and finding the correct script path within 10 seconds.
 
 **Acceptance Scenarios**:
 

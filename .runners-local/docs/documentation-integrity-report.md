@@ -162,7 +162,7 @@ docs/.nojekyll
 ```
 
 **Details**:
-- **Location**: `/home/kkk/Apps/ghostty-config-files/docs/.nojekyll`
+- **Location**: `/home/kkk/Apps/000-dotfiles/docs/.nojekyll`
 - **Type**: Regular file (empty, as required)
 - **Git Status**: Committed and tracked
 - **Protection Status**: ✅ Protected (critical file warning in CLAUDE.md)
@@ -278,10 +278,10 @@ Despite Context7 unavailability, symlink configuration follows git best practice
 **Verification**:
 ```bash
 $ readlink -f CLAUDE.md
-/home/kkk/Apps/ghostty-config-files/AGENTS.md
+/home/kkk/Apps/000-dotfiles/AGENTS.md
 
 $ readlink -f GEMINI.md
-/home/kkk/Apps/ghostty-config-files/AGENTS.md
+/home/kkk/Apps/000-dotfiles/AGENTS.md
 ```
 
 **Analysis**:

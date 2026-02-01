@@ -44,11 +44,14 @@ fi
 # ==============================================================================
 log "INFO" "Configuring P10k instant prompt..."
 
-INSTANT_PROMPT_BLOCK='# Enable Powerlevel10k instant prompt (performance optimization)
+INSTANT_PROMPT_BLOCK=$(cat <<'EOF'
+# Enable Powerlevel10k instant prompt (performance optimization)
 # This MUST be near the top of .zshrc
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
-fi'
+fi
+EOF
+)
 
 if grep -q 'p10k-instant-prompt' "$ZSHRC"; then
     log "INFO" "P10k instant prompt already configured"
@@ -57,13 +60,17 @@ else
     TEMP_FILE=$(mktemp)
     if head -1 "$ZSHRC" | grep -q '^#!'; then
         head -1 "$ZSHRC" > "$TEMP_FILE"
-        echo "" >> "$TEMP_FILE"
-        echo "$INSTANT_PROMPT_BLOCK" >> "$TEMP_FILE"
-        echo "" >> "$TEMP_FILE"
+        {
+            printf '\n'
+            printf '%s\n' "$INSTANT_PROMPT_BLOCK"
+            printf '\n'
+        } >> "$TEMP_FILE"
         tail -n +2 "$ZSHRC" >> "$TEMP_FILE"
     else
-        echo "$INSTANT_PROMPT_BLOCK" > "$TEMP_FILE"
-        echo "" >> "$TEMP_FILE"
+        {
+            printf '%s\n' "$INSTANT_PROMPT_BLOCK"
+            printf '\n'
+        } > "$TEMP_FILE"
         cat "$ZSHRC" >> "$TEMP_FILE"
     fi
     mv "$TEMP_FILE" "$ZSHRC"
@@ -98,7 +105,8 @@ fi
 log "INFO" "Updating plugins configuration..."
 
 # Define the new plugins block
-PLUGINS_BLOCK='plugins=(
+PLUGINS_BLOCK=$(cat <<'EOF'
+plugins=(
   # Core
   git
   z
@@ -126,7 +134,9 @@ PLUGINS_BLOCK='plugins=(
   # External (custom/plugins)
   zsh-autosuggestions
   zsh-syntax-highlighting
-)'
+)
+EOF
+)
 
 # Create a temp file for the transformation
 TEMP_FILE=$(mktemp)
@@ -178,9 +188,11 @@ else
         log "SUCCESS" "Added fzf source line"
     else
         # If no p10k line, append at the end
-        echo '' >> "$ZSHRC"
-        echo '# FZF - Fuzzy finder (Ctrl+R for history, Ctrl+T for files)' >> "$ZSHRC"
-        echo '[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh' >> "$ZSHRC"
+        {
+            printf '\n'
+            printf '%s\n' '# FZF - Fuzzy finder (Ctrl+R for history, Ctrl+T for files)'
+            printf '%s\n' '[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh'
+        } >> "$ZSHRC"
         log "SUCCESS" "Added fzf source line (appended)"
     fi
 fi
@@ -195,19 +207,21 @@ if grep -q 'uv generate-shell-completion' "$ZSHRC"; then
 else
     # Add completions for uv, gum, glow
     if grep -q '\[\[ ! -f ~/.p10k.zsh \]\]' "$ZSHRC"; then
-        sed -i '/\[\[ ! -f ~\/.p10k.zsh \]\]/i \
-# Tool completions (uv, gum, glow)\
-command -v uv \&>/dev/null \&\& eval "$(uv generate-shell-completion zsh)"\
-command -v gum \&>/dev/null \&\& eval "$(gum completion zsh)"\
-command -v glow \&>/dev/null \&\& eval "$(glow completion zsh)"\
-' "$ZSHRC"
+        sed -i "/\\[\\[ ! -f ~\\/\\.p10k\\.zsh \\]\\]/i \\\
+# Tool completions (uv, gum, glow)\\
+command -v uv \\&>/dev/null \\&\\& eval \"\\$(uv generate-shell-completion zsh)\"\\
+command -v gum \\&>/dev/null \\&\\& eval \"\\$(gum completion zsh)\"\\
+command -v glow \\&>/dev/null \\&\\& eval \"\\$(glow completion zsh)\"\\
+" "$ZSHRC"
         log "SUCCESS" "Added tool completions"
     else
-        echo '' >> "$ZSHRC"
-        echo '# Tool completions (uv, gum, glow)' >> "$ZSHRC"
-        echo 'command -v uv &>/dev/null && eval "$(uv generate-shell-completion zsh)"' >> "$ZSHRC"
-        echo 'command -v gum &>/dev/null && eval "$(gum completion zsh)"' >> "$ZSHRC"
-        echo 'command -v glow &>/dev/null && eval "$(glow completion zsh)"' >> "$ZSHRC"
+        {
+            printf '\n'
+            printf '%s\n' '# Tool completions (uv, gum, glow)'
+            printf '%s\n' "command -v uv &>/dev/null && eval \"\$(uv generate-shell-completion zsh)\""
+            printf '%s\n' "command -v gum &>/dev/null && eval \"\$(gum completion zsh)\""
+            printf '%s\n' "command -v glow &>/dev/null && eval \"\$(glow completion zsh)\""
+        } >> "$ZSHRC"
         log "SUCCESS" "Added tool completions (appended)"
     fi
 fi
@@ -219,17 +233,17 @@ log "INFO" "Configuring modern CLI aliases..."
 
 ALIASES_FILE="$CONFIGS_DIR/.zshrc.aliases"
 if [ -f "$ALIASES_FILE" ]; then
-    if grep -q 'ghostty-config:aliases' "$ZSHRC"; then
+    if grep -q 'dotfiles-config:aliases' "$ZSHRC"; then
         log "INFO" "Aliases already configured"
     else
         cat >> "$ZSHRC" << 'EOF'
 
-# >>> ghostty-config:aliases >>>
+# >>> dotfiles-config:aliases >>>
 # Modern CLI tool aliases (grc, bat, eza)
-# Source the aliases file from ghostty-config-files
-GHOSTTY_ALIASES="${GHOSTTY_CONFIG_DIR:-$HOME/Apps/ghostty-config-files}/configs/zsh/.zshrc.aliases"
-[ -f "$GHOSTTY_ALIASES" ] && source "$GHOSTTY_ALIASES"
-# <<< ghostty-config:aliases <<<
+# Source the aliases file from 000-dotfiles
+DOTFILES_ALIASES="${DOTFILES_CONFIG_DIR:-$HOME/Apps/000-dotfiles}/configs/zsh/.zshrc.aliases"
+[ -f "$DOTFILES_ALIASES" ] && source "$DOTFILES_ALIASES"
+# <<< dotfiles-config:aliases <<<
 EOF
         log "SUCCESS" "Added modern CLI aliases block"
     fi
@@ -244,16 +258,16 @@ log "INFO" "Configuring lazy loading for slow tools..."
 
 LAZY_FILE="$CONFIGS_DIR/.zshrc.lazy-loading"
 if [ -f "$LAZY_FILE" ]; then
-    if grep -q 'ghostty-config:lazy-loading' "$ZSHRC"; then
+    if grep -q 'dotfiles-config:lazy-loading' "$ZSHRC"; then
         log "INFO" "Lazy loading already configured"
     else
         cat >> "$ZSHRC" << 'EOF'
 
-# >>> ghostty-config:lazy-loading >>>
+# >>> dotfiles-config:lazy-loading >>>
 # Lazy load slow tools (fnm, nvm, bun) for faster startup
-GHOSTTY_LAZY="${GHOSTTY_CONFIG_DIR:-$HOME/Apps/ghostty-config-files}/configs/zsh/.zshrc.lazy-loading"
-[ -f "$GHOSTTY_LAZY" ] && source "$GHOSTTY_LAZY"
-# <<< ghostty-config:lazy-loading <<<
+DOTFILES_LAZY="${DOTFILES_CONFIG_DIR:-$HOME/Apps/000-dotfiles}/configs/zsh/.zshrc.lazy-loading"
+[ -f "$DOTFILES_LAZY" ] && source "$DOTFILES_LAZY"
+# <<< dotfiles-config:lazy-loading <<<
 EOF
         log "SUCCESS" "Added lazy loading block"
     fi
@@ -264,20 +278,20 @@ fi
 # ==============================================================================
 # Step 8: Ensure ~/.local/bin is in PATH
 # ==============================================================================
-log "INFO" "Ensuring ~/.local/bin is in PATH..."
+log "INFO" "Ensuring $HOME/.local/bin is in PATH..."
 
-if grep -q 'ghostty-config:local-bin' "$ZSHRC"; then
-    log "INFO" "~/.local/bin PATH already configured"
+if grep -q 'dotfiles-config:local-bin' "$ZSHRC"; then
+    log "INFO" "$HOME/.local/bin PATH already configured"
 else
     cat >> "$ZSHRC" << 'EOF'
 
-# >>> ghostty-config:local-bin >>>
+# >>> dotfiles-config:local-bin >>>
 # Ensure ~/.local/bin is in PATH (for fnm, pip packages, npm globals, etc.)
 # This is critical for tools installed via the TUI to remain accessible
 export PATH="$HOME/.local/bin:$PATH"
-# <<< ghostty-config:local-bin <<<
+# <<< dotfiles-config:local-bin <<<
 EOF
-    log "SUCCESS" "Added ~/.local/bin to PATH"
+    log "SUCCESS" "Added $HOME/.local/bin to PATH"
 fi
 
 # ==============================================================================
@@ -314,7 +328,7 @@ log "INFO" "  - Added fzf integration"
 log "INFO" "  - Added completions for uv, gum, glow"
 log "INFO" "  - Added modern CLI aliases (grc, bat, eza)"
 log "INFO" "  - Added lazy loading for Node.js tools"
-log "INFO" "  - Ensured ~/.local/bin is in PATH (fnm, pip, npm globals)"
+log "INFO" "  - Ensured $HOME/.local/bin is in PATH (fnm, pip, npm globals)"
 log "INFO" "  - Installed default P10k config (if missing)"
 log "INFO" ""
 log "INFO" "Backup location: $BACKUP_DIR/.zshrc.$TIMESTAMP"
