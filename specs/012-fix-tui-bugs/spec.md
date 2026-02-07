@@ -2,8 +2,13 @@
 
 **Feature Branch**: `002-fix-tui-bugs`
 **Created**: 2026-01-29
-**Status**: Draft
+**Status**: Completed
+**Completed**: 2026-02-08
 **Input**: User description: "Fix 5 TUI bugs: multi-line location display (#201), ESC navigation after install (#200), dashboard auto-refresh after Update All (#199), terminal copy/paste restoration (#197), and stray '8' character rendering (#196)"
+
+**Verification Notes**:
+- Manual verification completed and recorded in `tasks.md` (all tasks checked).
+- Upstream GitHub issues (#196, #197, #199, #200, #201) are CLOSED (2026-01-31) and were re-verified during 2026-02-08 follow-up.
 
 ## Background
 

@@ -2,8 +2,13 @@
 
 **Feature Branch**: `003-fix-fish-tui-display`
 **Created**: 2026-01-31
-**Status**: Draft
+**Status**: Completed
+**Completed**: 2026-02-08
 **Input**: User description: "Fish shell not appearing in TUI despite being added to registry - getTableTools() hardcodes only nodejs, ai_tools, antigravity" + verify and close stale GitHub issues
+
+**Verification Notes**:
+- Fish renders in the main table and the detail view is accessible (see `tasks.md` for dated verification notes).
+- GitHub issues referenced in this spec (#196, #197, #199, #200, #201 and #218-257) are CLOSED (2026-01-31).
 
 ## User Scenarios & Testing *(mandatory)*
 
