@@ -4,7 +4,12 @@
 **Created**: 2026-01-29
 **Feature**: [spec.md](../spec.md)
 **Focus**: Requirements completeness, acceptance criteria quality, TUI-specific coverage
-**Audience**: Pre-implementation review
+**Audience**: Pre-implementation review (archived)
+
+## Status (Updated 2026-02-08)
+
+- Spec implementation and manual verification are complete (see `../tasks.md`).
+- This checklist was not completed prior to implementation; the unchecked items are preserved as historical prompts for improving future specs.
 
 ---
 
