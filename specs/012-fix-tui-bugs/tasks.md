@@ -75,6 +75,7 @@
 - [X] T012 [US2] Ensure cache invalidation for updated tools before refresh call in tui/internal/ui/model.go
 - [X] T013 [US2] Verify loading spinner displays while statuses refresh in tui/internal/ui/model.go
 - [ ] T014 [US2] Manual test: Run "Update All", verify loading indicator appears and status updates automatically
+      Notes (2026-02-07): Blocked in this environment because "Update All" triggers an interactive sudo prompt.
 
 **Checkpoint**: User Story 2 complete - Dashboard auto-refreshes after batch operations
 
@@ -94,6 +95,7 @@
 - [X] T018 [US3] Ensure tool status refresh after returning to ViewToolDetail in tui/internal/ui/model.go
 - [ ] T019 [US3] Manual test: Extras → Tool Detail → Install → ESC → verify return to Tool Detail
 - [ ] T020 [US3] Manual test: From Tool Detail, press ESC again → verify return to Extras
+      Notes (2026-02-07): Blocked in this environment because install/uninstall triggers an interactive sudo prompt.
 
 **Checkpoint**: User Story 3 complete - ESC navigation follows expected flow
 
@@ -111,7 +113,10 @@
 - [X] T022 [US4] Locate Location rendering code in tui/internal/ui/tooldetail.go (lines ~249-253)
 - [X] T023 [US4] Modify renderRow or add code to also display status.Details array in tui/internal/ui/tooldetail.go
 - [X] T024 [US4] Ensure proper indentation/alignment for multi-line location display in tui/internal/ui/tooldetail.go
-- [ ] T025 [US4] Manual test: View Claude Config detail, verify both "Skills:" and "Agents:" lines visible
+- [X] T025 [US4] Manual test: View Claude Config detail, verify both "Skills:" and "Agents:" lines visible
+      Verified (2026-02-07): Installed Claude Config via scripts and confirmed TUI shows both lines:
+      - Skills: /home/kkk/.claude/commands
+      - Agents: /home/kkk/.claude/agents
 
 **Checkpoint**: User Story 4 complete - All location data visible in tool detail
 
@@ -130,7 +135,9 @@
 - [X] T028 [US5] Test with `tea.WithoutMouseCellMotion()` option to isolate mouse input issues in tui/cmd/installer/main.go
 - [X] T029 [US5] Review lipgloss style application for escape sequence corruption in tui/internal/ui/*.go
 - [X] T030 [US5] Add screen clear before problematic re-renders if needed in tui/internal/ui/model.go
-- [ ] T031 [US5] Manual test: Navigate all screens, resize terminal, verify no stray characters
+- [X] T031 [US5] Manual test: Navigate all screens, resize terminal, verify no stray characters
+      Verified (2026-02-07): Smoke-tested navigation across Dashboard, Extras, MCP Servers, and SpecKit Updater.
+      Note: Did not run install/update flows requiring sudo in this environment.
 
 **Checkpoint**: User Story 5 complete - Clean rendering on all screens
 
@@ -144,11 +151,17 @@
 - [X] T033 Run `go vet ./...` in tui/ to check for static analysis issues
 - [X] T034 Run `go build ./...` in tui/ to verify compilation
 - [ ] T035 Execute full quickstart.md verification test suite (all 5 test cases)
-- [ ] T036 Close GitHub Issue #197 (Terminal State)
-- [ ] T037 Close GitHub Issue #199 (Dashboard Refresh)
-- [ ] T038 Close GitHub Issue #200 (ESC Navigation)
-- [ ] T039 Close GitHub Issue #201 (Multi-Line Location)
-- [ ] T040 Close GitHub Issue #196 (Stray Character)
+      Notes (2026-02-07): Partial completion only. Bugs #199/#200 require sudo-driven flows to verify end-to-end.
+- [X] T036 Close GitHub Issue #197 (Terminal State)
+      Verified (2026-02-07): Issue already CLOSED on GitHub.
+- [X] T037 Close GitHub Issue #199 (Dashboard Refresh)
+      Verified (2026-02-07): Issue already CLOSED on GitHub.
+- [X] T038 Close GitHub Issue #200 (ESC Navigation)
+      Verified (2026-02-07): Issue already CLOSED on GitHub.
+- [X] T039 Close GitHub Issue #201 (Multi-Line Location)
+      Verified (2026-02-07): Issue already CLOSED on GitHub.
+- [X] T040 Close GitHub Issue #196 (Stray Character)
+      Verified (2026-02-07): Issue already CLOSED on GitHub.
 
 **Checkpoint**: All bugs verified fixed, all issues closed
 
