@@ -10,7 +10,7 @@
 ## Status (Updated 2026-02-07)
 
 - Fish is present in `tui/internal/ui/model.go` `getTableTools()` and shows in the main table.
-- Verified locally via `./tui/installer -demo-child` (Fish row renders as "Fish + Fisher" with version/status).
+- Verified locally via (DEVELOPER ONLY) `./tui/installer -demo-child` (Fish row renders as "Fish + Fisher" with version/status).
 - GitHub issues #196, #197, #199, #200, #201 and #218-257 are already CLOSED (closedAt 2026-01-31).
 
 ## Format: `[ID] [P?] [Story] Description`
@@ -51,7 +51,7 @@
 
 - [x] T001 [US1] Update capacity hint from 3 to 4 in getTableTools() in tui/internal/ui/model.go (line ~1546)
 - [x] T002 [US1] Add fish to filter condition in getTableTools() in tui/internal/ui/model.go (line ~1550)
-- [x] T003 [US1] Verify Fish appears in main tools table by running `./tui/installer -demo-child` (verified 2026-02-07)
+- [x] T003 [US1] Verify Fish appears in main tools table by running (RECOMMENDED) `./start.sh` (verified 2026-02-07 via DEVELOPER ONLY `./tui/installer -demo-child`)
 
 **Checkpoint**: Fish now visible in TUI main tools table
 
