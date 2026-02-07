@@ -74,9 +74,11 @@
 - [X] T011 [US2] Add `m.loading = true` when returning to Dashboard after batch update in tui/internal/ui/model.go
 - [X] T012 [US2] Ensure cache invalidation for updated tools before refresh call in tui/internal/ui/model.go
 - [X] T013 [US2] Verify loading spinner displays while statuses refresh in tui/internal/ui/model.go
-- [ ] T014 [US2] Manual test: Run "Update All", verify loading indicator appears and status updates automatically
-      Notes (2026-02-08): Blocked until sudo is non-interactive for the TUI. Apply the repo sudoers update
-      (`sudoers/llm-cli-tools` now includes NOPASSWD for `/usr/bin/true` so `sudo -n true` succeeds), then re-run.
+- [X] T014 [US2] Manual test: Run "Update All", verify loading indicator appears and status updates automatically
+      Verified (2026-02-08):
+      - Applied sudoers update so `sudo -n true` succeeds (no interactive prompt).
+      - Ran `Update All` (Node.js) end-to-end; dashboard returned without needing manual refresh and update count cleared.
+      - Note: Node update required `fnm` bootstrap in update script (fixed in repo) so the batch could complete.
 
 **Checkpoint**: User Story 2 complete - Dashboard auto-refreshes after batch operations
 
@@ -94,10 +96,10 @@
 - [X] T016 [US3] Add tracking for "came from tool detail" state when launching installer in tui/internal/ui/model.go
 - [X] T017 [US3] Modify InstallerExitMsg handler to return to ViewToolDetail (not toolDetailFrom) in tui/internal/ui/model.go
 - [X] T018 [US3] Ensure tool status refresh after returning to ViewToolDetail in tui/internal/ui/model.go
-- [ ] T019 [US3] Manual test: Extras → Tool Detail → Install → ESC → verify return to Tool Detail
-- [ ] T020 [US3] Manual test: From Tool Detail, press ESC again → verify return to Extras
-      Notes (2026-02-08): Blocked until sudo is non-interactive for the TUI. Apply the repo sudoers update
-      (`sudoers/llm-cli-tools` now includes NOPASSWD for `/usr/bin/true` so `sudo -n true` succeeds), then re-run.
+- [X] T019 [US3] Manual test: Extras → Tool Detail → Install → ESC → verify return to Tool Detail
+      Verified (2026-02-08): Used Extras → ShellCheck → Install, then ESC returned to Tool Detail view.
+- [X] T020 [US3] Manual test: From Tool Detail, press ESC again → verify return to Extras
+      Verified (2026-02-08): ESC from Tool Detail returned to Extras list as expected.
 
 **Checkpoint**: User Story 3 complete - ESC navigation follows expected flow
 
@@ -152,7 +154,13 @@
 - [X] T032 Run `go fmt ./...` in tui/ to ensure code formatting
 - [X] T033 Run `go vet ./...` in tui/ to check for static analysis issues
 - [X] T034 Run `go build ./...` in tui/ to verify compilation
-- [ ] T035 Execute full quickstart.md verification test suite (all 5 test cases)
+- [X] T035 Execute full quickstart.md verification test suite (all 5 test cases)
+      Verified (2026-02-08):
+      - #197 terminal state restore: verified earlier (exit via q/Ctrl+C retains copy/paste)
+      - #199 Update All auto-refresh: verified (T014)
+      - #200 ESC navigation: verified (T019/T020)
+      - #201 multi-line Location: verified earlier (Claude Config shows Skills + Agents)
+      - #196 stray character: verified earlier during navigation (no stray characters observed)
       Notes (2026-02-07): Partial completion only. Bugs #199/#200 require sudo-driven flows to verify end-to-end.
 - [X] T036 Close GitHub Issue #197 (Terminal State)
       Verified (2026-02-07): Issue already CLOSED on GitHub.
