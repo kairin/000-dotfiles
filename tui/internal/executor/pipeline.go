@@ -240,6 +240,13 @@ func (p *Pipeline) executeStage(ctx context.Context, stage PipelineStage) (Stage
 
 	// Forward output to pipeline's output channel
 	go func() {
+		// Pipeline cancellation can close p.outputChan while the stage subprocess is still
+		// emitting output. Avoid crashing the entire TUI due to a send-on-closed-channel.
+		defer func() {
+			if recover() != nil {
+				return
+			}
+		}()
 		for line := range outputChan {
 			select {
 			case p.outputChan <- line:

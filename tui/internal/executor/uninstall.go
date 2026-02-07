@@ -100,6 +100,13 @@ func (p *UninstallPipeline) Execute(ctx context.Context) error {
 
 	// Forward output to pipeline's output channel
 	go func() {
+		// Avoid crashing the TUI if the output channel is closed while the subprocess is
+		// still emitting output (e.g. user cancels).
+		defer func() {
+			if recover() != nil {
+				return
+			}
+		}()
 		for line := range outputChan {
 			select {
 			case p.outputChan <- line:
