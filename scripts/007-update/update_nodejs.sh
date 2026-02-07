@@ -9,15 +9,24 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../006-logs/logger.sh"
 
-# Initialize fnm environment
-FNM_PATH="$HOME/.local/share/fnm"
-if [[ -d "$FNM_PATH" ]]; then
-    export PATH="$FNM_PATH:$PATH"
-    eval "$(fnm env --use-on-cd 2>/dev/null)"
-else
-    log "ERROR" "fnm not found at $FNM_PATH"
+# Initialize fnm environment (and bootstrap if missing).
+# Note: fnm binary is installed to ~/.local/bin by scripts/004-reinstall/install_nodejs.sh.
+export PATH="$HOME/.local/bin:$PATH"
+
+if ! command -v fnm &> /dev/null; then
+    log "WARNING" "fnm not found in PATH; installing fnm to $HOME/.local/bin..."
+    if ! curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$HOME/.local/bin" --skip-shell; then
+        log "ERROR" "fnm install failed"
+        exit 1
+    fi
+fi
+
+if ! command -v fnm &> /dev/null; then
+    log "ERROR" "fnm still not available after install"
     exit 1
 fi
+
+eval "$(fnm env --shell bash --use-on-cd 2>/dev/null)"
 
 # Get target version (major version)
 TARGET_VERSION="25"
