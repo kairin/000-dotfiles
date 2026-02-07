@@ -79,6 +79,56 @@
 
 **Details**: [Git Strategy](/.claude/instructions-for-agents/requirements/git-strategy.md)
 
+### 2.1 Solo Maintainer PR Merge Workflow (When Reviews Are Required)
+
+GitHub does not allow self-approval. If branch protection requires an approving review (e.g. `required_approving_review_count: 1`)
+and the repository has only one maintainer, temporarily relax the requirement to merge, then restore it immediately after.
+
+Required steps:
+
+1. Temporarily set required reviews to `0` for `main`:
+```bash
+cat > /tmp/pr-review-protection.json <<'EOF'
+{
+  "dismiss_stale_reviews": true,
+  "require_code_owner_reviews": true,
+  "require_last_push_approval": false,
+  "required_approving_review_count": 0
+}
+EOF
+
+gh api -X PATCH -H "Accept: application/vnd.github+json" \
+  /repos/kairin/000-dotfiles/branches/main/protection/required_pull_request_reviews \
+  --input /tmp/pr-review-protection.json
+```
+
+2. Merge the PR (keep branch; do not delete):
+```bash
+gh pr merge <PR_NUMBER> --merge --admin --delete-branch=false
+```
+
+3. Restore required reviews to `1`:
+```bash
+cat > /tmp/pr-review-protection.json <<'EOF'
+{
+  "dismiss_stale_reviews": true,
+  "require_code_owner_reviews": true,
+  "require_last_push_approval": false,
+  "required_approving_review_count": 1
+}
+EOF
+
+gh api -X PATCH -H "Accept: application/vnd.github+json" \
+  /repos/kairin/000-dotfiles/branches/main/protection/required_pull_request_reviews \
+  --input /tmp/pr-review-protection.json
+```
+
+4. Sync local `main` after merge:
+```bash
+git checkout main
+git pull --ff-only origin main
+```
+
 ### 3. Local CI/CD First (MANDATORY)
 **EVERY** configuration change MUST run local CI/CD BEFORE GitHub:
 
