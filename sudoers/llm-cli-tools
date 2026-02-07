@@ -5,6 +5,9 @@
 # Common package management and system commands
 kkk ALL=(ALL) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get, /usr/bin/dpkg, /usr/bin/snap
 
+# Allow non-interactive sudo cache detection used by the TUI (`sudo -n true`)
+kkk ALL=(ALL) NOPASSWD: /usr/bin/true, /bin/true
+
 # Docker and container management
 kkk ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/docker-compose
 

@@ -75,7 +75,8 @@
 - [X] T012 [US2] Ensure cache invalidation for updated tools before refresh call in tui/internal/ui/model.go
 - [X] T013 [US2] Verify loading spinner displays while statuses refresh in tui/internal/ui/model.go
 - [ ] T014 [US2] Manual test: Run "Update All", verify loading indicator appears and status updates automatically
-      Notes (2026-02-07): Blocked in this environment because "Update All" triggers an interactive sudo prompt.
+      Notes (2026-02-08): Blocked until sudo is non-interactive for the TUI. Apply the repo sudoers update
+      (`sudoers/llm-cli-tools` now includes NOPASSWD for `/usr/bin/true` so `sudo -n true` succeeds), then re-run.
 
 **Checkpoint**: User Story 2 complete - Dashboard auto-refreshes after batch operations
 
@@ -95,7 +96,8 @@
 - [X] T018 [US3] Ensure tool status refresh after returning to ViewToolDetail in tui/internal/ui/model.go
 - [ ] T019 [US3] Manual test: Extras → Tool Detail → Install → ESC → verify return to Tool Detail
 - [ ] T020 [US3] Manual test: From Tool Detail, press ESC again → verify return to Extras
-      Notes (2026-02-07): Blocked in this environment because install/uninstall triggers an interactive sudo prompt.
+      Notes (2026-02-08): Blocked until sudo is non-interactive for the TUI. Apply the repo sudoers update
+      (`sudoers/llm-cli-tools` now includes NOPASSWD for `/usr/bin/true` so `sudo -n true` succeeds), then re-run.
 
 **Checkpoint**: User Story 3 complete - ESC navigation follows expected flow
 
