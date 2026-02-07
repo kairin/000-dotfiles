@@ -1,8 +1,31 @@
 # Development Roadmap
 
-> **Version**: 3.4-Wave-Structure | **Last Updated**: 2026-01-18 | **Status**: Active
+> **Version**: 3.4-Wave-Structure | **Last Updated**: 2026-02-08 | **Status**: Active
 
 This document tracks planned features, outstanding tasks, and maintenance items for the 000-dotfiles project.
+
+---
+
+## Current Status Snapshot (2026-02-08)
+
+### Active SpecKit Specs (Blocking / In Flight)
+
+| Spec | What It Is | Tracking | Status |
+|------|------------|----------|--------|
+| **015-verbose-spinner-progress** | Per-item progress spinners for NerdFonts/MCPServers/Extras/Installer views | Tasks: [specs/015-verbose-spinner-progress/tasks.md](specs/015-verbose-spinner-progress/tasks.md) • Issues: 54 open (all labeled `015-verbose-spinner-progress`) | 🔴 Next up (blocks UI polish + reduces “black box” loading) |
+| **008-mcp-server-dashboard** | New TUI dashboard for MCP servers + Skills/Agents | Tasks: [specs/008-mcp-server-dashboard/tasks.md](specs/008-mcp-server-dashboard/tasks.md) | 📋 Large feature (start after 015 stabilizes UX patterns) |
+
+### Recently Completed Specs (Verified)
+
+| Spec | What It Was | Tracking | Status |
+|------|-------------|----------|--------|
+| **012-fix-tui-bugs** | Verified and closed issues #196, #197, #199, #200, #201 (terminal restore, refresh, ESC nav, location lines, stray char) | Tasks: [specs/012-fix-tui-bugs/tasks.md](specs/012-fix-tui-bugs/tasks.md) | ✅ Completed + verified |
+| **013-fix-fish-tui-display** | Fish appears in main table + detail view; verified prior bug closures | Tasks: [specs/013-fix-fish-tui-display/tasks.md](specs/013-fix-fish-tui-display/tasks.md) | ✅ Completed + verified |
+
+### Recommended Execution Order (Spec Track)
+
+1. **015** (verbose progress spinners): smallest surface area that improves all installs and future debugging
+2. **008** (dashboards): biggest feature, benefits from the progress patterns and stable navigation
 
 ---
 
@@ -418,7 +441,7 @@ All completed waves have been verified against their SpecKit specifications:
 **Total verified tasks:** 193 across 5 completed waves
 **Pending tasks:** 35 across 7 ready waves + 11 in backlog
 
-**Last verified:** 2026-01-18
+**Last verified:** 2026-02-08
 
 ---
 
