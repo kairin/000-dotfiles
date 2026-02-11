@@ -1,0 +1,240 @@
+kairin/.password-store	private	2025-04-27T10:56:11Z	here lies all the passwords
+kairin/000-dotfiles	public	2026-02-07T22:31:10Z	LLM CLI tools sudoers configuration and system setup for Ubuntu 25.04+ with uv package manager integration
+kairin/001-agents-manager	public	2025-10-21T23:44:57Z	Universal Claude Code agents management system with automatic synchronization across all machines
+kairin/002-mcp-manager	public	2026-01-05T20:08:14Z	MCP Manager - A comprehensive tool for managing Model Context Protocol servers with automation, monitoring, and maintenance capabilities
+kairin/88x2bu	public	2025-07-21T07:44:51Z	Linux Driver for USB WiFi Adapters that are based on the RTL8812BU and RTL8822BU Chipsets - v5.13.1
+kairin/ANUS	public	2025-09-05T07:29:35Z	HAHAHAHAHAHA
+kairin/Anthias	public	2025-03-04T16:11:05Z	The world's most popular open source digital signage project.
+kairin/AppFlowy	public	2025-07-27T07:55:10Z	Bring projects, wikis, and teams together with AI. AppFlowy is the AI collaborative workspace where you achieve more without losing control of your data. The leading open source Notion alternative.
+kairin/BCM-private	private	2026-01-15T10:13:41Z	
+kairin/BasicSR	public	2025-01-24T14:31:20Z	Open Source Image and Video Restoration Toolbox for Super-resolution, Denoise, Deblurring, etc. Currently, it includes EDSR, RCAN, SRResNet, SRGAN, ESRGAN, EDVR, BasicVSR, SwinIR, ECBSR, etc. Also support StyleGAN2, DFDNet.
+kairin/ComfyUI-Arc2Face	public	2025-01-01T16:39:22Z	comfyui custom nodes to support the Arc2Face diffusion model
+kairin/ComfyUI-BrushNet	public	2024-10-19T12:06:17Z	ComfyUI BrushNet nodes
+kairin/ComfyUI-Dwpose-Tensorrt	public	2025-04-27T20:19:33Z	Ultra fast dwpose estimation inside comfyui using tensorrt
+kairin/ComfyUI-Facerestore-Tensorrt	public	2025-04-27T20:19:26Z	Tensorrt implementation for ultra fast face restoration inside ComfyUI
+kairin/ComfyUI-FlashFace	public	2024-11-11T14:52:22Z	ComfyUI Node for FlashFace
+kairin/ComfyUI-Model-Manager	public	2025-05-03T01:04:11Z	Manage models: browsing, donwload and delete.
+kairin/ComfyUI-ReActor	public	2025-05-03T02:15:39Z	Fast and Simple Face Swap Extension Node for ComfyUI (SFW)
+kairin/ComfyUI-Rife-Tensorrt	public	2025-04-27T20:19:20Z	Ultra fast frame interpolation using Rife Tensorrt inside ComfyUI
+kairin/ComfyUI-YoloNasPose-Tensorrt	public	2025-04-27T20:19:13Z	ComfyUI ultra fast (100+ FPS) pose estimation custom node (licensed under CC BY-NC-SA)
+kairin/ComfyUI_DiffusionModel_fp8_converter	public	2024-11-10T19:55:41Z	A custom ComfyUI node for models/clips fp8 converter
+kairin/ComfyUI_FaceAnalysis	public	2025-01-26T19:38:31Z	Extension for ComfyUI to evaluate the similarity between two faces
+kairin/ComfyUI_IPAdapter__plus	public	2025-01-26T19:36:44Z	ComfyUI_IPAdapter_plus --> ComfyUI_IPAdapter__plus
+kairin/ComfyUI_InstantID	public	2025-01-26T19:37:48Z	
+kairin/ComfyUI_TensorRT	public	2025-04-27T20:19:59Z	
+kairin/ControlNet-diff-modules	private	2024-10-12T12:31:42Z	
+kairin/DeepResearchAgent	public	2025-09-18T21:38:39Z	🤖 Hierarchical Multi-Agent Framework for Research and Analysis | TUI Development & Advanced Documentation System
+kairin/Diffusion-Super-Resolution	public	2025-05-03T01:14:11Z	[CVPR 2023] Guided Depth Super-Resolution by Deep Anisotropic Diffusion
+kairin/ETL-1-0	private	2025-07-30T12:26:14Z	Email and Excel ETL Processing System with Dagster and Plane integration
+kairin/EasyOCR	public	2025-10-01T00:08:31Z	Ready-to-use OCR with 80+ supported languages and all popular writing scripts including Latin, Chinese, Arabic, Devanagari, Cyrillic and etc.
+kairin/FormSG	public	2025-09-18T00:24:27Z	Form builder for the Singapore Government
+kairin/GFPGAN	public	2025-01-24T14:30:53Z	GFPGAN aims at developing Practical Algorithms for Real-world Face Restoration.
+kairin/HiDream-I1	public	2025-04-11T23:28:39Z	
+kairin/HiDream-I1-nf4	public	2025-04-11T23:29:23Z	4Bit Quantized Model for HiDream I1
+kairin/INT-FlashAttention	public	2024-11-02T12:15:14Z	
+kairin/Install-OpenCV-Jetson-AGX-Orin	public	2025-08-22T09:08:43Z	OpenCV installation script with CUDA and cuDNN support - just to update to install into ORIN.
+kairin/JEP	public	2025-01-01T01:39:38Z	
+kairin/Levenshtein	public	2025-08-10T14:38:57Z	The Levenshtein Python C extension module contains functions for fast computation of Levenshtein distance and string similarity
+kairin/LightRAG	public	2025-06-02T02:54:20Z	"LightRAG: Simple and Fast Retrieval-Augmented Generation"
+kairin/Long-CLIP	public	2024-12-30T04:16:14Z	[ECCV 2024] official code for "Long-CLIP: Unlocking the Long-Text Capability of CLIP"
+kairin/MetaSpec-Kyocera	private	2026-01-10T19:29:58Z	Unified MetaSpec-Kyocera system: Multi-agent framework for Kyocera meter reading management with zero-cost architecture
+kairin/MonthlyKyocera	private	2025-09-18T23:02:54Z	Folders for Kyocera Monthly task.
+kairin/OmniGen	public	2024-12-30T23:55:48Z	OmniGen: Unified Image Generation. https://arxiv.org/pdf/2409.11340
+kairin/OneTrainer	public	2024-11-27T11:36:08Z	OneTrainer is a one-stop solution for all your stable diffusion training needs.
+kairin/OpenSpec	public	2025-10-15T02:35:38Z	Spec-driven development for AI coding assistants.
+kairin/PhotoMaker	private	2024-10-12T12:54:34Z	
+kairin/PhotoMaker-1	public	2024-12-10T20:04:56Z	PhotoMaker [CVPR 2024]
+kairin/PhotoMaker-V2	private	2024-11-01T20:19:52Z	
+kairin/PowerappsProjects	public	2025-03-17T09:59:47Z	
+kairin/QtPass	public	2025-04-27T12:00:57Z	QtPass is a multi-platform GUI for pass, the standard unix password manager.
+kairin/RTL8812BU-and-RTL8822BU-Chipsets---v5.13.1-88x2bu-20210702-	public	2025-07-21T07:25:40Z	Linux Driver for USB WiFi Adapters that are based on the RTL8812BU and RTL8822BU Chipsets - v5.13.1
+kairin/RTL88X2BU	public	2025-07-21T07:39:07Z	rtl88x2bu driver updated for current kernels.
+kairin/ReSwapper	public	2025-01-18T16:48:10Z	ReSwapper aims to reproduce the implementation of inswapper. This repository provides code for training, inference, and includes pretrained weights.
+kairin/Realtek-RTL8812BU-Driver-for-Linux	public	2025-07-21T07:26:30Z	Realtek RTL8812BU Driver for Linux
+kairin/RestoreFormerPlusPlus	public	2024-12-20T16:41:27Z	[TPAMI2023] RestoreFormer++
+kairin/SageAttention	public	2024-12-09T13:22:32Z	Quantized Attention that achieves speedups of 2.1-3.1x and 2.7-5.1x compared to FlashAttention2 and xformers, respectively, without lossing end-to-end metrics across various models.
+kairin/StabilityMatrix	public	2024-12-30T12:26:16Z	Multi-Platform Package Manager for Stable Diffusion
+kairin/Stable-Diffusion-WebUI-TensorRT	public	2024-12-20T20:31:29Z	TensorRT Extension for Stable Diffusion Web UI
+kairin/TensorRT-Model-Optimizer	public	2024-11-02T14:42:37Z	TensorRT Model Optimizer is a unified library of state-of-the-art model optimization techniques such as quantization, pruning, distillation, etc. It compresses deep learning models for downstream deployment frameworks like TensorRT-LLM or TensorRT to optimize inference speed on NVIDIA GPUs.
+kairin/Thread-Watcher	public	2024-11-09T10:51:32Z	Discord bot that automatically un-archives threads
+kairin/ThunderKittens	public	2024-11-03T03:52:01Z	Tile primitives for speedy kernels
+kairin/TransformerEngine	public	2025-03-16T04:43:36Z	A library for accelerating Transformer models on NVIDIA GPUs, including using 8-bit floating point (FP8) precision on Hopper and Ada GPUs, to provide better performance with lower memory utilization in both training and inference.
+kairin/Ventoy	public	2025-07-08T16:50:57Z	A new bootable USB solution.
+kairin/Vizy-Unsupported-Remake	public	2025-08-16T10:41:51Z	Vizy Unsupported Remake…
+kairin/Zettlr	public	2025-07-27T07:52:07Z	Your One-Stop Publication Workbench
+kairin/acp.el	public	2025-09-26T16:00:28Z	An ACP (Agent Client Protocol) implementation in Emacs lisp as per https://agentclientprotocol.com
+kairin/afuse	public	2025-04-28T14:17:31Z	An automounter implemented with FUSE
+kairin/agent-os	public	2025-08-09T09:39:37Z	Agent OS is a system for better planning and executing software development tasks with your AI agents.
+kairin/agent-shell	public	2025-09-26T15:59:20Z	
+kairin/agents	public	2025-07-29T14:11:18Z	A collection of production-ready subagents for Claude Code
+kairin/aic8800	public	2025-07-24T20:25:06Z	TP-Link Archer TX1U Nano (AX300 Wi-Fi 6 USB Adapter) utilizes the AICSemi AIC8800DC chipset
+kairin/aic8800_linux_drvier	public	2025-07-24T20:37:28Z	Aicsemi aic8800 Wi-Fi driver (TP-Link Archer TX1U Nano (AX300 Wi-Fi 6 USB Adapter) utilizes the AICSemi AIC8800DC chipset)
+kairin/aic8800d80	public	2025-07-24T20:29:17Z	TP-Link Archer TX1U Nano (AX300 Wi-Fi 6 USB Adapter) utilizes the AICSemi AIC8800DC chipset
+kairin/archived-simple-digital-signage	private	2025-05-06T15:02:34Z	simple-digital-signage
+kairin/asciimatics	public	2025-08-27T20:43:55Z	A cross platform package to do curses-like operations, plus higher level APIs and widgets to create text UIs and ASCII art animations
+kairin/attendance	private	2025-04-22T09:48:13Z	
+kairin/attendance-scanner	private	2026-02-04T03:35:48Z	
+kairin/awesome-tuis	public	2025-08-24T10:06:51Z	List of projects that provide terminal user interfaces
+kairin/bazel	public	2025-03-14T13:15:38Z	a fast, scalable, multi-language and extensible build system
+kairin/bazelisk	public	2025-03-14T13:15:48Z	A user-friendly launcher for Bazel.
+kairin/blackbox-terminal	public	2025-03-14T12:54:22Z	A beautiful GTK 4 terminal.
+kairin/breakdance	public	2024-11-10T14:07:33Z	It's time for your markup to get down! HTML to markdown converter. Breakdance is a highly pluggable, flexible and easy to use.
+kairin/broadcast	public	2025-02-28T03:06:04Z	broadcast
+kairin/btop	public	2025-08-04T04:16:26Z	A monitor of resources
+kairin/castmill.com	public	2025-03-04T16:18:09Z	Castmill's webpage
+kairin/celluloid	public	2025-03-14T16:41:37Z	A simple GTK+ frontend for mpv
+kairin/citibank-payments	private	2025-08-29T06:20:22Z	Intelligent payment processing workflow system that converts email instructions into structured PDF approval documents for Citibank payments with complete audit trail and document reconstruction capabilities
+kairin/civit-download	private	2026-02-02T13:35:03Z	Download training data from CivitAI and store them remotely on Hugging Face
+kairin/civitai	public	2025-03-30T09:21:20Z	A repository of models, textual inversions, and more
+kairin/civitai-tui-downloader	public	2025-08-27T23:02:50Z	Interactive TUI for batch downloading Civitai assets with parallel support
+kairin/claude-code	public	2025-09-26T06:23:04Z	Claude Code is an agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster by executing routine tasks, explaining complex code, and handling git workflows - all through natural language commands.
+kairin/claude-guardian-agents	public	2025-09-18T21:55:43Z	claude code. guardian. agents.
+kairin/cloud-shell	private	2025-09-10T11:11:35Z	a lazy man's google cli setup script
+kairin/comf-agx-orin	public	2025-01-02T17:22:11Z	
+kairin/comfui	public	2025-05-03T04:06:40Z	Google Colab notebook for running ComfyUI
+kairin/comfyui-rtx5090	public	2026-02-08T20:53:28Z	ComfyUI Docker image optimized for NVIDIA RTX 5090 (Blackwell) - CUDA 12.8, PyTorch 2.9, SageAttention, TensorRT
+kairin/completion-scripts	private	2025-05-30T03:43:49Z	
+kairin/console	public	2025-03-14T13:02:48Z	Read-only mirror of https://gitlab.gnome.org/GNOME/console
+kairin/context7	public	2025-09-08T11:52:19Z	Context7 MCP Server -- Up-to-date code documentation for LLMs and AI code editors
+kairin/copilot-cli	public	2025-09-26T06:21:40Z	GitHub Copilot CLI brings the power of Copilot coding agent directly to your terminal. 
+kairin/copyparty	public	2025-07-31T03:48:13Z	Portable file server with accelerated resumable uploads, dedup, WebDAV, FTP, TFTP, zeroconf, media indexer, thumbnails++ all in one file, no deps
+kairin/cosign	public	2025-03-24T13:24:59Z	Code signing and transparency for containers and binaries
+kairin/cutlass	public	2024-11-03T03:55:12Z	CUDA Templates for Linear Algebra Subroutines
+kairin/davmail	public	2025-08-21T21:33:36Z	DavMail POP/IMAP/SMTP/Caldav/Carddav/LDAP Exchange and Office 365 Gateway - Synced with main subversion repository at
+kairin/debian-ghostty	public	2025-09-19T03:29:20Z	👻🌀 debian packaging for ghostty
+kairin/deep-research	public	2025-09-18T21:51:03Z	deep-research
+kairin/dialog	public	2025-04-19T20:35:14Z	
+kairin/direct-payments	private	2025-11-13T10:50:08Z	
+kairin/discord-bluewillow-midjourney-msgs	private	2024-11-16T09:12:23Z	discord-bluewillow-msg
+kairin/distributed-workload-uv	private	2025-05-03T03:37:09Z	distributed-workload-uv
+kairin/docker-kodi-headless	public	2025-02-09T13:46:57Z	A headless install of kodi in a docker container
+kairin/docling	public	2025-09-30T10:02:40Z	Get your documents ready for gen AI
+kairin/docling-parse	public	2025-08-29T02:48:49Z	Simple package to extract text with coordinates from programmatic PDFs
+kairin/duckdb	public	2025-08-09T05:45:42Z	DuckDB is an analytical in-process SQL database management system
+kairin/duckdb-email	public	2025-09-04T21:48:59Z	
+kairin/duckdb-python	public	2025-08-09T05:43:01Z	The DuckDB Python package
+kairin/duckdb-rs	public	2025-08-09T05:43:43Z	 Ergonomic bindings to duckdb for Rust 
+kairin/edge-vpn-container	public	2025-11-05T09:58:11Z	
+kairin/email-etl-archival	public	2025-08-22T02:27:02Z	Email ETL and 5-Layer Archival System for browser-based email access with Playwright automation, multi-format archives, and business workflow integration
+kairin/facechain	public	2024-12-10T20:09:52Z	FaceChain is a deep-learning toolchain for generating your Digital-Twin.
+kairin/feh	public	2025-05-04T06:55:34Z	a fast and light image viewer
+kairin/ffmpeg-commander	public	2025-01-12T14:14:46Z	🛠️ FFmpeg Command Generator Web UI
+kairin/finetuning-notebooks	public	2025-07-26T22:55:50Z	
+kairin/fio	public	2025-07-27T08:09:42Z	Flexible I/O Tester
+kairin/flash-attention	public	2025-05-01T01:15:30Z	Fast and memory-efficient exact attention
+kairin/fluxgym	public	2025-02-11T21:30:52Z	Dead simple FLUX LoRA training UI with LOW VRAM support
+kairin/focalboard	public	2025-07-27T13:23:13Z	Focalboard is an open source, self-hosted alternative to Trello, Notion, and Asana.
+kairin/gdk-pixbuf	public	2025-03-10T22:53:45Z	Read-only mirror of https://gitlab.gnome.org/GNOME/gdk-pixbuf
+kairin/geary	public	2025-09-03T22:41:56Z	Read-only mirror of https://gitlab.gnome.org/GNOME/geary
+kairin/gemini-cli	public	2025-09-28T11:29:16Z	An open-source AI agent that brings the power of Gemini directly into your terminal.
+kairin/get-emacs	public	2025-09-29T00:58:01Z	Emacs Documentation Website with comprehensive local CI/CD workflows and zero-cost GitHub Pages deployment. Live at: https://kairin.github.io/get-emacs/
+kairin/get-email	private	2025-04-29T06:01:54Z	
+kairin/getfrozen	public	2024-11-01T15:22:16Z	download frozen.txt to google collab
+kairin/gh-zsh	public	2025-03-19T22:12:20Z	
+kairin/ghostty	public	2025-09-19T03:29:33Z	👻 Ghostty is a fast, feature-rich, and cross-platform terminal emulator that uses platform-native UI and GPU acceleration.
+kairin/ghostty-config-files	public	2026-01-27T12:56:13Z	🚀 Constitutional terminal environment with Ghostty + AI integration, TypeScript excellence, and zero-cost GitHub Pages deployment. Features advanced productivity tools, local CI/CD, and constitutional compliance framework.
+kairin/gimp	public	2025-07-14T14:10:07Z	Read-only mirror of https://gitlab.gnome.org/GNOME/gimp
+kairin/gimp-generative-plugin	public	2025-12-01T11:34:47Z	GIMP plugin for AUTOMATIC1111's Stable Diffusion WebUI
+kairin/git-credential-manager	public	2025-04-27T11:09:34Z	Secure, cross-platform Git credential storage with authentication to GitHub, Azure Repos, and other popular Git hosting services.
+kairin/gitg	public	2025-04-27T11:32:08Z	Read-only mirror of https://gitlab.gnome.org/GNOME/gitg
+kairin/github-mcp-server	public	2025-08-20T20:42:22Z	GitHub's official MCP Server
+kairin/gnome-commander	public	2025-03-13T22:12:37Z	Read-only mirror of https://gitlab.gnome.org/GNOME/gnome-commander
+kairin/go2tv	public	2025-02-09T12:25:21Z	Cast media files to UPnP/DLNA Media Renderers and Smart TVs.
+kairin/google-gemini-codes	public	2025-07-18T23:50:34Z	redo of google-gemini-codes
+kairin/graduationtest	private	2025-05-05T06:20:03Z	
+kairin/hamper-wreath	private	2025-10-15T07:06:19Z	
+kairin/haruna	public	2025-03-14T16:27:39Z	Open source video player built with Qt/QML and libmpv.
+kairin/hr-request	private	2025-09-10T11:34:27Z	
+kairin/htop	public	2025-08-04T04:14:39Z	htop - an interactive process viewer
+kairin/iPhonePrefsURLs	public	2024-09-29T17:48:06Z	List of Settings URLs to launch "prefs:root" URLs via the Shortcuts app iOS.
+kairin/ictree	public	2025-08-27T13:25:36Z	Like tree but interactive
+kairin/image-diffusion-demo	public	2025-05-01T14:54:56Z	A image diffusion demo with nuscenes and longclip.
+kairin/image-to-pdf	public	2025-08-22T02:28:57Z	Automated image-to-PDF converter with folder monitoring and organized output
+kairin/insightface	public	2024-12-20T13:50:38Z	State-of-the-art 2D and 3D Face Analysis Project
+kairin/inspector	public	2025-09-24T13:58:43Z	Visual testing tool for MCP servers
+kairin/inventory-tracker	public	2025-08-26T08:23:26Z	inventory-tracker
+kairin/jetc	public	2025-04-24T23:28:11Z	
+kairin/jetson	private	2025-03-06T23:27:38Z	agx orin
+kairin/jetson-containers	public	2025-04-27T05:20:49Z	Machine Learning Containers for NVIDIA Jetson and JetPack-L4T
+kairin/jetson-examples	public	2024-12-30T17:32:39Z	The jetson-examples repository by Seeed Studio offers a seamless, one-line command deployment to run vision AI and Generative AI models on the NVIDIA Jetson platform.
+kairin/jetson-inference	public	2025-01-30T19:20:11Z	Hello AI World guide to deploying deep-learning inference networks and deep vision primitives with TensorRT and NVIDIA Jetson.
+kairin/jetson_stats	public	2025-03-16T06:53:00Z	📊 Simple package for monitoring and control your NVIDIA Jetson [Orin, Xavier, Nano, TX] series
+kairin/keyword-frequency-utils	public	2025-08-25T23:59:49Z	
+kairin/lazygit	public	2025-04-27T11:31:31Z	simple terminal UI for git commands
+kairin/learn_insightface	public	2025-05-11T03:57:22Z	
+kairin/libgit2	public	2025-03-14T14:03:38Z	A cross-platform, linkable library implementation of Git that you can use in your application.
+kairin/libgit2-glib	public	2025-03-14T14:44:06Z	Read-only mirror of https://gitlab.gnome.org/GNOME/libgit2-glib
+kairin/linformer	public	2024-11-02T14:11:18Z	Implementation of Linformer for Pytorch
+kairin/linux-exfat-oot	public	2025-03-04T18:17:34Z	exFAT for Linux (Backport for low kernel version support) 
+kairin/llm-rfq-templates	private	2026-01-15T10:17:42Z	LLM-ingestible RFQ templates for procurement document generation
+kairin/localtunnel	public	2025-08-10T20:41:55Z	expose yourself
+kairin/marimo	public	2025-08-19T22:35:45Z	A reactive notebook for Python — run reproducible experiments, query with SQL, execute as a script, deploy as an app, and version with git. All in a modern, AI-native editor.
+kairin/markdown-toc	public	2024-11-10T14:13:35Z	API and CLI for generating a markdown TOC (table of contents) for a README or any markdown files. Uses Remarkable to parse markdown. 
+kairin/mcp-server-duckdb	public	2025-09-16T12:41:05Z	A Model Context Protocol (MCP) server implementation for DuckDB, providing database interaction capabilities
+kairin/md-table-editor	public	2025-08-27T13:22:56Z	
+kairin/media-downloader	public	2025-05-03T06:19:27Z	Web video/audio downloader
+kairin/mermaid	private	2025-07-27T10:54:12Z	for mermaid graphs
+kairin/milvus	public	2025-07-27T13:23:56Z	Milvus is a high-performance, cloud-native vector database built for scalable vector ANN search
+kairin/neomutt	public	2025-09-09T05:10:36Z	✉️ Teaching an Old Dog New Tricks -- IRC: #neomutt on irc.libera.chat
+kairin/ninja	public	2025-04-27T11:33:02Z	a small build system with a focus on speed
+kairin/nvim-dotfiles	public	2025-09-02T20:09:46Z	
+kairin/office-documents-	private	2025-04-28T07:45:07Z	
+kairin/officeflows	private	2024-05-10T09:04:34Z	office workflows
+kairin/oh-my-posh	public	2025-03-20T17:06:05Z	The most customisable and low-latency cross platform/shell prompt renderer
+kairin/ohmyzsh	public	2025-03-15T12:31:21Z	🙃   A delightful community-driven (with 2,400+ contributors) framework for managing your zsh configuration. Includes 300+ optional plugins (rails, git, macOS, hub, docker, homebrew, node, php, python, etc), 140+ themes to spice up your morning, and an auto-update tool that makes it easy to keep up with the latest updates from the community.
+kairin/oneTBB	public	2025-01-23T16:41:09Z	oneAPI Threading Building Blocks (oneTBB)
+kairin/openvino-ai-plugins-gimp	public	2025-07-12T05:11:25Z	GIMP AI plugins with OpenVINO Backend
+kairin/paperless-ngx	public	2025-10-04T21:36:36Z	A community-supported supercharged document management system: scan, index and archive all your documents
+kairin/pass-git-helper	private	2025-08-09T09:17:16Z	A git credential helper interfacing with pass, the standard unix password manager.
+kairin/passff	public	2025-04-27T11:43:34Z	Read-only mirror of https://codeberg.org/PassFF/passff Pull requests and issues on GitHub cannot be accepted and will be automatically closed. 
+kairin/pdfarranger	public	2025-10-21T08:26:49Z	Small python-gtk application, which helps the user to merge or split PDF documents and rotate, crop and rearrange their pages using an interactive and intuitive graphical interface.
+kairin/piSignage	public	2025-02-09T12:22:38Z	Digital Signage Player Software for Raspberry Pi, more details at
+kairin/plane	public	2025-07-30T11:42:44Z	🔥 🔥 🔥 Open Source JIRA, Linear, Monday, and Asana Alternative. Plane helps you track your issues, epics, and cycles the easiest way on the planet.
+kairin/playwright-mcp	public	2025-08-21T18:00:14Z	Playwright MCP server
+kairin/plugin.onedrive	public	2025-02-09T11:45:19Z	The OneDrive addon for Kodi
+kairin/powerlevel10k	public	2025-09-22T12:13:35Z	A Zsh theme
+kairin/printer-meter-tracker	public	2025-06-30T01:51:18Z	printer-meter-tracker
+kairin/pytermgui	public	2025-08-27T20:44:08Z	Python TUI framework with mouse support, modular widget system, customizable and rapid terminal markup language and more!
+kairin/rclone	public	2025-05-03T02:08:23Z	"rsync for cloud storage" - Google Drive, S3, Dropbox, Backblaze B2, One Drive, Swift, Hubic, Wasabi, Google Cloud Storage, Azure Blob, Azure Files, Yandex Files
+kairin/recipe-explorer	public	2025-11-08T06:54:32Z	A beautiful, interactive recipe explorer for rabbit and vegetable recipes
+kairin/reflex	public	2025-10-16T00:44:58Z	🕸️ Web apps in pure Python 🐍
+kairin/remarkable	public	2024-11-10T14:06:44Z	Markdown parser, done right. Commonmark support, extensions, syntax plugins, high speed - all in one. Gulp and metalsmith plugins available. Used by Facebook, Docusaurus and many others! Use https://github.com/breakdance/breakdance for HTML-to-markdown conversion. Use https://github.com/jonschlinkert/markdown-toc to generate a table of contents.
+kairin/renamefiles	public	2025-04-15T01:55:38Z	
+kairin/rich	public	2025-08-27T20:44:38Z	Rich is a Python library for rich text and beautiful formatting in the terminal.
+kairin/roop	public	2025-05-13T19:58:00Z	one-click face swap
+kairin/sam-hq	public	2024-12-20T19:32:57Z	Segment Anything in High Quality [NeurIPS 2023]
+kairin/sam2	public	2024-12-20T19:36:00Z	The repository provides code for running inference with the Meta Segment Anything Model 2 (SAM 2), links for downloading the trained model checkpoints, and example notebooks that show how to use the model.
+kairin/scan-pass	private	2025-08-28T01:58:09Z	Modern terminal-based registration and attendance tracking application with dual ID support. Built with Textual TUI framework, DuckDB backend, and comprehensive staff management features for organizational transitions.
+kairin/scout-cli	public	2025-03-24T13:52:56Z	Docker Scout CLI
+kairin/sdnext	public	2026-01-31T12:38:28Z	SD.Next: All-in-one WebUI for AI generative image and video creation
+kairin/servers	public	2025-07-27T16:57:52Z	Model Context Protocol Servers
+kairin/signage	public	2025-03-04T16:15:58Z	Signage Orchestrator
+kairin/signage-1	private	2026-01-29T02:22:14Z	
+kairin/simple-digital-signage	private	2025-08-04T19:26:09Z	redoing
+kairin/snap-versions-repo	public	2025-11-03T10:35:09Z	
+kairin/spec-kit	public	2025-10-26T15:57:34Z	💫 Toolkit to help you get started with Spec-Driven Development
+kairin/stable-diffusion-webui-forge	public	2025-03-04T18:28:56Z	
+kairin/start	public	2025-10-15T00:04:19Z	Project Quality Controller - A unified system for managing development standards, quality assurance, and environment consistency across all projects with zero-cost deployment.
+kairin/stationery-request-system	private	2025-11-13T07:40:26Z	ITE Stationery Request System - Automated PDF generation with FormSG integration and UUID tracking
+kairin/stripedhyena	public	2024-11-02T12:24:51Z	Repository for StripedHyena, a state-of-the-art beyond Transformer architecture
+kairin/supplier-invoices	private	2026-02-05T08:11:53Z	
+kairin/syft	public	2025-03-24T12:54:52Z	CLI tool and library for generating a Software Bill of Materials from container images and filesystems
+kairin/tbb-aarch64-jetson-agx-orin	public	2025-01-26T21:52:11Z	Intel TBB with CMake build system - but seems like the project is left at the 2020 version
+kairin/tegon	public	2025-07-27T07:56:03Z	Tegon is an open-source, dev-first alternative to Jira, Linear
+kairin/template-repo	private	2025-04-18T17:51:59Z	template-repo
+kairin/tensor2tensor	public	2024-11-02T12:46:20Z	Library of deep learning models and datasets designed to make deep learning more accessible and accelerate ML research.
+kairin/tensorrtx	public	2024-12-20T16:24:08Z	Implementation of popular deep learning networks with TensorRT network definition API
+kairin/terminator	public	2025-03-14T13:10:55Z	multiple GNOME terminals in one window
+kairin/textual	public	2025-08-27T20:44:28Z	The lean application framework for Python.  Build sophisticated user interfaces with a simple Python API. Run your apps in the terminal and a web browser.
+kairin/thera	public	2025-05-03T01:12:56Z	Thera: Aliasing-Free Arbitrary-Scale Super-Resolution with Neural Heat Fields
+kairin/tmux	public	2025-03-13T13:04:35Z	tmux source code
+kairin/ubuntu-setup-scripts	private	2025-08-10T18:24:38Z	
+kairin/ubuntu-video-playback	public	2025-11-19T11:46:58Z	Complete Ubuntu 25.10 video playback setup with NVIDIA hardware acceleration (RTX 4080 SUPER)
+kairin/ui	public	2025-09-10T10:25:09Z	A set of beautifully-designed, accessible components and a code distribution platform. Works with your favorite frameworks. Open Source. Open Code.
+kairin/uv	public	2025-08-22T03:34:52Z	An extremely fast Python package and project manager, written in Rust.
+kairin/vllm	public	2024-11-02T14:56:24Z	A high-throughput and memory-efficient inference and serving engine for LLMs
+kairin/vscode-markdown-mermaid	public	2025-08-27T12:55:39Z	Adds Mermaid diagram and flowchart support to VS Code's builtin markdown preview
+kairin/win-qemu	public	2025-12-09T04:22:28Z	QEMU/KVM Windows Virtualization - Run native Microsoft 365 Outlook on Ubuntu with 85-95% native performance using hardware-assisted virtualization
+kairin/win-qemu-docs	public	2025-11-30T04:35:00Z	QEMU/KVM Windows 11 Virtualization Documentation - Astro + TailwindCSS + DaisyUI
+kairin/xibo	public	2025-04-29T23:21:12Z	Xibo Digital Signage
+kairin/yolov5	public	2024-12-20T16:17:46Z	YOLOv5 🚀 in PyTorch > ONNX > CoreML > TFLite
