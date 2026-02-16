@@ -89,8 +89,17 @@ func (p *ConfigurePipeline) Execute(ctx context.Context) error {
 
 	start := time.Now()
 
+	// Build optional arguments (consistent with install/uninstall pipelines)
+	// Used for special one-off configure actions like workstation audit mode.
+	var args []string
+	if p.tool.FontArg != "" {
+		args = []string{p.tool.FontArg}
+	} else if p.tool.MethodOverride != "" {
+		args = []string{string(p.tool.MethodOverride)}
+	}
+
 	// Run the configure script with streaming output
-	outputChan, resultChan := RunScript(p.config.RepoRoot, configureScript, nil)
+	outputChan, resultChan := RunScript(p.config.RepoRoot, configureScript, nil, args...)
 
 	// Forward output to pipeline's output channel
 	go func() {

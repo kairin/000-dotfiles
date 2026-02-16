@@ -304,6 +304,7 @@ cd tui && go run ./cmd/installer        # DEVELOPER ONLY - Run from source
 - [Context7 MCP](/.claude/instructions-for-agents/guides/context7-mcp.md) - Documentation server
 - [GitHub MCP](/.claude/instructions-for-agents/guides/github-mcp.md) - Repository operations
 - [Logging Guide](/.claude/instructions-for-agents/guides/LOGGING_GUIDE.md) - Dual-mode logging system
+- [Workstation Audit Baseline (2026-02-16)](/.claude/instructions-for-agents/guides/workstation-audit-baseline-2026-02-16.md) - Consolidated audit findings and repeat checks
 
 ### Agent & Command Reference
 

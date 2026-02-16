@@ -126,7 +126,7 @@ Track your fleet of Ubuntu systems:
 - Broken link: Created `local-cicd-guide.md` in guides/
 - Tier conflict: Unified to 5-tier (0-4) across all 4 architecture files
 
-**SpecKit Artifacts:** [specs/001-foundation-fixes/](specs/001-foundation-fixes/)
+**SpecKit Artifacts:** Archived/removed from `specs/` in current tree (historical Wave 0 record retained here)
 
 ---
 
@@ -290,7 +290,7 @@ Track your fleet of Ubuntu systems:
 - `tui/internal/ui/model.go` - Added ViewToolDetail routing and dashboard simplification
 - `tui/internal/ui/extras.go` - Converted from table to menu navigation
 
-**SpecKit Artifacts:** [specs/006-tui-detail-views/](specs/006-tui-detail-views/)
+**SpecKit Artifacts:** Archived/removed from `specs/` in current tree (historical Wave 6a record retained here)
 
 ---
 
@@ -396,7 +396,11 @@ Track your fleet of Ubuntu systems:
 
 ## Maintenance Tasks
 
-*No pending maintenance tasks.*
+| Task | Priority | Notes |
+|------|----------|-------|
+| Fix missing Context7 in CLI audits (`claude`, `codex`) | High | `health-check.sh --workstation-audit` currently reports failures |
+| Refresh stale Ghostty-era setup docs | High | `first-time-setup.md` still references Ghostty project and old repo name |
+| Track disposition of RAID historical notes | Medium | Keep as historical reference; avoid presenting as active host state |
 
 ---
 
@@ -411,11 +415,11 @@ Track your fleet of Ubuntu systems:
 | Context7 header auth fix | 2026-01-18 | Setup script updated with --header flag |
 | MCP scope verification | 2026-01-18 | User scope confirmed correct via Context7 |
 | ROADMAP wave restructure | 2026-01-18 | Replaced v3.x with Wave 0-4 structure |
-| Wave 0 Foundation Fixes | 2026-01-18 | LICENSE, broken link fix, tier unification - [specs/001-foundation-fixes/](specs/001-foundation-fixes/) |
+| Wave 0 Foundation Fixes | 2026-01-18 | LICENSE, broken link fix, tier unification (spec directory archived/removed from current tree) |
 | Wave 1 Scripts Documentation | 2026-01-18 | 5 READMEs, MCP consolidation, ai-cli-tools fix - [specs/002-scripts-documentation/](specs/002-scripts-documentation/) |
 | Wave 2 TUI Features | 2026-01-18 | Per-font selection, MCP management, prerequisites, secrets wizard - [specs/003-tui-features/](specs/003-tui-features/) |
 | Wave 3 Skills + Agents | 2026-01-18 | 4 skills + 65 agents consolidated to user-level - [specs/004-claude-skills/](specs/004-claude-skills/) + [specs/005-claude-agents/](specs/005-claude-agents/) |
-| Wave 6a TUI Detail Views | 2026-01-18 | ViewToolDetail component, dashboard simplification, extras menu - [specs/006-tui-detail-views/](specs/006-tui-detail-views/) |
+| Wave 6a TUI Detail Views | 2026-01-18 | ViewToolDetail component, dashboard simplification, extras menu (spec directory archived/removed from current tree) |
 
 ---
 
@@ -425,13 +429,13 @@ All completed waves have been verified against their SpecKit specifications:
 
 | Wave | SpecKit Spec | Checklist | Tasks | Status |
 |------|--------------|-----------|-------|--------|
-| Wave 0 | [001-foundation-fixes](specs/001-foundation-fixes/) | 16/16 ✓ | 17/17 ✓ | ✅ Verified |
+| Wave 0 | Archived from current `specs/` tree | 16/16 ✓ | 17/17 ✓ | ✅ Verified (historical) |
 | Wave 1 | [002-scripts-documentation](specs/002-scripts-documentation/) | 16/16 ✓ | 54/54 ✓ | ✅ Verified |
 | Wave 2 | [003-tui-features](specs/003-tui-features/) | 16/16 ✓ | 78/78 ✓ | ✅ Verified |
 | Wave 3 | [004-claude-skills](specs/004-claude-skills/) + [005-claude-agents](specs/005-claude-agents/) | 16/16 ✓ | 7/7 ✓ | ✅ Verified |
 | Wave 4 | *Claude Hooks* | - | 3 defined | ⏳ Ready |
 | Wave 5 | *Claude Memory* | - | 3 defined | ⏳ Ready |
-| Wave 6a | [006-tui-detail-views](specs/006-tui-detail-views/) | 16/16 ✓ | 44/44 ✓ | ✅ Verified |
+| Wave 6a | Archived from current `specs/` tree | 16/16 ✓ | 44/44 ✓ | ✅ Verified (historical) |
 | Wave 6b | *TUI Polish* | - | 4 defined | ⏳ Ready |
 | Wave 7 | *Documentation* | - | 4 defined | ⏳ Ready |
 | Wave 8 | *CI/CD & Monitoring* | - | 2 defined | ⏳ Ready |
@@ -459,8 +463,6 @@ COMPLETED:
 
 NEXT UP:
   Wave 4 (Claude Hooks)         ⏳ 3 tasks, ~4 hr  ← START HERE
-      ↓
-  Wave 5 (Claude Memory)        ⏳ 3 tasks, ~2 hr
       ↓
   Wave 5 (Claude Memory)        ⏳ 3 tasks, ~2 hr
 
@@ -497,19 +499,24 @@ When starting a new wave, use SpecKit to manage the development lifecycle:
 6. /speckit.analyze   →  Verify completion
 ```
 
-**Spec directory structure:**
+**Spec directory structure (current repository):**
 ```
 specs/
-├── 001-foundation-fixes/      # Wave 0 ✅
-├── 002-scripts-documentation/ # Wave 1 ✅
-├── 003-tui-features/          # Wave 2 ✅
-├── 004-claude-skills/         # Wave 3 (when started)
-├── 005-claude-hooks/          # Wave 4 (when started)
-├── 006-claude-memory/         # Wave 5 (when started)
-├── 007-tui-polish/            # Wave 6 (when started)
-├── 008-documentation/         # Wave 7 (when started)
-├── 009-cicd-monitoring/       # Wave 8 (when started)
-└── 010-multi-machine/         # Wave 9 (when started)
+├── 002-scripts-documentation/
+├── 003-tui-features/
+├── 004-claude-skills/
+├── 005-claude-agents/
+├── 007-tui-extras-tools/
+├── 008-mcp-server-dashboard/
+├── 009-speckit-project-updater/
+├── 010-fix-zsh-path/
+├── 011-remove-viewappmenu/
+├── 012-fix-tui-bugs/
+├── 013-fix-fish-tui-display/
+├── 014-boot-diagnostics-progress/
+├── 015-verbose-spinner-progress/
+├── 016-git-sync-constitutional-compliance/
+└── 017-mcp-dual-cli/
 ```
 
 ### Adding New Items

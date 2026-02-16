@@ -1,149 +1,159 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.0.0 → 2.0.0 (MAJOR - restructured principles, added governance enforcement)
+Version change: 2.0.0 -> 3.0.0 (MAJOR - replaced project scope and redefined core principles)
 
 Modified principles:
-- (new) I. Script Consolidation
-- (new) II. Branch Preservation
-- (new) III. Local-First CI/CD
-- (new) IV. Modularity Limits
-- (new) V. Symlink Single Source
+- I. Script Consolidation -> I. Single User Entry Point
+- II. Branch Preservation -> II. Script Proliferation Prevention
+- III. Local-First CI/CD -> III. Branch Preservation and Traceability
+- IV. Modularity Limits -> IV. Local-First Validation and Cost Control
+- V. Symlink Single Source -> V. Documentation Currency and Evidence
+- (new) VI. Instruction Source Integrity and Symlink Architecture
 
 Added sections:
-- Technology Stack (new section)
-- Governance (expanded with 4-tier enforcement and amendment process)
+- Additional Constraints (rewritten for repository-specific controls)
+- Development Workflow and Quality Gates (expanded with explicit verification workflow)
+- Governance (expanded with amendment workflow, compliance cadence, and violation handling)
 
 Removed sections:
-- Generic placeholder sections replaced with project-specific content
+- Technology Stack section with Ghostty-specific requirements
 
 Templates requiring updates:
-- .specify/templates/plan-template.md: ✅ Already has Constitution Check section (compatible)
-- .specify/templates/spec-template.md: ✅ Compatible (no constitution-specific references)
-- .specify/templates/tasks-template.md: ✅ Compatible (no constitution-specific references)
+- .specify/templates/plan-template.md: ✅ updated
+- .specify/templates/spec-template.md: ✅ updated
+- .specify/templates/tasks-template.md: ✅ updated
+- .specify/templates/commands/*.md: ⚠ pending (directory does not exist in this repository)
 
-Follow-up TODOs: None
+Runtime guidance requiring updates:
+- README.md: ✅ updated
+- AGENTS.md: ✅ no change required (already aligned with updated principles)
+
+Follow-up TODOs:
+- TODO(COMMAND_TEMPLATES_PATH): create or restore `.specify/templates/commands/` if SpecKit command templates are expected in this repo.
 -->
 
-# Ghostty Configuration Files Constitution
+# 000-Dotfiles Constitution
 
 ## Core Principles
 
-### I. Script Consolidation
+### I. Single User Entry Point
 
-Enhance existing scripts instead of creating new wrapper/helper scripts. Before ANY new `.sh` file, verify the functionality cannot be added to existing code.
+User-facing documentation and user-facing workflows MUST use `./start.sh` as the
+only entry point. Developer-only commands MAY be documented only when labeled
+`DEVELOPER ONLY` and MUST not replace `./start.sh` in user guidance.
 
-**Enforcement**:
-- MUST check if functionality can be added to existing script before creating new file
-- MUST NOT create wrapper scripts that call other scripts (max 2-level call depth)
-- MUST maintain script baseline (~118 scripts; significant increases require justification)
-- Test scripts in `tests/` directory are exempt from this principle
+Rationale: keeps onboarding deterministic and avoids divergent setup paths.
 
-**Rationale**: Prevents codebase sprawl, reduces maintenance burden, avoids script call chains exceeding 2 levels deep.
+### II. Script Proliferation Prevention
 
-### II. Branch Preservation
+The repository MUST extend existing scripts before creating new shell scripts.
+New wrapper/helper scripts are prohibited outside `tests/` unless a documented
+justification proves no existing script can be safely extended.
 
-Never delete git branches. Use timestamped naming (`YYYYMMDD-HHMMSS-type-description`). All merges use `--no-ff` to preserve history.
+Rationale: controls maintenance cost and prevents script sprawl.
 
-**Enforcement**:
-- MUST NOT delete any git branch without explicit user permission
-- MUST use timestamped branch naming format: `YYYYMMDD-HHMMSS-type-description`
-- MUST use `--no-ff` flag for all merges to preserve branch history
-- MUST preserve branches after merge for audit trails and rollback capability
+### III. Branch Preservation and Traceability
 
-**Rationale**: All branches contain valuable configuration history for audit trails and rollback capability.
+Branches MUST be named with the timestamped format
+`YYYYMMDD-HHMMSS-type-description`, merged with `--no-ff`, and preserved after
+merge unless explicit user approval authorizes deletion.
 
-### III. Local-First CI/CD
+Rationale: preserves auditability and rollback history for configuration changes.
 
-ALL testing runs locally before any GitHub push. Run `.runners-local/workflows/gh-workflow-local.sh all` and `ghostty +show-config` before commits.
+### IV. Local-First Validation and Cost Control
 
-**Enforcement**:
-- MUST run local CI/CD workflow before any commit affecting configuration
-- MUST validate Ghostty configuration with `ghostty +show-config`
-- MUST NOT push to GitHub until local validation passes
-- MUST achieve zero GitHub Actions cost through local-first testing
+Any configuration or workflow change MUST run local validation before remote
+operations. Minimum gates are:
+- `./.runners-local/workflows/gh-workflow-local.sh all`
+- `./.runners-local/workflows/health-check.sh --workstation-audit`
 
-**Rationale**: Zero GitHub Actions cost strategy. Ensures validation before remote operations.
+GitHub Actions usage MUST remain a final-stage check, not the primary
+validation path.
 
-### IV. Modularity Limits
+Rationale: enforces reliability while protecting zero-cost CI/CD goals.
 
-No script exceeds 300 lines (hard limit). Extract functions to libraries or split into subcommand modules when approaching limit.
+### V. Documentation Currency and Evidence
 
-**Enforcement**:
-- MUST NOT exceed 300 lines per script file
-- MUST extract reusable logic to library functions when approaching limit
-- MUST split large scripts into subcommand modules
-- SHOULD refactor existing oversized scripts when touched
+Status documents MUST reflect current, verifiable state.
+- Documents that describe historical system states (for example RAID snapshots)
+  MUST include clear historical labeling and verification dates.
+- Roadmap references to specs, tasks, and issues MUST map to existing files and
+  active tracking artifacts.
+- Temporary audit folders (for example `01/`, `02/`) MUST be resolved by either
+  promoting content into maintained documentation locations or explicitly
+  excluding them with rationale.
 
-**Rationale**: Prevents monolithic scripts that are difficult to maintain, test, and understand.
+Rationale: prevents operational drift and reduces decision errors from stale docs.
 
-### V. Symlink Single Source
+### VI. Instruction Source Integrity and Symlink Architecture
 
-AGENTS.md is the master file for all LLM instructions. CLAUDE.md and GEMINI.md are symlinks that MUST remain symlinks - never convert to regular files.
+`AGENTS.md` is the single source of truth for assistant instructions.
+`CLAUDE.md` and `GEMINI.md` MUST remain symlinks to `AGENTS.md` and MUST never
+be converted into regular files.
 
-**Enforcement**:
-- MUST edit only `AGENTS.md` for LLM instruction updates
-- MUST NOT convert `CLAUDE.md` or `GEMINI.md` symlinks to regular files
-- MUST NOT create separate content in symlinked files
-- MUST verify symlink integrity after any operation touching these files
-
-**Rationale**: Single source of truth for all LLM instructions across all AI assistants.
-
-## Technology Stack
-
-**Required Versions**:
-- Ghostty v1.2.3+ with 2025 CGroup optimizations
-- Python: UV-first dependency management (no direct pip)
-- Node.js: Latest version via fnm (not LTS)
-- Go 1.23+ for TUI components
-
-**Prohibited Patterns**:
-- Direct pip usage (use UV instead)
-- LTS Node.js versions (use latest via fnm)
-- Outdated Ghostty without CGroup optimizations
+Rationale: keeps assistant behavior consistent across toolchains.
 
 ## Additional Constraints
 
-### Security & Safety
+### Security and Secrets
 
-- MUST NOT commit sensitive data (API keys, passwords, credentials)
-- MUST NOT delete `docs/.nojekyll` (breaks GitHub Pages CSS/JS)
-- MUST obtain user approval for: file deletion, merge to main, >5 file changes, deployments
+- Secrets, tokens, credentials, and private keys MUST NOT be committed.
+- Sensitive outputs MUST be redacted in logs and audit artifacts.
+- Operations that can destroy data or history MUST require explicit user
+  approval before execution.
 
-### Protected Files
+### Operational Documentation Placement
 
-| File | Protection Level | Consequence of Violation |
-|------|------------------|--------------------------|
-| `docs/.nojekyll` | CRITICAL | Breaks all CSS/JS on GitHub Pages |
-| `AGENTS.md` | PROTECTED | Single source of truth for LLM instructions |
-| `CLAUDE.md` | SYMLINK-ONLY | Must remain symlink to AGENTS.md |
-| `GEMINI.md` | SYMLINK-ONLY | Must remain symlink to AGENTS.md |
+- Repeatable verification outputs SHOULD be stored in maintained paths under
+  repository documentation or spec artifacts.
+- Ad-hoc root folders for operational notes MUST NOT remain indefinitely
+  unowned and undocumented.
+
+### Current Compliance Gaps (2026-02-16)
+
+- Workstation audit reports missing Claude Context7 configuration.
+- `ROADMAP.md` contains references to non-existent spec directories.
+- `RAID_SETUP_SUMMARY.md` is historical while current host state has no active
+  RAID arrays.
+- Root-level untracked audit folders (`01/`, `02/`) require disposition.
+
+## Development Workflow and Quality Gates
+
+1. Classify change scope and impacted artifacts before implementation.
+2. Implement changes with script consolidation and single-entry-point rules.
+3. Run required local validation gates.
+4. Update affected docs, roadmap links, and status summaries in the same change.
+5. Confirm symlink integrity for `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` when
+   instruction docs are touched.
+6. Record unresolved drift in issues or TODOs with owner and next action.
 
 ## Governance
 
+This constitution is authoritative for repository process and quality gates.
+When conflicts occur, this file takes precedence over feature specs, plans,
+and task lists.
+
 ### Amendment Process
 
-- Constitutional violations MUST NOT retry - immediately escalate to user
-- Override requires: documented justification + explicit user approval + commit message record
-- Monthly audit cycle (24th of month) for compliance review
-
-### Enforcement Layers
-
-| Layer | Type | Trigger |
-|-------|------|---------|
-| 1 | Pre-commit validation | Automated on every commit |
-| 2 | CI/CD gate checks | Automated on workflow run |
-| 3 | Monthly audits | Scheduled (24th of month) |
-| 4 | User approval gates | On-demand for destructive operations |
+1. Propose amendment with explicit rationale and impact scope.
+2. Classify semantic version bump (`MAJOR`, `MINOR`, `PATCH`).
+3. Update dependent templates and guidance in the same change.
+4. Record a sync impact report at the top of this constitution.
 
 ### Versioning Policy
 
-- **MAJOR**: Backward incompatible governance/principle removals or redefinitions
-- **MINOR**: New principle/section added or materially expanded guidance
-- **PATCH**: Clarifications, wording, typo fixes, non-semantic refinements
+- `MAJOR`: backward incompatible governance or principle redefinition/removal.
+- `MINOR`: new principle or materially expanded mandatory guidance.
+- `PATCH`: clarifications, wording, or non-semantic refinements.
 
-### Compliance Reference
+### Compliance Review Expectations
 
-All PRs and reviews MUST verify compliance with this constitution. Use `AGENTS.md` for runtime development guidance.
+- Compliance MUST be reviewed on each change touching behavior, automation,
+  documentation, or governance artifacts.
+- A monthly governance audit SHOULD confirm roadmap/spec alignment, unresolved
+  operational drift, and local CI/CD health.
+- Constitutional violations MUST be escalated to the user immediately and MUST
+  NOT be silently bypassed.
 
-**Version**: 2.0.0 | **Ratified**: 2025-11-18 | **Last Amended**: 2026-01-18
+**Version**: 3.0.0 | **Ratified**: 2025-11-18 | **Last Amended**: 2026-02-16

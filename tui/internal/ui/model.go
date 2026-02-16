@@ -1226,7 +1226,7 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Calculate max cursor: table tools + menu items
 			tableToolCount := len(m.getTableTools())
 			menuToolCount := len(m.getMenuTools()) // Feh
-			menuItemCount := menuToolCount + 4     // Feh, Nerd Fonts, Extras, Boot Diagnostics, Exit
+			menuItemCount := menuToolCount + 5     // Feh, Nerd Fonts, Extras, Boot Diagnostics, Workstation Audit, Exit
 			if m.getUpdateCount() > 0 && !m.loading {
 				menuItemCount++ // Add "Update All" option
 			}
@@ -1346,7 +1346,9 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 				m.diagnostics = &diag
 				m.currentView = ViewDiagnostics
 				return m, m.diagnostics.Init()
-			case 3: // Exit
+			case 3: // Workstation Audit
+				return m.startConfigure(newWorkstationAuditTool())
+			case 4: // Exit
 				return m, tea.Quit
 			}
 		}
@@ -1683,7 +1685,7 @@ func (m Model) renderMainMenu() string {
 	tableToolCount := len(tableTools)
 
 	// Build menu items dynamically
-	// Order: Feh, (Update All if available), Nerd Fonts, Extras, Boot Diagnostics, Exit
+	// Order: Feh, (Update All if available), Nerd Fonts, Extras, Boot Diagnostics, Workstation Audit, Exit
 	menuItems := []string{}
 
 	// Add Feh at the top (quick access to detail views)
@@ -1698,7 +1700,7 @@ func (m Model) renderMainMenu() string {
 		menuItems = append(menuItems, fmt.Sprintf("Update All (%d)", updateCount))
 	}
 
-	menuItems = append(menuItems, "Nerd Fonts", "Extras", "Boot Diagnostics", "Exit")
+	menuItems = append(menuItems, "Nerd Fonts", "Extras", "Boot Diagnostics", "Workstation Audit", "Exit")
 
 	b.WriteString("\nChoose:\n")
 
@@ -1780,6 +1782,23 @@ func (m Model) startConfigure(tool *registry.Tool) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(initCmd, startCmd)
+}
+
+// newWorkstationAuditTool creates an ephemeral tool that runs the secret-safe
+// workstation audit via health-check.sh --workstation-audit.
+func newWorkstationAuditTool() *registry.Tool {
+	return &registry.Tool{
+		ID:          "workstation-audit",
+		DisplayName: "Workstation Audit",
+		Description: "Secret-safe setup audit for tools, auth, and MCP.",
+		Category:    registry.CategoryExtras,
+		Method:      registry.MethodScript,
+		// Reuse MethodOverride as a single runtime argument for configure execution.
+		MethodOverride: registry.InstallMethod("--workstation-audit"),
+		Scripts: registry.ToolScripts{
+			Configure: ".runners-local/workflows/health-check.sh",
+		},
+	}
 }
 
 // handleNerdFontInstall handles single font installation/uninstallation

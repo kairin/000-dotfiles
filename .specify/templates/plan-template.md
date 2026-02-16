@@ -26,12 +26,21 @@
 **Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
 **Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
 **Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Documentation Impact**: [list docs/status artifacts that MUST be updated in this change]
+**Operational Validation**: [commands to verify behavior locally, including required constitution gates]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- [ ] Single user entry point preserved (`./start.sh` remains the only user-facing command)
+- [ ] No new wrapper/helper scripts outside `tests/` (or explicit exception documented)
+- [ ] Branch and merge strategy respects preservation (`YYYYMMDD-HHMMSS-type-description`, `--no-ff`)
+- [ ] Local-first validation plan includes:
+  `./.runners-local/workflows/gh-workflow-local.sh all`
+  and `./.runners-local/workflows/health-check.sh --workstation-audit`
+- [ ] Documentation currency impact identified (`ROADMAP.md`, historical summaries, verification docs)
+- [ ] Symlink architecture preserved (`CLAUDE.md` and `GEMINI.md` remain symlinks to `AGENTS.md`)
 
 ## Project Structure
 

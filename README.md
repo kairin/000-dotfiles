@@ -40,6 +40,7 @@ For interactive tool management:
 ```
 
 The script handles Go installation, building, and launching automatically.
+From the dashboard menu, select `Workstation Audit` to run the secret-safe setup check (no key/token values shown).
 
 ## Components
 
@@ -79,11 +80,16 @@ Passwordless sudo for whitelisted commands used by LLM CLI tools:
 - `.gemini/` - Gemini CLI configuration
 - `configs/mcp/` - MCP server configurations
 
+`Codex MCP scope`: Keep Codex on its default global home (`~/.codex`). This repository documents expected MCP setups but should not be used as `CODEX_HOME` for real Codex installs.
+
 ### Local CI/CD
 
 ```bash
 # Run full validation workflow locally
 ./.runners-local/workflows/gh-workflow-local.sh all
+
+# Audit workstation setup (tools/auth/MCP) without exposing secret values
+./.runners-local/workflows/health-check.sh --workstation-audit
 
 # Check GitHub Actions billing
 ./.runners-local/workflows/gh-workflow-local.sh billing
@@ -152,12 +158,19 @@ Passwordless sudo for whitelisted commands used by LLM CLI tools:
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
+## Usage Timeline
+
+See [WORKFLOW_USAGE_TIMELINE.md](WORKFLOW_USAGE_TIMELINE.md) for a chronological, real-world setup/verification flow (from initial install guide through latest TUI audit improvements).
+
 ## Contributing
 
 1. Test locally first
 2. Update CHANGELOG.md
 3. Follow branch naming: `YYYYMMDD-HHMMSS-type-description`
 4. Use conventional commits
+5. Follow governance in `.specify/memory/constitution.md`
+6. Resolve temporary audit folders (for example `01/`, `02/`) by promoting content
+   into maintained docs/spec locations or documenting exclusion rationale
 
 ## License
 

@@ -2,6 +2,13 @@
 
 This file consolidates the actions and outcomes from our RAID setup and storage configuration session.
 
+> **Status (2026-02-16): HISTORICAL RECORD**
+>
+> This document records a prior RAID session. On the current host as of
+> 2026-02-16, verification showed no active mdraid arrays in `/proc/mdstat`,
+> no active RAID mounts, and no matching RAID mount entries in `/etc/fstab`.
+> Treat the remaining content as historical context, not current active state.
+
 ```
 Storage Map (Mounts -> Devices)
 

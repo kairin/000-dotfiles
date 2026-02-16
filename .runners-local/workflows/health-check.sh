@@ -722,6 +722,223 @@ display_summary() {
 }
 
 # ═══════════════════════════════════════════════════════════
+# Workstation Setup Audit (Secret-Safe)
+# ═══════════════════════════════════════════════════════════
+
+# Per-run state (used by --workstation-audit mode)
+declare -a WORKSTATION_ROWS=()
+WORKSTATION_PASS=0
+WORKSTATION_WARN=0
+WORKSTATION_FAIL=0
+
+workstation_add_result() {
+    local check="$1"
+    local status="$2"
+    local details="$3"
+
+    WORKSTATION_ROWS+=("${check}|${status}|${details}")
+
+    case "$status" in
+        PASS) WORKSTATION_PASS=$((WORKSTATION_PASS + 1)) ;;
+        WARN) WORKSTATION_WARN=$((WORKSTATION_WARN + 1)) ;;
+        FAIL) WORKSTATION_FAIL=$((WORKSTATION_FAIL + 1)) ;;
+    esac
+}
+
+workstation_check_tool() {
+    local label="$1"
+    local binary="$2"
+    local version_cmd="$3"
+
+    if command -v "$binary" >/dev/null 2>&1; then
+        local path version
+        path="$(command -v "$binary")"
+        version="$(eval "$version_cmd" 2>/dev/null | head -n1 || true)"
+
+        if [ -n "$version" ]; then
+            workstation_add_result "$label" "PASS" "$version ($path)"
+        else
+            workstation_add_result "$label" "PASS" "installed ($path)"
+        fi
+    else
+        workstation_add_result "$label" "FAIL" "not installed"
+    fi
+}
+
+run_workstation_audit() {
+    echo "════════════════════════════════════════════════════════"
+    echo "🔍 Workstation Setup Audit (Secret-Safe)"
+    echo "════════════════════════════════════════════════════════"
+    echo ""
+    echo "This mode validates tooling/auth/MCP configuration without printing secret values."
+    echo ""
+
+    # Reset counters for this run
+    WORKSTATION_ROWS=()
+    WORKSTATION_PASS=0
+    WORKSTATION_WARN=0
+    WORKSTATION_FAIL=0
+
+    # Core tooling checks (setup guide scope)
+    workstation_check_tool "curl" "curl" "curl --version"
+    workstation_check_tool "wget" "wget" "wget --version"
+    workstation_check_tool "git" "git" "git --version"
+    workstation_check_tool "fastfetch" "fastfetch" "fastfetch --version"
+    workstation_check_tool "fish" "fish" "fish --version"
+    workstation_check_tool "node" "node" "node --version"
+    workstation_check_tool "npm" "npm" "npm --version"
+    workstation_check_tool "gh" "gh" "gh --version"
+    workstation_check_tool "uv" "uv" "uv --version"
+    workstation_check_tool "claude" "claude" "claude --version"
+    workstation_check_tool "codex" "codex" "codex --version"
+
+    # specify CLI reports version via `specify version` (not --version)
+    if command -v specify >/dev/null 2>&1; then
+        local specify_version
+        specify_version=$(specify version 2>/dev/null | sed -n 's/.*CLI Version[[:space:]]\+\([^[:space:]]\+\).*/\1/p' | head -n1)
+        if [ -n "$specify_version" ]; then
+            workstation_add_result "specify" "PASS" "${specify_version} ($(command -v specify))"
+        else
+            workstation_add_result "specify" "PASS" "installed ($(command -v specify))"
+        fi
+    else
+        workstation_add_result "specify" "FAIL" "not installed"
+    fi
+
+    # Fisher exists inside fish shell
+    if command -v fish >/dev/null 2>&1; then
+        local fisher_version
+        fisher_version=$(fish -c "fisher --version" 2>/dev/null | head -n1 || true)
+        if [ -n "$fisher_version" ]; then
+            workstation_add_result "fisher" "PASS" "$fisher_version"
+        else
+            workstation_add_result "fisher" "FAIL" "not installed in fish"
+        fi
+    else
+        workstation_add_result "fisher" "FAIL" "fish is missing"
+    fi
+
+    # npm global prefix (expected: ~/.npm-global)
+    if command -v npm >/dev/null 2>&1; then
+        local npm_prefix
+        npm_prefix=$(npm config get prefix 2>/dev/null || true)
+        if [[ "$npm_prefix" == *".npm-global"* ]]; then
+            workstation_add_result "npm global prefix" "PASS" "$npm_prefix"
+        else
+            workstation_add_result "npm global prefix" "WARN" "$npm_prefix"
+        fi
+    else
+        workstation_add_result "npm global prefix" "FAIL" "npm not installed"
+    fi
+
+    # Shell checks
+    local login_shell
+    login_shell="$(getent passwd "$USER" 2>/dev/null | cut -d: -f7 || true)"
+    if [[ "$login_shell" == *"fish" ]]; then
+        workstation_add_result "default shell" "PASS" "$login_shell"
+    else
+        workstation_add_result "default shell" "WARN" "${login_shell:-unknown}"
+    fi
+
+    if [[ "${SHELL:-}" == *"fish" ]]; then
+        workstation_add_result "current shell env" "PASS" "$SHELL"
+    else
+        workstation_add_result "current shell env" "WARN" "${SHELL:-unset}"
+    fi
+
+    # GitHub auth status (never print token value)
+    if command -v gh >/dev/null 2>&1; then
+        local gh_status account reason
+        if gh_status="$(gh auth status 2>&1)"; then
+            account=$(printf "%s" "$gh_status" | sed -n 's/.*Logged in to github.com account \([^ ]*\).*/\1/p' | head -n1)
+            if [ -n "$account" ]; then
+                workstation_add_result "gh auth" "PASS" "logged in as $account"
+            else
+                workstation_add_result "gh auth" "PASS" "logged in"
+            fi
+        else
+            reason=$(printf "%s" "$gh_status" | sed -n 's/^[[:space:]]*X \(.*\)/\1/p' | head -n1)
+            workstation_add_result "gh auth" "FAIL" "${reason:-not authenticated}"
+        fi
+    else
+        workstation_add_result "gh auth" "FAIL" "gh not installed"
+    fi
+
+    # Git identity check
+    if command -v git >/dev/null 2>&1; then
+        local git_name git_email
+        git_name="$(git config --global user.name 2>/dev/null || true)"
+        git_email="$(git config --global user.email 2>/dev/null || true)"
+        if [ -n "$git_name" ] && [ -n "$git_email" ]; then
+            workstation_add_result "git identity" "PASS" "$git_name <$git_email>"
+        else
+            workstation_add_result "git identity" "FAIL" "global user.name and/or user.email missing"
+        fi
+    else
+        workstation_add_result "git identity" "FAIL" "git not installed"
+    fi
+
+    # Context7 API key env var presence (value hidden)
+    if [[ -n "${CONTEXT7_API_KEY:-}" ]]; then
+        workstation_add_result "CONTEXT7_API_KEY" "PASS" "set (value hidden)"
+    else
+        workstation_add_result "CONTEXT7_API_KEY" "WARN" "not set in current shell"
+    fi
+
+    # Context7 in Claude (configured/connected)
+    if command -v claude >/dev/null 2>&1; then
+        local claude_mcp context7_line
+        claude_mcp="$(timeout 10s claude mcp list 2>/dev/null || true)"
+        context7_line="$(printf "%s" "$claude_mcp" | grep '^context7:' | head -n1 || true)"
+        if [ -z "$context7_line" ]; then
+            workstation_add_result "context7 (claude)" "FAIL" "not found in 'claude mcp list'"
+        elif printf "%s" "$context7_line" | grep -qiE 'connected|✓'; then
+            workstation_add_result "context7 (claude)" "PASS" "$context7_line"
+        elif printf "%s" "$context7_line" | grep -qiE 'failed|✗'; then
+            workstation_add_result "context7 (claude)" "WARN" "configured but not reachable now"
+        else
+            workstation_add_result "context7 (claude)" "WARN" "$context7_line"
+        fi
+    else
+        workstation_add_result "context7 (claude)" "FAIL" "claude not installed"
+    fi
+
+    # Context7 in Codex (configured/enabled)
+    if command -v codex >/dev/null 2>&1; then
+        local codex_context7
+        codex_context7="$(codex mcp list 2>/dev/null | grep '^context7[[:space:]]' | head -n1 || true)"
+        if [ -z "$codex_context7" ]; then
+            workstation_add_result "context7 (codex)" "FAIL" "not found in 'codex mcp list'"
+        elif printf "%s" "$codex_context7" | grep -q "enabled"; then
+            workstation_add_result "context7 (codex)" "PASS" "$codex_context7"
+        else
+            workstation_add_result "context7 (codex)" "WARN" "$codex_context7"
+        fi
+    else
+        workstation_add_result "context7 (codex)" "FAIL" "codex not installed"
+    fi
+
+    # Output table
+    printf "%-22s %-6s %s\n" "Check" "Status" "Details"
+    printf "%-22s %-6s %s\n" "----------------------" "------" "----------------------------------------"
+    for row in "${WORKSTATION_ROWS[@]}"; do
+        local check status details
+        IFS='|' read -r check status details <<< "$row"
+        printf "%-22s %-6s %s\n" "$check" "$status" "$details"
+    done
+
+    echo ""
+    echo "Summary: PASS=${WORKSTATION_PASS} WARN=${WORKSTATION_WARN} FAIL=${WORKSTATION_FAIL}"
+    echo ""
+    echo "Note: Secret values are never printed. Only presence/status is reported."
+
+    if [ "$WORKSTATION_FAIL" -gt 0 ]; then
+        return 1
+    fi
+    return 0
+}
+
+# ═══════════════════════════════════════════════════════════
 # Main Execution
 # ═══════════════════════════════════════════════════════════
 
@@ -777,11 +994,13 @@ Usage: $0 [COMMAND]
 
 Commands:
   (no args)       Run complete health check
+  --workstation-audit Run setup-guide tool/auth/MCP audit (secret-safe)
   --setup-guide   Generate setup instructions for missing components
   --help          Show this help message
 
 Examples:
   $0                    # Run health check
+  $0 --workstation-audit # Verify toolchain/auth/MCP without exposing secrets
   $0 --setup-guide      # Generate setup guide
   $0 --help             # Show help
 
@@ -801,6 +1020,9 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     case "${1:-}" in
         "--help"|"-h")
             show_help
+            ;;
+        "--workstation-audit")
+            run_workstation_audit
             ;;
         *)
             main "$@"
