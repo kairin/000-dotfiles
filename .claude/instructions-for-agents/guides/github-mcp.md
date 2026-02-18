@@ -29,4 +29,4 @@ For complete setup instructions, full tool list, and troubleshooting, see the [M
 
 ---
 
-[← Back to AGENTS.md](../../../../AGENTS.md)
+[← Back to AGENTS.md](../../../AGENTS.md)

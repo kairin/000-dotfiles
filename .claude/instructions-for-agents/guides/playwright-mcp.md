@@ -32,4 +32,4 @@ For wrapper script setup, full tool list, and troubleshooting, see the [MCP Setu
 
 ---
 
-[← Back to AGENTS.md](../../../../AGENTS.md)
+[← Back to AGENTS.md](../../../AGENTS.md)

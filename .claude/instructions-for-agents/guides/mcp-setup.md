@@ -10,7 +10,7 @@ last-updated: 2026-01-18
 
 **Last Updated**: 2026-01-18
 
-[← Back to AGENTS.md](../../../../AGENTS.md)
+[← Back to AGENTS.md](../../../AGENTS.md)
 
 ## Overview
 
@@ -82,8 +82,8 @@ echo 'kernel.apparmor_restrict_unprivileged_userns=0' | sudo tee /etc/sysctl.d/9
 Copy the secrets template and fill in your API keys:
 
 ```bash
-# If you have the ghostty-config-files repo
-cp ~/Apps/ghostty-config-files/configs/mcp/.mcp-secrets.template ~/.mcp-secrets
+# If you have the 000-dotfiles repo
+cp ~/Apps/000-dotfiles/configs/mcp/.mcp-secrets.template ~/.mcp-secrets
 
 # Or create manually
 cat > ~/.mcp-secrets << 'EOF'
@@ -400,4 +400,4 @@ This script will:
 
 ---
 
-[← Back to AGENTS.md](../../../../AGENTS.md)
+[← Back to AGENTS.md](../../../AGENTS.md)

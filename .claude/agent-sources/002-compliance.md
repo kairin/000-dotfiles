@@ -111,7 +111,7 @@ For detailed X instructions: [X Guide](documentations/category/x-guide.md)
 ### Phase 1: Size Analysis
 ```bash
 # Check AGENTS.md current size
-AGENTS_SIZE=$(stat -c%s "/home/kkk/Apps/ghostty-config-files/AGENTS.md")
+AGENTS_SIZE=$(stat -c%s "/home/kkk/Apps/000-dotfiles/AGENTS.md")
 AGENTS_KB=$((AGENTS_SIZE / 1024))
 
 echo "📊 AGENTS.md Current Size: ${AGENTS_KB}KB"
@@ -602,10 +602,10 @@ Before committing changes:
 **Repository Health Metrics**:
 ```bash
 # Baseline script count (2025-11-21)
-BASELINE_SCRIPT_COUNT=$(find /home/kkk/Apps/ghostty-config-files -name "*.sh" -not -path "*/tests/*" | wc -l)
+BASELINE_SCRIPT_COUNT=$(find /home/kkk/Apps/000-dotfiles -name "*.sh" -not -path "*/tests/*" | wc -l)
 
 # Current script count
-CURRENT_SCRIPT_COUNT=$(find /home/kkk/Apps/ghostty-config-files -name "*.sh" -not -path "*/tests/*" | wc -l)
+CURRENT_SCRIPT_COUNT=$(find /home/kkk/Apps/000-dotfiles -name "*.sh" -not -path "*/tests/*" | wc -l)
 
 # Alert if increase
 if [ $CURRENT_SCRIPT_COUNT -gt $((BASELINE_SCRIPT_COUNT + 5)) ]; then
