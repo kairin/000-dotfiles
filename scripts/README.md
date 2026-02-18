@@ -228,7 +228,7 @@ Update installed tools to their latest versions. See [007-update/README.md](007-
 
 | Script | Purpose |
 |--------|---------|
-| `update_ai_tools.sh` | Update AI CLI tools via npm |
+| `update_ai_tools.sh` | Update AI CLI tools via npm/curl |
 | `update_fastfetch.sh` | Update fastfetch |
 | `update_feh.sh` | Update feh |
 | `update_fish.sh` | Update Fish shell and plugins |

@@ -54,6 +54,11 @@ For any project where you use Spec-Kit with Codex CLI, configure `CODEX_HOME` pe
 1. Install and hook `direnv` once:
 ```bash
 sudo apt update && sudo apt install -y direnv
+# For Zsh (default)
+echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
+source ~/.zshrc
+
+# For Fish
 echo 'direnv hook fish | source' >> ~/.config/fish/config.fish
 source ~/.config/fish/config.fish
 ```

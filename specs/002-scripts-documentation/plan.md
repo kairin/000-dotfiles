@@ -132,7 +132,7 @@ scripts/007-diagnostics/README.md           # P4: Boot diagnostics documentation
 # [Server Name] MCP Setup
 
 > **This guide has been consolidated.**
-> See: `mcp-setup.md#server-name`
+> See: [MCP Setup Guide](./mcp-setup.md#server-name)
 
 [Brief 2-3 line summary for quick reference]
 ```

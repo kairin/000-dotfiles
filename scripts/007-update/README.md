@@ -12,7 +12,7 @@ Update scripts perform in-place upgrades that preserve existing configurations a
 
 | Script | Tool | Update Method |
 |--------|------|---------------|
-| `update_ai_tools.sh` | AI CLI Tools | npm global update |
+| `update_ai_tools.sh` | AI CLI Tools | Mixed (npm / curl) |
 | `update_fastfetch.sh` | Fastfetch | apt/source rebuild |
 | `update_feh.sh` | Feh | apt upgrade |
 | `update_fish.sh` | Fish | apt + fisher plugin refresh |
