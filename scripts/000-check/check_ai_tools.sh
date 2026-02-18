@@ -73,8 +73,8 @@ latest_version() {
     local key="$1"
     case "$key" in
         claude)
-            timeout 5 curl -sL "https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/latest/manifest.json" 2>/dev/null | \
-                grep -oP '"version":\s*"\K[^"]+' || echo "-"
+            timeout 5 curl -sL "https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/latest" 2>/dev/null | \
+                grep -oP '[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?' || echo "-"
             ;;
         gemini)
             if command -v npm &> /dev/null; then
