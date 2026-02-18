@@ -206,7 +206,9 @@ func (m Model) checkToolStatusAsync(tool *registry.Tool) tea.Cmd {
 	c := m.cache
 
 	return func() tea.Msg {
-		output, err := executor.RunCheck(repoRoot, tool.Scripts.Check)
+		output, err := executor.RunCheck(repoRoot, tool.Scripts.Check, map[string]string{
+			"TOOL_ID": tool.ID,
+		})
 		if err != nil {
 			return statusLoadedMsg{
 				toolID: tool.ID,
@@ -224,7 +226,9 @@ func (m Model) checkToolStatusAsync(tool *registry.Tool) tea.Cmd {
 // checkToolStatus returns a command that checks a single tool's status
 func (m Model) checkToolStatus(tool *registry.Tool) tea.Cmd {
 	return func() tea.Msg {
-		output, err := executor.RunCheck(m.repoRoot, tool.Scripts.Check)
+		output, err := executor.RunCheck(m.repoRoot, tool.Scripts.Check, map[string]string{
+			"TOOL_ID": tool.ID,
+		})
 		if err != nil {
 			return statusLoadedMsg{
 				toolID: tool.ID,
@@ -1543,11 +1547,11 @@ func (m Model) viewDashboard() string {
 // getTableTools returns only the tools to display in the main table (excludes menu-only tools)
 func (m Model) getTableTools() []*registry.Tool {
 	allMain := registry.GetMainTools()
-	tableTools := make([]*registry.Tool, 0, 4)
-	// Filter: only show nodejs, ai_tools, antigravity, fish in table
-	// Feh are now menu items for quick access to detail views
+	tableTools := make([]*registry.Tool, 0, 7)
+	// Filter: keep quick-access table focused on core developer tools.
 	for _, tool := range allMain {
-		if tool.ID == "nodejs" || tool.ID == "ai_tools" || tool.ID == "antigravity" || tool.ID == "fish" {
+		if tool.ID == "nodejs" || tool.ID == "ai_claude" || tool.ID == "ai_gemini" ||
+			tool.ID == "ai_codex" || tool.ID == "ai_copilot" || tool.ID == "antigravity" || tool.ID == "fish" {
 			tableTools = append(tableTools, tool)
 		}
 	}
@@ -1589,7 +1593,7 @@ func (m Model) renderStatusTable() string {
 	b.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Render(sep))
 	b.WriteString("\n")
 
-	// Tools - only show table tools (nodejs, ai_tools, antigravity)
+	// Tools - only show table tools (nodejs, split AI tools, antigravity, fish)
 	tools := m.getTableTools()
 	for i, tool := range tools {
 		m.state.mu.RLock()

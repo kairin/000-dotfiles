@@ -124,13 +124,20 @@ Navigate to your project directory and initialize:
 
 ```fish
 cd ~/your-project
-specify init --here --ai claude
+specify init --here --ai codex
 ```
 
-Then launch Claude Code and use the slash commands:
+Create a project-local `.envrc` for Codex and approve it once:
 
 ```fish
-claude
+echo 'export CODEX_HOME="$PWD/.codex"' > .envrc
+direnv allow
+```
+
+Then launch Codex and use the slash commands:
+
+```fish
+codex
 ```
 
 **Spec Kit Workflow Commands:**
@@ -145,7 +152,8 @@ claude
 - `/speckit.analyze` - Cross-artifact consistency report (after `/speckit.tasks`)
 - `/speckit.checklist` - Generate quality checklists (after `/speckit.plan`)
 
-> **Note:** Consider adding `.claude/` to `.gitignore` to prevent accidental credential leakage.
+> **Note:** For automatic per-project loading, ensure your Fish config contains `direnv hook fish | source`.
+> **Note:** Consider adding `.codex/` and `.claude/` to `.gitignore` to prevent accidental credential leakage.
 
 ---
 

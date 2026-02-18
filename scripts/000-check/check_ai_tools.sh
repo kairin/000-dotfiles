@@ -1,6 +1,10 @@
 #!/bin/bash
-# check_ai_tools.sh - Check installation status of Local AI CLI Tools
-# Tools: Claude Code (curl), Gemini CLI (npm), GitHub Copilot CLI (npm)
+# check_ai_tools.sh - Check status of AI CLI tools (aggregate or per-tool via TOOL_ID)
+# Supported TOOL_ID values:
+# - ai_claude, ai_gemini, ai_codex, ai_copilot
+# - ai_tools (aggregate legacy mode)
+
+set -u
 
 # Ensure fnm environment is loaded
 if command -v fnm &> /dev/null; then
@@ -13,104 +17,148 @@ if command -v npm &> /dev/null; then
     export PATH="$NPM_BIN:$PATH"
 fi
 
-# Track installation status
-CLAUDE_INSTALLED=0
-GEMINI_INSTALLED=0
-COPILOT_INSTALLED=0
+tool_key_from_id() {
+    case "${TOOL_ID:-ai_tools}" in
+        ai_claude) echo "claude" ;;
+        ai_gemini) echo "gemini" ;;
+        ai_codex) echo "codex" ;;
+        ai_copilot) echo "copilot" ;;
+        *) echo "all" ;;
+    esac
+}
 
-CLAUDE_VER="-"
-GEMINI_VER="-"
-COPILOT_VER="-"
+check_tool() {
+    local key="$1"
+    case "$key" in
+        claude)
+            if command -v claude &> /dev/null; then
+                local ver
+                ver=$(claude --version 2>/dev/null | head -n 1 | grep -oP '\d+\.\d+\.\d+' || echo "installed")
+                echo "1|$ver|$(command -v claude)"
+            else
+                echo "0|-|-"
+            fi
+            ;;
+        gemini)
+            if command -v gemini &> /dev/null; then
+                local ver
+                ver=$(gemini --version 2>/dev/null | head -n 1 | grep -oP '\d+\.\d+\.\d+' || echo "installed")
+                echo "1|$ver|$(command -v gemini)"
+            else
+                echo "0|-|-"
+            fi
+            ;;
+        codex)
+            if command -v codex &> /dev/null; then
+                local ver
+                ver=$(codex --version 2>/dev/null | head -n 1 | grep -oP '\d+\.\d+\.\d+' || echo "installed")
+                echo "1|$ver|$(command -v codex)"
+            else
+                echo "0|-|-"
+            fi
+            ;;
+        copilot)
+            if command -v copilot &> /dev/null; then
+                local ver
+                ver=$(copilot --version 2>/dev/null | head -n 1 | grep -oP '\d+\.\d+\.\d+' || echo "installed")
+                echo "1|$ver|$(command -v copilot)"
+            else
+                echo "0|-|-"
+            fi
+            ;;
+    esac
+}
 
-EXTRA=""
+latest_version() {
+    local key="$1"
+    case "$key" in
+        claude)
+            timeout 5 curl -sL "https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/latest/manifest.json" 2>/dev/null | \
+                grep -oP '"version":\s*"\K[^"]+' || echo "-"
+            ;;
+        gemini)
+            if command -v npm &> /dev/null; then
+                timeout 5 npm view @google/gemini-cli version 2>/dev/null || echo "-"
+            else
+                echo "-"
+            fi
+            ;;
+        codex)
+            if command -v npm &> /dev/null; then
+                timeout 5 npm view @openai/codex version 2>/dev/null || echo "-"
+            else
+                echo "-"
+            fi
+            ;;
+        copilot)
+            if command -v npm &> /dev/null; then
+                timeout 5 npm view @github/copilot version 2>/dev/null || echo "-"
+            else
+                echo "-"
+            fi
+            ;;
+    esac
+}
 
-# Check Claude Code (standalone binary installed via curl script)
-if command -v claude &> /dev/null; then
-    CLAUDE_INSTALLED=1
-    CLAUDE_VER=$(claude --version 2>/dev/null | head -n 1 | grep -oP '\d+\.\d+\.\d+' || echo "installed")
-    EXTRA="$EXTRA^     ✓ Claude Code v${CLAUDE_VER}"
-else
-    EXTRA="$EXTRA^     ✗ Claude Code"
-fi
+emit_single_tool() {
+    local key="$1"
+    local label="$2"
+    local method="$3"
 
-# Check Gemini CLI (npm package @google/gemini-cli)
-if command -v gemini &> /dev/null; then
-    GEMINI_INSTALLED=1
-    GEMINI_VER=$(gemini --version 2>/dev/null | head -n 1 | grep -oP '\d+\.\d+\.\d+' || echo "installed")
-    EXTRA="$EXTRA^     ✓ Gemini CLI v${GEMINI_VER}"
-else
-    EXTRA="$EXTRA^     ✗ Gemini CLI"
-fi
+    IFS='|' read -r installed ver loc <<< "$(check_tool "$key")"
+    local latest="-"
+    latest=$(latest_version "$key")
 
-# Check GitHub Copilot CLI (npm package @github/copilot)
-if command -v copilot &> /dev/null; then
-    COPILOT_INSTALLED=1
-    COPILOT_VER=$(copilot --version 2>/dev/null | head -n 1 | grep -oP '\d+\.\d+\.\d+' || echo "installed")
-    EXTRA="$EXTRA^     ✓ GitHub Copilot v${COPILOT_VER}"
-else
-    EXTRA="$EXTRA^     ✗ GitHub Copilot"
-fi
+    if [[ "$installed" == "1" ]]; then
+        if [[ "$key" == "codex" ]]; then
+            loc="$loc^Spec-Kit auto setup:^  echo 'export CODEX_HOME=\"\$PWD/.codex\"' > .envrc^  direnv allow"
+        fi
+        echo "INSTALLED|$ver|$method|$loc|$latest"
+    else
+        echo "NOT_INSTALLED|-|$method|-|$latest"
+    fi
+}
 
-# Calculate total installed
-TOTAL_INSTALLED=$((CLAUDE_INSTALLED + GEMINI_INSTALLED + COPILOT_INSTALLED))
+emit_aggregate() {
+    IFS='|' read -r claude_i claude_v _ <<< "$(check_tool claude)"
+    IFS='|' read -r gemini_i gemini_v _ <<< "$(check_tool gemini)"
+    IFS='|' read -r codex_i codex_v _ <<< "$(check_tool codex)"
+    IFS='|' read -r copilot_i copilot_v _ <<< "$(check_tool copilot)"
 
-# Determine overall status
-if [[ $TOTAL_INSTALLED -eq 3 ]]; then
-    STATUS="INSTALLED"
-    VERSION="3/3 tools"
-elif [[ $TOTAL_INSTALLED -gt 0 ]]; then
-    STATUS="INSTALLED"
-    VERSION="${TOTAL_INSTALLED}/3 tools"
-else
-    STATUS="NOT_INSTALLED"
-    VERSION="-"
-fi
+    local total=$((claude_i + gemini_i + codex_i + copilot_i))
+    local status="NOT_INSTALLED"
+    local version="-"
+    local method="-"
+    local location="-"
 
-# Method description
-if [[ $TOTAL_INSTALLED -gt 0 ]]; then
-    METHOD="mixed"
-    LOCATION="curl+npm^tools:"
-else
-    METHOD="-"
-    LOCATION="-"
-fi
+    if [[ $total -gt 0 ]]; then
+        status="INSTALLED"
+        version="${total}/4 tools"
+        method="mixed"
+        location="curl+npm^tools:^     $([[ $claude_i -eq 1 ]] && echo "✓ Claude Code v${claude_v}" || echo "✗ Claude Code")^     $([[ $gemini_i -eq 1 ]] && echo "✓ Gemini CLI v${gemini_v}" || echo "✗ Gemini CLI")^     $([[ $codex_i -eq 1 ]] && echo "✓ OpenAI Codex CLI v${codex_v}" || echo "✗ OpenAI Codex CLI")^     $([[ $copilot_i -eq 1 ]] && echo "✓ GitHub Copilot CLI v${copilot_v}" || echo "✗ GitHub Copilot CLI")"
+    fi
 
-# Query latest versions from official sources (with timeout to avoid blocking)
-# Claude Code: Query from official release manifest
-# Gemini CLI: npm view @google/gemini-cli version
-# GitHub Copilot: npm view @github/copilot version
+    local latest="-"
+    if [[ "$claude_i" -eq 1 ]] && [[ "$(latest_version claude)" != "$claude_v" ]] && [[ "$(latest_version claude)" != "-" ]]; then
+        latest="updates"
+    fi
+    if [[ "$gemini_i" -eq 1 ]] && [[ "$(latest_version gemini)" != "$gemini_v" ]] && [[ "$(latest_version gemini)" != "-" ]]; then
+        latest="updates"
+    fi
+    if [[ "$codex_i" -eq 1 ]] && [[ "$(latest_version codex)" != "$codex_v" ]] && [[ "$(latest_version codex)" != "-" ]]; then
+        latest="updates"
+    fi
+    if [[ "$copilot_i" -eq 1 ]] && [[ "$(latest_version copilot)" != "$copilot_v" ]] && [[ "$(latest_version copilot)" != "-" ]]; then
+        latest="updates"
+    fi
 
-CLAUDE_LATEST="-"
-GEMINI_LATEST="-"
-COPILOT_LATEST="-"
+    echo "${status}|${version}|${method}|${location}|${latest}"
+}
 
-# Only query if npm is available (for Gemini and Copilot)
-if command -v npm &> /dev/null; then
-    GEMINI_LATEST=$(timeout 5 npm view @google/gemini-cli version 2>/dev/null || echo "-")
-    COPILOT_LATEST=$(timeout 5 npm view @github/copilot version 2>/dev/null || echo "-")
-fi
-
-# Query Claude latest from official manifest (with timeout)
-CLAUDE_LATEST=$(timeout 5 curl -sL "https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/latest/manifest.json" 2>/dev/null | grep -oP '"version":\s*"\K[^"]+' || echo "-")
-
-# Determine if any updates are available
-UPDATES_AVAILABLE=0
-if [[ "$CLAUDE_INSTALLED" -eq 1 && "$CLAUDE_LATEST" != "-" && "$CLAUDE_VER" != "$CLAUDE_LATEST" ]]; then
-    UPDATES_AVAILABLE=1
-fi
-if [[ "$GEMINI_INSTALLED" -eq 1 && "$GEMINI_LATEST" != "-" && "$GEMINI_VER" != "$GEMINI_LATEST" ]]; then
-    UPDATES_AVAILABLE=1
-fi
-if [[ "$COPILOT_INSTALLED" -eq 1 && "$COPILOT_LATEST" != "-" && "$COPILOT_VER" != "$COPILOT_LATEST" ]]; then
-    UPDATES_AVAILABLE=1
-fi
-
-# Build LATEST output - show combined latest versions
-if [[ "$UPDATES_AVAILABLE" -eq 1 ]]; then
-    LATEST="updates"
-else
-    LATEST="-"
-fi
-
-# Output in standard format
-echo "${STATUS}|${VERSION}|${METHOD}|${LOCATION}${EXTRA}|${LATEST}"
+case "$(tool_key_from_id)" in
+    claude) emit_single_tool "claude" "Claude Code" "curl" ;;
+    gemini) emit_single_tool "gemini" "Gemini CLI" "npm" ;;
+    codex) emit_single_tool "codex" "OpenAI Codex CLI" "npm" ;;
+    copilot) emit_single_tool "copilot" "GitHub Copilot CLI" "npm" ;;
+    *) emit_aggregate ;;
+esac
