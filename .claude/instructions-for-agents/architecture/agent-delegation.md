@@ -8,7 +8,7 @@ last-updated: 2025-11-28
 
 # Agent Delegation Guide
 
-[<- Back to AGENTS.md](../../../../AGENTS.md) | [Full Registry](./agent-registry.md)
+[<- Back to AGENTS.md](../../../AGENTS.md) | [Full Registry](./agent-registry.md)
 
 ---
 
@@ -341,4 +341,4 @@ For the full 65-agent registry with parent-child relationships and parallel-safe
 
 ---
 
-[<- Back to AGENTS.md](../../../../AGENTS.md) | [Full Registry](./agent-registry.md)
+[<- Back to AGENTS.md](../../../AGENTS.md) | [Full Registry](./agent-registry.md)

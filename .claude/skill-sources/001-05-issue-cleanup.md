@@ -108,7 +108,7 @@ gh pr list --state open --json number | jq 'length'
 =====================================
 ISSUE CLEANUP REPORT
 =====================================
-Repository: kairin/ghostty-config-files
+Repository: kairin/000-dotfiles
 Branch: main
 
 Initial State:

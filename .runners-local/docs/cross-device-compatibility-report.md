@@ -178,7 +178,7 @@ claude mcp list               # Must show: context7 (connected), github (connect
 - Can't distinguish between "works on my primary machine" vs "works everywhere"
 
 **Solution Implemented**:
-- **New Device Setup Guide** (`docs-setup/new-device-setup.md`):
+- **New Device Setup Guide** (`../../docs-setup/new-device-setup.md`):
   - Covers 3 scenarios: fresh Ubuntu, existing system, multi-device
   - Step-by-step instructions with verification commands
   - Platform-specific notes (Ubuntu 25.10, 24.04, 22.04)
@@ -233,7 +233,7 @@ claude mcp list               # Must show: context7 (connected), github (connect
 
 ### Component 2: New Device Setup Documentation
 
-**File**: `docs-setup/new-device-setup.md`
+**File**: `../../docs-setup/new-device-setup.md`
 
 **Purpose**: Complete step-by-step guide for setting up 000-dotfiles repository on any device.
 
@@ -392,7 +392,7 @@ Total: 28 checks, 23 passed, 0 failed, 5 warnings
    - Use cases and examples
    - Health check categories and validation
 
-2. **`docs-setup/new-device-setup.md`** (45KB)
+2. **`../../docs-setup/new-device-setup.md`** (45KB)
    - Comprehensive setup guide
    - 3 setup scenarios (fresh/existing/multi-device)
    - Step-by-step instructions
@@ -442,7 +442,7 @@ Total: 28 checks, 23 passed, 0 failed, 5 warnings
 - Validation: Agent specification reviewed and ready
 
 ✅ **Create New Device Setup Documentation**
-- File: `docs-setup/new-device-setup.md`
+- File: `../../docs-setup/new-device-setup.md`
 - Status: COMPLETE
 - Validation: 3 scenarios documented, verification checklist complete
 
@@ -535,7 +535,7 @@ source ~/.zshrc
 4. Re-run health check to verify
 5. Proceed with local workflows
 
-**Complete Guide**: [New Device Setup](docs-setup/new-device-setup.md)
+**Complete Guide**: [New Device Setup](../../docs-setup/new-device-setup.md)
 ```
 
 **Update .runners-local/README.md**:
@@ -571,7 +571,7 @@ cd 000-dotfiles
 
 The health check will identify missing components and generate setup instructions.
 
-**Complete Guide**: [New Device Setup](docs-setup/new-device-setup.md)
+**Complete Guide**: [New Device Setup](../../docs-setup/new-device-setup.md)
 ```
 
 ---

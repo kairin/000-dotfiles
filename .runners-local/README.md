@@ -58,9 +58,9 @@ Consolidated local infrastructure for continuous integration, deployment testing
 
 ## Documentation
 
-- [CI/CD Requirements](../website/src/ai-guidelines/ci-cd-requirements.md)
-- [Development Commands](../website/src/ai-guidelines/development-commands.md)
-- [Testing Guide](../website/src/developer/testing.md)
+- [Local CI/CD Requirements](../.claude/instructions-for-agents/requirements/local-cicd-operations.md)
+- [Local CI/CD Guide](../.claude/instructions-for-agents/guides/local-cicd-guide.md)
+- [First-Time Setup Guide](../.claude/instructions-for-agents/guides/first-time-setup.md)
 - [AGENTS.md](../AGENTS.md) - AI assistant integration
 
 ## Usage Examples

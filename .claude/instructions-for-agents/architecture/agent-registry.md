@@ -8,7 +8,7 @@ last-updated: 2025-11-28
 
 # Agent Registry (65 Agents)
 
-[<- Back to AGENTS.md](../../../../AGENTS.md) | [Delegation Guide](./agent-delegation.md)
+[<- Back to AGENTS.md](../../../AGENTS.md) | [Delegation Guide](./agent-delegation.md)
 
 ---
 
@@ -198,4 +198,4 @@ last-updated: 2025-11-28
 
 ---
 
-[<- Back to AGENTS.md](../../../../AGENTS.md) | [Delegation Guide](./agent-delegation.md)
+[<- Back to AGENTS.md](../../../AGENTS.md) | [Delegation Guide](./agent-delegation.md)

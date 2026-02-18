@@ -1,7 +1,7 @@
 # Update Scripts
 
-**Last Updated**: 2026-01-18
-**Total Scripts**: 12
+**Last Updated**: 2026-02-18
+**Total Scripts**: 15
 **Purpose**: Update installed tools to their latest versions with in-place upgrades
 
 ## Overview
@@ -15,12 +15,15 @@ Update scripts perform in-place upgrades that preserve existing configurations a
 | `update_ai_tools.sh` | AI CLI Tools | npm global update |
 | `update_fastfetch.sh` | Fastfetch | apt/source rebuild |
 | `update_feh.sh` | Feh | apt upgrade |
+| `update_fish.sh` | Fish | apt + fisher plugin refresh |
 | `update_glow.sh` | Glow | go install |
 | `update_go.sh` | Go | Atomic tarball replacement |
 | `update_gum.sh` | Gum | go install |
+| `update_icon_cache.sh` | Icon Cache | gtk-update-icon-cache refresh |
 | `update_nerdfonts.sh` | Nerd Fonts | Installer script |
 | `update_nodejs.sh` | Node.js | fnm install + preserve globals |
 | `update_python_uv.sh` | Python UV | uv self-upgrade |
+| `update_shellcheck.sh` | ShellCheck | apt upgrade |
 | `update_vhs.sh` | VHS | go install |
 | `update_zsh.sh` | ZSH | apt + omz update |
 
@@ -82,9 +85,10 @@ Atomic tarball replacement:
 
 Updates via npm:
 ```bash
-npm update -g @anthropic-ai/claude-code
-npm update -g @google/generative-ai-cli
-npm update -g @githubnext/github-copilot-cli
+npm update -g @google/gemini-cli
+npm update -g @openai/codex
+npm update -g @github/copilot
+# Claude Code is updated via: curl -fsSL https://claude.ai/install.sh | bash
 ```
 
 ## Logging

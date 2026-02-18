@@ -42,7 +42,7 @@ If uncommitted changes exist, prompt user:
 
 ```bash
 if [ -d ".runners-local" ] || [ -f "AGENTS.md" ]; then
-  echo "PROJECT: ghostty-config-files (full workflow available)"
+  echo "PROJECT: 000-dotfiles (full workflow available)"
   FULL_MODE=true
 else
   echo "PROJECT: Generic (git sync only)"
@@ -131,7 +131,7 @@ Record:
 =====================================
 FULL WORKFLOW REPORT
 =====================================
-Project: ghostty-config-files
+Project: 000-dotfiles
 Branch: 004-claude-skills
 Started: 2026-01-18 14:30:52
 Duration: 2m 34s
@@ -165,7 +165,7 @@ Constitutional Compliance:
 | Zero Actions cost | PASS            |
 
 Deployment URL:
-https://kairin.github.io/ghostty-config-files/
+https://kairin.github.io/000-dotfiles/
 
 Result: SUCCESS
 =====================================

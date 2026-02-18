@@ -487,7 +487,7 @@ check_snap_ghostty() { ... }
 
 # Called by all prerequisite checks
 lib/installers/*/steps/00-check-prerequisites.sh:
-source /home/kkk/Apps/ghostty-config-files/scripts/detect-snap-conflicts.sh
+source /home/kkk/Apps/000-dotfiles/scripts/detect-snap-conflicts.sh
 check_snap_node
 ```
 
@@ -532,7 +532,7 @@ update_desktop_entry() { ... }
 
 # Called by desktop entry script
 lib/installers/ghostty/steps/07-create-desktop-entry.sh:
-/home/kkk/Apps/ghostty-config-files/scripts/install-ghostty-icon.sh
+/home/kkk/Apps/000-dotfiles/scripts/install-ghostty-icon.sh
 ```
 
 **Why This Is Wrong**:
@@ -583,7 +583,7 @@ EOF
 **Current Script Count**:
 ```bash
 # Count all .sh files (excluding tests)
-find /home/kkk/Apps/ghostty-config-files -name "*.sh" -not -path "*/tests/*" | wc -l
+find /home/kkk/Apps/000-dotfiles -name "*.sh" -not -path "*/tests/*" | wc -l
 # Baseline: 118 (established 2026-01-05)
 ```
 
