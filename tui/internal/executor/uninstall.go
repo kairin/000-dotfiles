@@ -96,7 +96,9 @@ func (p *UninstallPipeline) Execute(ctx context.Context) error {
 	}
 
 	// Run the uninstall script with streaming output
-	outputChan, resultChan := RunScript(p.config.RepoRoot, uninstallScript, nil, args...)
+	outputChan, resultChan := RunScript(p.config.RepoRoot, uninstallScript, map[string]string{
+		"TOOL_ID": p.tool.ID,
+	}, args...)
 
 	// Forward output to pipeline's output channel
 	go func() {

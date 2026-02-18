@@ -55,7 +55,7 @@ type ScriptResult struct {
 }
 
 // RunCheck executes a check script and returns parsed output
-func RunCheck(repoRoot, scriptPath string) (string, error) {
+func RunCheck(repoRoot, scriptPath string, env map[string]string) (string, error) {
 	fullPath := filepath.Join(repoRoot, scriptPath)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -66,6 +66,9 @@ func RunCheck(repoRoot, scriptPath string) (string, error) {
 
 	// Set up environment
 	cmd.Env = os.Environ()
+	for k, v := range env {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
 
 	output, err := cmd.Output()
 	if err != nil {

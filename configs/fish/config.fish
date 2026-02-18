@@ -64,6 +64,11 @@ if command -q fnm
     fnm env --use-on-cd --shell fish | source
 end
 
+# direnv (per-project environment variables)
+if command -q direnv
+    direnv hook fish | source
+end
+
 # =============================================================================
 # Modern CLI Aliases
 # =============================================================================
