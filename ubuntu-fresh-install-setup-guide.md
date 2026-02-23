@@ -1,23 +1,25 @@
 # Fresh Install Setup Guide
 
-> **Tested on:** Ubuntu 24.04 LTS (Noble), Ubuntu 25.10 (Questing Quetzal), and Raspberry Pi OS (Debian Trixie) with Fish 4.x
+> **Tested on:** Ubuntu 24.04 LTS (Noble), Ubuntu 25.10 (Questing Quetzal), and Raspberry Pi OS/Armbian (Debian Trixie) with Fish 4.x on diverse architectures (x86_64, aarch64, arm64).
+
+> **Note on TUI Stability:** If you experience bugs, rendering issues, or freezes with the `start.sh` TUI dashboard, this manual setup guide serves as the official, reliable fallback. The CLI commands below achieve the exact same configuration as the interactive installer.
 
 ## 1. System Update & Essential Packages
 
-> **Raspberry Pi only:** Run `sudo raspi-config` first to configure locale, timezone, SSH, and Wi-Fi before proceeding.
+> **SBCs (Raspberry Pi / Orange Pi) only:** Run `sudo raspi-config` (or `sudo armbian-config` for Orange Pi) first to configure locale, timezone, SSH, and Wi-Fi before proceeding.
 
 ```bash
 sudo apt update && sudo apt upgrade -y
 ```
 
-**Ubuntu 24.04 only** — add PPAs for current versions of fastfetch and Fish (3.7.0 → 4.5+):
+**Ubuntu 24.04 only** — add PPAs to ensure you get the absolute latest versions of `fastfetch` and `fish` (3.7.0 → 4.5+), bypassing the outdated default apt repositories:
 
 ```bash
 sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y
 sudo add-apt-repository ppa:fish-shell/release-4 -y
 ```
 
-> **Skip PPAs on:** Ubuntu 25.10+, Raspberry Pi OS (Debian Trixie) — fastfetch is already in the default repos. Debian-based systems don't have `add-apt-repository`.
+> **Skip PPAs on:** Ubuntu 25.10+, Raspberry Pi OS/Armbian (Debian Trixie) — fastfetch is already in the default repos. Debian-based systems don't have `add-apt-repository`.
 
 > **Why the Fish PPA on 24.04?** Ubuntu 24.04 ships Fish 3.7.0, which is missing features like `fish_add_path` validation, improved key bindings, and Rust-based performance. The official PPA provides Fish 4.5+ with full compatibility for modern plugins like Tide v6.
 
@@ -28,7 +30,7 @@ Install core packages:
 sudo apt install curl wget git fastfetch fish shellcheck direnv fzf -y
 ```
 
-**Raspberry Pi OS (Debian Trixie)** — install Fish 4.5.0 from upstream instead of apt's outdated 4.0.2:
+**SBCs: Raspberry Pi OS / Orange Pi (Debian Trixie/Armbian)** — install Fish 4.5.0 from upstream instead of apt's outdated 4.0.2:
 ```bash
 sudo apt install curl wget git fastfetch shellcheck direnv fzf -y
 
@@ -42,7 +44,7 @@ rm -f fish fish-4.5.0-linux-aarch64.tar.xz
 
 > **Why not `apt install fish` on Pi?** Debian Trixie ships Fish 4.0.2 which lacks features needed by Tide v6 and other modern plugins. The upstream static binary for aarch64 provides Fish 4.5.0. Check https://github.com/fish-shell/fish-shell/releases for newer versions.
 
-Install Google Chrome (**x86_64 only** — skip on Raspberry Pi):
+Install Google Chrome (**x86_64 / amd64 only** — skip on ARM SBCs like Raspberry Pi and Orange Pi):
 
 ```bash
 wget -O /tmp/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
@@ -50,7 +52,7 @@ sudo apt install /tmp/google-chrome.deb -y
 rm /tmp/google-chrome.deb
 ```
 
-> **Note:** The Chrome .deb automatically adds Google's apt repository, so Chrome receives updates through `sudo apt upgrade` alongside your other packages. On Raspberry Pi, Chromium is pre-installed.
+> **Note:** The Chrome .deb automatically adds Google's apt repository, so Chrome receives updates through `sudo apt upgrade` alongside your other packages. On ARM SBCs like Raspberry Pi or Orange Pi, Chromium is typically pre-installed via your distribution.
 
 > **Why ShellCheck?** The [000-dotfiles](https://github.com/kairin/000-dotfiles) repo's shell scripts benefit from ShellCheck linting. Installing it here ensures the dotfiles manager can validate on first run.
 
@@ -64,7 +66,7 @@ command -v fish | sudo tee -a /etc/shells
 chsh -s "$(command -v fish)"
 ```
 
-**Raspberry Pi** (Fish installed to `/usr/local/bin/fish`):
+**SBCs: Raspberry Pi / Orange Pi** (Fish installed to `/usr/local/bin/fish`):
 ```bash
 echo /usr/local/bin/fish | sudo tee -a /etc/shells
 chsh -s /usr/local/bin/fish
@@ -161,7 +163,7 @@ rm go1.26.0.linux-amd64.tar.gz
 fish_add_path /usr/local/go/bin
 ```
 
-**Raspberry Pi (arm64):**
+**SBCs: Raspberry Pi / Orange Pi (arm64 / aarch64):**
 ```fish
 curl -LO https://go.dev/dl/go1.26.0.linux-arm64.tar.gz
 sudo rm -rf /usr/local/go
@@ -429,7 +431,7 @@ specify --help
 
 > **Note:** Specify CLI does not support `--version`. Use `specify --help` to confirm it's installed.
 
-**Verified on Raspberry Pi 4 (Debian Trixie, arm64) — 23 Feb 2026:**
+**Verified on Raspberry Pi 4 & Orange Pi 5 (Debian Trixie/Armbian, arm64) — 24 Feb 2026:**
 
 | Tool | Version |
 |------|---------|

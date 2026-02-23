@@ -24,8 +24,11 @@ This document tracks planned features, outstanding tasks, and maintenance items 
 
 ### Recommended Execution Order (Spec Track)
 
-1. **015** (verbose progress spinners): smallest surface area that improves all installs and future debugging
-2. **008** (dashboards): biggest feature, benefits from the progress patterns and stable navigation
+> **CRITICAL PIVOT (2026-02-24)**: Users report the TUI app often feels "broken" and prefer the manual setup guides for reliability (especially for cross-platform robustness on SBCs and Ubuntu 24.04 LTS). Consequently, **TUI stability features now firmly precede new TUI feature development**, and manual installation scripts/guides are officially designated as **First-Class Citizens**, strictly mirroring all TUI capabilities.
+
+1. **Wave 6c: TUI Stability & Resilience** (NEW - see Roadmap updates below)
+2. **015** (verbose progress spinners): smallest surface area that improves all installs and future debugging
+3. **008** (dashboards): biggest feature, benefits from the progress patterns and stable navigation
 
 ---
 
@@ -65,10 +68,11 @@ This project treats your **personal developer environment** the same way infrast
 ### Design Principles
 
 1. **One Command**: Fresh install should work with `./start.sh`
-2. **Detect, Don't Duplicate**: Check if tools exist before installing
-3. **Local First**: CI/CD runs locally, not burning GitHub Actions minutes
-4. **Script Proliferation Prevention**: Enhance existing scripts, don't create new ones
-5. **Single Source of Truth**: AGENTS.md is the master; CLAUDE.md/GEMINI.md are symlinks
+2. **Manual Equivalence**: The CLI setup guide (`ubuntu-fresh-install-setup-guide.md`) and underlying shell scripts must execute flawlessly on their own. They are the official transparent fallback when the TUI fails.
+3. **Detect, Don't Duplicate**: Check if tools exist before installing
+4. **Local First**: CI/CD runs locally, not burning GitHub Actions minutes
+5. **Script Proliferation Prevention**: Enhance existing scripts, don't create new ones
+6. **Single Source of Truth**: AGENTS.md is the master; CLAUDE.md/GEMINI.md are symlinks
 
 ### Claude Code: Same Behavior Everywhere
 
@@ -168,6 +172,22 @@ For previously completed waves (Wave 0 through Wave 3, Wave 6a), please see the 
 | 31 | Proper semver comparison | 1 hr | Low | TUI version handling |
 
 **Total**: ~6 hours | **Status**: ⏳ Ready to start
+
+---
+
+## Wave 6c: TUI Stability & Architecture (PRIORITY SHIFT)
+
+> **Priority**: Critical - Users report TUI frequently feels broken
+> **Theme**: Fallbacks, Error handling, and Robustness
+> **Note**: Must precede any complex feature development (like Dashboards)
+
+| # | Task | Effort | Priority | Notes |
+|---|------|--------|----------|-------|
+| 31a | TUI Error Boundary implementation | 3 hr | **High** | Capture panics and show graceful fallback |
+| 31b | Setup Guide CLI Parity Test | 2 hr | **High** | Ensure `ubuntu-fresh-install-setup-guide.md` perfectly mirrors TUI state |
+| 31c | Terminal state rescue | 1 hr | **High** | Ensure Ctrl+C never leaves terminal in broken state |
+
+**Total**: ~6 hours | **Status**: 🔴 Next up (Shifted based on UX feedback)
 
 ---
 
