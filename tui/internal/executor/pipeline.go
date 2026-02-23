@@ -236,7 +236,9 @@ func (p *Pipeline) executeStage(ctx context.Context, stage PipelineStage) (Stage
 	}
 
 	// Run the script with streaming output (args... spreads the slice)
-	outputChan, resultChan := RunScript(p.config.RepoRoot, scriptPath, nil, args...)
+	outputChan, resultChan := RunScript(p.config.RepoRoot, scriptPath, map[string]string{
+		"TOOL_ID": p.tool.ID,
+	}, args...)
 
 	// Forward output to pipeline's output channel
 	go func() {

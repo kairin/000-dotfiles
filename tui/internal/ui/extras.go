@@ -96,7 +96,9 @@ func (m ExtrasModel) checkExtrasToolStatus(tool *registry.Tool) tea.Cmd {
 	c := m.cache
 
 	return func() tea.Msg {
-		output, err := executor.RunCheck(repoRoot, tool.Scripts.Check)
+		output, err := executor.RunCheck(repoRoot, tool.Scripts.Check, map[string]string{
+			"TOOL_ID": tool.ID,
+		})
 		if err != nil {
 			return extrasStatusLoadedMsg{
 				toolID: tool.ID,

@@ -46,5 +46,5 @@ if command -v fish &> /dev/null; then
 
     echo "INSTALLED|$VERSION|$METHOD|$LOCATION$EXTRA|$LATEST"
 else
-    echo "Not Installed|-|-|-|-"
+    echo "NOT_INSTALLED|-|-|-|-"
 fi

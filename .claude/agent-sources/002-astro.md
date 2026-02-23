@@ -388,7 +388,7 @@ export default defineConfig({
 // astro.config.mjs
 export default defineConfig({
   site: 'https://username.github.io',
-  base: '/ghostty-config-files',  // Repository name
+  base: '/000-dotfiles',  // Repository name
   // ...
 });
 ```

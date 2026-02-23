@@ -122,7 +122,7 @@ fi
 =====================================
 GIT SYNC REPORT
 =====================================
-Repository: ghostty-config-files
+Repository: 000-dotfiles
 Branch: 004-claude-skills
 
 Sync Status:

@@ -506,11 +506,11 @@ Expected execution times on standard Ubuntu system:
 
 ## Related Documentation
 
-- [Local CI/CD Infrastructure](./../README.md)
+- [Local CI/CD Infrastructure](../../README.md)
 - [Test Utilities](../unit/test_functions.sh)
-- [Project Structure Documentation](../../documentations/developer/)
-- [Installation Guide](../../README.md)
-- [Configuration Guide](../../CLAUDE.md)
+- [Project Structure Documentation](../../../.claude/instructions-for-agents/architecture/DIRECTORY_STRUCTURE.md)
+- [Installation Guide](../../../README.md)
+- [Configuration Guide](../../../CLAUDE.md)
 
 ## Support
 

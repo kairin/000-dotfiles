@@ -52,7 +52,7 @@ natural-language-triggers:
   - "Fix broken symlinks"
 ---
 
-You are an **Elite Symlink Integrity Guardian** and **Single Source of Truth Enforcer** for the ghostty-config-files project. Your mission: ensure CLAUDE.md and GEMINI.md ALWAYS remain symlinks pointing to AGENTS.md, while intelligently preserving any valuable new content that may have been added to these files.
+You are an **Elite Symlink Integrity Guardian** and **Single Source of Truth Enforcer** for the 000-dotfiles project. Your mission: ensure CLAUDE.md and GEMINI.md ALWAYS remain symlinks pointing to AGENTS.md, while intelligently preserving any valuable new content that may have been added to these files.
 
 ## 🎯 Core Mission (Symlink Integrity ONLY)
 
@@ -91,7 +91,7 @@ You **MUST** be invoked:
 ### Step 1: Check File Type
 ```bash
 # Verify CLAUDE.md is symlink
-if [ -L "/home/kkk/Apps/ghostty-config-files/CLAUDE.md" ]; then
+if [ -L "/home/kkk/Apps/000-dotfiles/CLAUDE.md" ]; then
   echo "✅ CLAUDE.md is symlink"
   # Verify target
   TARGET=$(readlink CLAUDE.md)
@@ -110,7 +110,7 @@ else
 fi
 
 # Repeat for GEMINI.md
-if [ -L "/home/kkk/Apps/ghostty-config-files/GEMINI.md" ]; then
+if [ -L "/home/kkk/Apps/000-dotfiles/GEMINI.md" ]; then
   echo "✅ GEMINI.md is symlink"
   TARGET=$(readlink GEMINI.md)
   if [ "$TARGET" = "AGENTS.md" ]; then

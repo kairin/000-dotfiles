@@ -235,7 +235,7 @@ For each detected technology, query Context7:
    mcp__context7__get-library-docs --context7CompatibleLibraryID "/microsoft/TypeScript" --topic "strict mode"
 ```
 
-**Project-Specific Compliance Checks** (ghostty-config-files):
+**Project-Specific Compliance Checks** (000-dotfiles):
 ```bash
 # Constitutional compliance checks
 echo "Checking constitutional compliance..."

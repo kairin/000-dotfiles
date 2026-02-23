@@ -61,7 +61,7 @@ npm run build
 ## Project Structure
 
 ```
-/home/kkk/Apps/ghostty-config-files/
+/home/kkk/Apps/000-dotfiles/
 ├── start.sh                    # Installation entry point
 ├── scripts/
 │   └── manage.sh               # Management interface
@@ -163,7 +163,7 @@ ghostty +show-config
 # Build and test website
 cd astro-website
 npm run build
-npm run dev  # Local server: http://localhost:4321/ghostty-config-files/
+npm run dev  # Local server: http://localhost:4321/000-dotfiles/
 ```
 
 ### Local CI/CD

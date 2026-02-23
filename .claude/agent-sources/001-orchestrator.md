@@ -307,7 +307,7 @@ When delegating tasks to sub-agents, use this standardized template to ensure cl
 **Objective**: Verify CLAUDE.md and GEMINI.md are valid symlinks to AGENTS.md
 
 **Input**:
-- Repository root path: /home/kkk/Apps/ghostty-config-files
+- Repository root path: /home/kkk/Apps/000-dotfiles
 - Expected target: AGENTS.md
 
 **Expected Output**:

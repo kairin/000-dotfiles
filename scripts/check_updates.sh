@@ -57,6 +57,7 @@ JSON_RESULTS='[]'
 check_tool() {
     local tool_name="$1"
     local tool_id="$2"
+    local tool_env="${3:-}"
     local check_script="$CHECK_DIR/check_${tool_id}.sh"
 
     if [[ ! -x "$check_script" ]]; then
@@ -66,7 +67,11 @@ check_tool() {
     ((TOOLS_CHECKED++))
 
     local output
-    output=$("$check_script" 2>/dev/null) || output="ERROR|-|-|-|-"
+    if [[ -n "$tool_env" ]]; then
+        output=$(env "$tool_env" "$check_script" 2>/dev/null) || output="ERROR|-|-|-|-"
+    else
+        output=$("$check_script" 2>/dev/null) || output="ERROR|-|-|-|-"
+    fi
 
     IFS='|' read -r status version method location latest <<< "$output"
 
@@ -130,7 +135,10 @@ main() {
     check_tool "Feh" "feh"
     check_tool "Nerd Fonts" "nerdfonts"
     check_tool "Node.js" "nodejs"
-    check_tool "Local AI Tools" "ai_tools"
+    check_tool "Claude Code" "ai_tools" TOOL_ID=ai_claude
+    check_tool "Gemini CLI" "ai_tools" TOOL_ID=ai_gemini
+    check_tool "OpenAI Codex CLI" "ai_tools" TOOL_ID=ai_codex
+    check_tool "GitHub Copilot CLI" "ai_tools" TOOL_ID=ai_copilot
 
     # Extras
     check_tool "Fastfetch" "fastfetch"

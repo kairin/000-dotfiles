@@ -11,30 +11,30 @@ Build the Astro website and deploy to GitHub Pages with comprehensive validation
 
 ## Instructions
 
-When the user invokes `/deploy-site`, execute the deployment workflow below. This skill only works in the ghostty-config-files project.
+When the user invokes `/deploy-site`, execute the deployment workflow below. This skill only works in the 000-dotfiles project.
 
 ## Project Detection
 
 ```bash
 # Verify we're in the correct project
 if [ ! -d ".runners-local" ] && [ ! -f "AGENTS.md" ]; then
-  echo "ERROR: /deploy-site only works in the ghostty-config-files project"
+  echo "ERROR: /deploy-site only works in the 000-dotfiles project"
   echo "Current directory: $(pwd)"
   exit 1
 fi
 ```
 
-If not in ghostty-config-files, report:
+If not in 000-dotfiles, report:
 ```
 =====================================
 DEPLOY SITE - NOT AVAILABLE
 =====================================
-This skill requires the ghostty-config-files project.
+This skill requires the 000-dotfiles project.
 
 Current directory: [pwd]
 Expected markers: .runners-local/ or AGENTS.md
 
-Please navigate to the ghostty-config-files repository.
+Please navigate to the 000-dotfiles repository.
 =====================================
 ```
 
@@ -103,7 +103,7 @@ The site deploys to GitHub Pages automatically when pushed to main branch. Alter
 =====================================
 DEPLOY SITE REPORT
 =====================================
-Project: ghostty-config-files
+Project: 000-dotfiles
 Build: SUCCESS
 
 Build Metrics:
@@ -122,7 +122,7 @@ Validation:
 | HTML valid    | PASS            |
 
 Deployment URL:
-https://kairin.github.io/ghostty-config-files/
+https://kairin.github.io/000-dotfiles/
 
 Result: SUCCESS
 =====================================

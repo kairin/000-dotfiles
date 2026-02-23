@@ -90,7 +90,9 @@ func (p *ConfigurePipeline) Execute(ctx context.Context) error {
 	start := time.Now()
 
 	// Run the configure script with streaming output
-	outputChan, resultChan := RunScript(p.config.RepoRoot, configureScript, nil)
+	outputChan, resultChan := RunScript(p.config.RepoRoot, configureScript, map[string]string{
+		"TOOL_ID": p.tool.ID,
+	})
 
 	// Forward output to pipeline's output channel
 	go func() {

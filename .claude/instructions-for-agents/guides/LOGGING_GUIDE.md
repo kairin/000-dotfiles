@@ -8,7 +8,7 @@ last-updated: 2026-01-11
 
 # Logging System Guide
 
-[← Back to AGENTS.md](../../../../AGENTS.md)
+[← Back to AGENTS.md](../../../AGENTS.md)
 
 ## Overview
 
@@ -164,9 +164,9 @@ cat logs/manifests/*.json
 
 ## Related Documentation
 
-- [Daily Updates README](../../../../scripts/DAILY_UPDATES_README.md)
+- [Daily Updates README](../../../scripts/DAILY_UPDATES_README.md)
 - [System Architecture](../architecture/system-architecture.md)
 
 ---
 
-[← Back to AGENTS.md](../../../../AGENTS.md)
+[← Back to AGENTS.md](../../../AGENTS.md)

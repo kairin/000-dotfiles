@@ -101,7 +101,9 @@ func (m ToolDetailModel) refreshToolStatus() tea.Cmd {
 	c := m.cache
 
 	return func() tea.Msg {
-		output, err := executor.RunCheck(repoRoot, tool.Scripts.Check)
+		output, err := executor.RunCheck(repoRoot, tool.Scripts.Check, map[string]string{
+			"TOOL_ID": tool.ID,
+		})
 		if err != nil {
 			return toolDetailStatusLoadedMsg{
 				status: &cache.ToolStatus{ID: tool.ID, Status: "Unknown"},
@@ -312,13 +314,18 @@ func (m ToolDetailModel) renderActionMenu() string {
 func (m ToolDetailModel) getActions() []string {
 	actions := []string{}
 
-	if m.status != nil && m.status.NeedsUpdate() {
-		actions = append(actions, "Update")
-	} else {
+	installed := m.status != nil && m.status.IsInstalled()
+	needsUpdate := m.status != nil && m.status.NeedsUpdate()
+
+	switch {
+	case needsUpdate:
+		actions = append(actions, "Update", "Reinstall", "Uninstall")
+	case installed:
+		actions = append(actions, "Reinstall", "Uninstall")
+	default:
 		actions = append(actions, "Install")
 	}
 
-	actions = append(actions, "Reinstall", "Uninstall")
 	actions = append(actions, "Back")
 
 	return actions

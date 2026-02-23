@@ -5,7 +5,7 @@ Ubuntu development environment setup with LLM CLI tools integration, developer t
 ## Purpose
 
 This repository provides a comprehensive development environment for Ubuntu 25.04+ including:
-- **LLM CLI Tools Configuration**: Sudoers configuration for Claude Code, Copilot CLI, Gemini CLI
+- **LLM CLI Tools Configuration**: Sudoers configuration for Claude Code, Gemini CLI, OpenAI Codex CLI, and GitHub Copilot CLI
 - **Developer Tools TUI Installer**: Interactive installer for fastfetch, glow, gum, Node.js, AI tools, and more
 - **ZSH Configuration**: Oh My Zsh with Powerlevel10k theme and plugins
 - **MCP Server Configs**: Model Context Protocol integrations
@@ -49,8 +49,11 @@ The script handles Go installation, building, and launching automatically.
 |------|-------------|---------------------|
 | **Feh** | Lightweight image viewer | Source build |
 | **Node.js** | JavaScript runtime with fnm | Script |
-| **AI Tools** | Claude Code, Gemini CLI, Copilot | NPM |
-| **Antigravity** | Google agentic development | Script |
+| **Claude Code** | Anthropic Claude CLI | Mixed (curl + npm) |
+| **Gemini CLI** | Google Gemini CLI | NPM |
+| **OpenAI Codex CLI** | OpenAI Codex command line interface | NPM |
+| **GitHub Copilot CLI** | GitHub Copilot command line interface | NPM |
+| **Antigravity** | Google Antigravity agentic development platform | Script |
 | **Fastfetch** | System info fetcher | APT |
 | **Glow** | Terminal markdown renderer | Charm repo |
 | **Go** | Go programming language | Tarball |
@@ -111,7 +114,6 @@ Passwordless sudo for whitelisted commands used by LLM CLI tools:
 │   ├── 006-logs/               # Logging scripts
 │   ├── 007-diagnostics/        # Diagnostic scripts
 │   ├── 007-update/             # Update scripts
-│   ├── mcp/                    # MCP scripts
 │   └── deploy-sudoers.sh       # Sudoers deployment
 ├── sudoers/
 │   └── llm-cli-tools           # Sudoers configuration
@@ -144,8 +146,11 @@ Passwordless sudo for whitelisted commands used by LLM CLI tools:
 # Smart update checker
 ./scripts/check_updates.sh
 
-# View update logs
-./scripts/006-logs/view_update_logs.sh
+# Run update orchestration
+./scripts/daily-updates.sh
+
+# View latest update summary
+source ./scripts/006-logs/logger.sh && show_latest_update_summary
 ```
 
 ## Version History

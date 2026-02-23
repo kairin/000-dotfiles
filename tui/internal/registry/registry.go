@@ -72,10 +72,10 @@ var tools = map[string]*Tool{
 		},
 		DocsPath: ".claude/instructions-for-agents/tools/nodejs.md",
 	},
-	"ai_tools": {
-		ID:          "ai_tools",
-		DisplayName: "Local AI Tools",
-		Description: "Claude Code, Gemini CLI, Copilot",
+	"ai_claude": {
+		ID:          "ai_claude",
+		DisplayName: "Claude Code",
+		Description: "Anthropic Claude CLI",
 		Category:    CategoryMain,
 		Method:      MethodNPM,
 		Scripts: ToolScripts{
@@ -87,11 +87,56 @@ var tools = map[string]*Tool{
 			Confirm:     "scripts/005-confirm/confirm_ai_tools.sh",
 			Update:      "scripts/007-update/update_ai_tools.sh",
 		},
-		IsAggregate: true,
-		SubTools: []SubTool{
-			{ID: "claude", Name: "Claude Code", Command: "claude"},
-			{ID: "gemini", Name: "Gemini CLI", Command: "gemini"},
-			{ID: "copilot", Name: "GitHub Copilot", Command: "gh copilot"},
+		DocsPath: ".claude/instructions-for-agents/tools/ai-cli-tools.md",
+	},
+	"ai_gemini": {
+		ID:          "ai_gemini",
+		DisplayName: "Gemini CLI",
+		Description: "Google Gemini CLI",
+		Category:    CategoryMain,
+		Method:      MethodNPM,
+		Scripts: ToolScripts{
+			Check:       "scripts/000-check/check_ai_tools.sh",
+			Uninstall:   "scripts/001-uninstall/uninstall_ai_tools.sh",
+			InstallDeps: "scripts/002-install-first-time/install_deps_ai_tools.sh",
+			VerifyDeps:  "scripts/003-verify/verify_deps_ai_tools.sh",
+			Install:     "scripts/004-reinstall/install_ai_tools.sh",
+			Confirm:     "scripts/005-confirm/confirm_ai_tools.sh",
+			Update:      "scripts/007-update/update_ai_tools.sh",
+		},
+		DocsPath: ".claude/instructions-for-agents/tools/ai-cli-tools.md",
+	},
+	"ai_codex": {
+		ID:          "ai_codex",
+		DisplayName: "OpenAI Codex CLI",
+		Description: "OpenAI Codex command line interface",
+		Category:    CategoryMain,
+		Method:      MethodNPM,
+		Scripts: ToolScripts{
+			Check:       "scripts/000-check/check_ai_tools.sh",
+			Uninstall:   "scripts/001-uninstall/uninstall_ai_tools.sh",
+			InstallDeps: "scripts/002-install-first-time/install_deps_ai_tools.sh",
+			VerifyDeps:  "scripts/003-verify/verify_deps_ai_tools.sh",
+			Install:     "scripts/004-reinstall/install_ai_tools.sh",
+			Confirm:     "scripts/005-confirm/confirm_ai_tools.sh",
+			Update:      "scripts/007-update/update_ai_tools.sh",
+		},
+		DocsPath: ".claude/instructions-for-agents/tools/ai-cli-tools.md",
+	},
+	"ai_copilot": {
+		ID:          "ai_copilot",
+		DisplayName: "GitHub Copilot CLI",
+		Description: "GitHub Copilot command line interface",
+		Category:    CategoryMain,
+		Method:      MethodNPM,
+		Scripts: ToolScripts{
+			Check:       "scripts/000-check/check_ai_tools.sh",
+			Uninstall:   "scripts/001-uninstall/uninstall_ai_tools.sh",
+			InstallDeps: "scripts/002-install-first-time/install_deps_ai_tools.sh",
+			VerifyDeps:  "scripts/003-verify/verify_deps_ai_tools.sh",
+			Install:     "scripts/004-reinstall/install_ai_tools.sh",
+			Confirm:     "scripts/005-confirm/confirm_ai_tools.sh",
+			Update:      "scripts/007-update/update_ai_tools.sh",
 		},
 		DocsPath: ".claude/instructions-for-agents/tools/ai-cli-tools.md",
 	},
@@ -310,7 +355,7 @@ var tools = map[string]*Tool{
 }
 
 // Ordered lists for display
-var mainToolIDs = []string{"feh", "nodejs", "ai_tools", "antigravity", "fish"}
+var mainToolIDs = []string{"feh", "nodejs", "ai_claude", "ai_gemini", "ai_codex", "ai_copilot", "antigravity", "fish"}
 var extrasToolIDs = []string{"fastfetch", "glow", "go", "gum", "python_uv", "shellcheck", "icon_cache", "vhs", "zsh"}
 
 // GetTool returns a tool by ID

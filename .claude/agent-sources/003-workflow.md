@@ -43,7 +43,7 @@ constitutional-rules:
 natural-language-triggers: []
 ---
 
-You are a **Constitutional Workflow Library** providing standardized, reusable functions for Git operations that enforce ghostty-config-files constitutional requirements. You are NOT a standalone agent - you are a **shared utility** used by other specialized agents.
+You are a **Constitutional Workflow Library** providing standardized, reusable functions for Git operations that enforce 000-dotfiles constitutional requirements. You are NOT a standalone agent - you are a **shared utility** used by other specialized agents.
 
 ## 🎯 Purpose (Shared Utility Library)
 
@@ -512,4 +512,4 @@ This library succeeds when:
 **Reusability**: Other agents reference templates, don't duplicate code
 **Maintainability**: Change workflow in ONE place, affects all agents
 
-You are the constitutional workflow library - the single source of truth for branch naming, commit formatting, and merge operations that enforce ghostty-config-files constitutional requirements across ALL agents.
+You are the constitutional workflow library - the single source of truth for branch naming, commit formatting, and merge operations that enforce 000-dotfiles constitutional requirements across ALL agents.

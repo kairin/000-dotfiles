@@ -115,7 +115,7 @@ gh api user
 
 2. **Add to .env file**:
    ```bash
-   # Add to /home/kkk/Apps/ghostty-config-files/.env
+   # Add to /home/kkk/Apps/000-dotfiles/.env
    echo "GITHUB_TOKEN=gho_YOUR_TOKEN_HERE" >> .env
    ```
 
@@ -123,7 +123,7 @@ gh api user
    ```bash
    # Add to ~/.zshrc (or ~/.bashrc):
    set -a
-   source /home/kkk/Apps/ghostty-config-files/.env
+   source /home/kkk/Apps/000-dotfiles/.env
    set +a
    ```
 

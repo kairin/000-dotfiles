@@ -122,7 +122,7 @@ func (m NerdFontsModel) refreshNerdFontsStatus() tea.Cmd {
 	c := m.cache
 
 	return func() tea.Msg {
-		output, err := executor.RunCheck(repoRoot, "scripts/000-check/check_nerdfonts.sh")
+		output, err := executor.RunCheck(repoRoot, "scripts/000-check/check_nerdfonts.sh", nil)
 		if err != nil {
 			return nerdfontsStatusLoadedMsg{
 				status: &cache.ToolStatus{ID: "nerdfonts", Status: "Unknown"},

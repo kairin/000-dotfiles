@@ -18,17 +18,17 @@ When the user invokes `/health-check`, execute the diagnostic steps below and re
 First, determine which project context we're in:
 
 ```bash
-# Check for ghostty-config-files project markers
+# Check for 000-dotfiles project markers
 if [ -d ".runners-local" ] || [ -f "AGENTS.md" ]; then
-  echo "PROJECT: ghostty-config-files (full diagnostics available)"
+  echo "PROJECT: 000-dotfiles (full diagnostics available)"
 else
   echo "PROJECT: Generic (basic diagnostics only)"
 fi
 ```
 
-## Diagnostics (Full Mode - ghostty-config-files project)
+## Diagnostics (Full Mode - 000-dotfiles project)
 
-If in ghostty-config-files project, run the comprehensive health check:
+If in 000-dotfiles project, run the comprehensive health check:
 
 ```bash
 ./.runners-local/workflows/health-check.sh
@@ -119,7 +119,7 @@ git branch --show-current
 
 ## Symlink Integrity Check (Constitutional Requirement)
 
-**CRITICAL**: In ghostty-config-files project, CLAUDE.md and GEMINI.md MUST be symlinks to AGENTS.md (single source of truth).
+**CRITICAL**: In 000-dotfiles project, CLAUDE.md and GEMINI.md MUST be symlinks to AGENTS.md (single source of truth).
 
 ### Check Logic
 

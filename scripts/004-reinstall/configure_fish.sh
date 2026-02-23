@@ -109,6 +109,26 @@ EOF
 fi
 
 # ==============================================================================
+# Step 3b: Add direnv Hook
+# ==============================================================================
+log "INFO" "Configuring direnv hook..."
+
+if grep -q 'dotfiles-config:direnv' "$CONFIG_FISH"; then
+    log "INFO" "direnv hook already present"
+else
+    cat >> "$CONFIG_FISH" << 'EOF'
+
+# >>> dotfiles-config:direnv >>>
+# direnv integration for automatic per-project environment loading
+if command -q direnv
+    direnv hook fish | source
+end
+# <<< dotfiles-config:direnv <<<
+EOF
+    log "SUCCESS" "Added direnv hook"
+fi
+
+# ==============================================================================
 # Step 4: Add Modern CLI Aliases
 # ==============================================================================
 log "INFO" "Configuring modern CLI aliases..."
@@ -224,6 +244,7 @@ log "INFO" ""
 log "INFO" "Changes made:"
 log "INFO" "  - Added PATH (~/.local/bin, cargo, go)"
 log "INFO" "  - Added completions (uv, gh, gum, glow, fnm)"
+log "INFO" "  - Added direnv hook (when direnv is installed)"
 log "INFO" "  - Added modern CLI aliases (bat, eza, fd, rg, zoxide)"
 log "INFO" "  - Added utility functions (mkcd, .., ..., ....)"
 log "INFO" "  - Set environment variables (EDITOR, LESS)"

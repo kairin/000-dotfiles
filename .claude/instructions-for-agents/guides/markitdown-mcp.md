@@ -31,4 +31,4 @@ For complete setup instructions, best practices, and troubleshooting, see the [M
 
 ---
 
-[← Back to AGENTS.md](../../../../AGENTS.md)
+[← Back to AGENTS.md](../../../AGENTS.md)

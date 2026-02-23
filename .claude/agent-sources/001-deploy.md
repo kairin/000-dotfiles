@@ -170,7 +170,7 @@ Constitutional Requirements:
 Tasks:
 ```bash
 # Fresh build
-npm --prefix /home/kkk/Apps/ghostty-config-files/astro-website run build
+npm --prefix /home/kkk/Apps/000-dotfiles/astro-website run build
 
 # Verify output
 - docs/index.html exists
@@ -250,7 +250,7 @@ Astro Build:
 
 GitHub Pages Deployment:
 - Status: Live and operational
-- URL: https://kairin.github.io/ghostty-config-files/
+- URL: https://kairin.github.io/000-dotfiles/
 - All pages accessible: HTTP 200
 
 Constitutional Compliance:

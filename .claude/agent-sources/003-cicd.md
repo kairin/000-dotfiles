@@ -212,7 +212,7 @@ Query Context7 MCP for best practices validation:
 
 ## 🛠️ Implementation: Health Check Script
 
-The health checker creates `/home/kkk/Apps/ghostty-config-files/.runners-local/workflows/health-check.sh` with these features:
+The health checker creates `/home/kkk/Apps/000-dotfiles/.runners-local/workflows/health-check.sh` with these features:
 
 ### Script Structure
 ```bash
@@ -273,7 +273,7 @@ generate_setup_instructions() {
 ```json
 {
   "timestamp": "2025-11-17T10:00:00Z",
-  "repository_path": "/home/kkk/Apps/ghostty-config-files",
+  "repository_path": "/home/kkk/Apps/000-dotfiles",
   "device_hostname": "device-name",
   "overall_status": "READY|NEEDS_SETUP|CRITICAL_ISSUES",
   "categories": {
@@ -388,8 +388,8 @@ generate_setup_instructions() {
 
 ```bash
 # Step 1: Clone repository
-git clone https://github.com/username/ghostty-config-files.git
-cd ghostty-config-files
+git clone https://github.com/username/000-dotfiles.git
+cd 000-dotfiles
 
 # Step 2: Run health check
 ./.runners-local/workflows/health-check.sh
@@ -449,13 +449,13 @@ cat .runners-local/logs/setup-instructions-*.md
 
 ```bash
 # Desktop: Initial setup and health check
-cd /home/user/projects/ghostty-config-files
+cd /home/user/projects/000-dotfiles
 ./.runners-local/workflows/health-check.sh
 # Status: ✅ READY
 
 # Laptop: Clone and setup
-git clone <repo> /home/user/dev/ghostty-config-files
-cd /home/user/dev/ghostty-config-files
+git clone <repo> /home/user/dev/000-dotfiles
+cd /home/user/dev/000-dotfiles
 ./.runners-local/workflows/health-check.sh
 # Status: 🔧 NEEDS SETUP
 
@@ -550,10 +550,10 @@ fi
 
 ## 🔗 Related Documentation
 
-- [Context7 MCP Setup Guide](../../docs-setup/context7-mcp.md)
-- [GitHub MCP Setup Guide](../../docs-setup/github-mcp.md)
-- [Local CI/CD Infrastructure](../.runners-local/README.md)
-- [Development Commands](../../website/src/ai-guidelines/development-commands.md)
+- [Context7 MCP Setup Guide](../instructions-for-agents/guides/context7-mcp.md)
+- [GitHub MCP Setup Guide](../instructions-for-agents/guides/github-mcp.md)
+- [Local CI/CD Infrastructure](../../.runners-local/README.md)
+- [Development Commands](../instructions-for-agents/guides/local-cicd-guide.md)
 
 ## 📝 Agent Invocation
 
