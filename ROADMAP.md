@@ -68,7 +68,7 @@ This project treats your **personal developer environment** the same way infrast
 ### Design Principles
 
 1. **One Command**: Fresh install should work with `./start.sh`
-2. **Manual Equivalence**: The CLI setup guide (`ubuntu-fresh-install-setup-guide.md`) and underlying shell scripts must execute flawlessly on their own. They are the official transparent fallback when the TUI fails.
+2. **Manual Equivalence**: The CLI setup guide (`manual-steps/ubuntu-fresh-install-setup-guide.md`) and underlying shell scripts must execute flawlessly on their own. They are the official transparent fallback when the TUI fails.
 3. **Detect, Don't Duplicate**: Check if tools exist before installing
 4. **Local First**: CI/CD runs locally, not burning GitHub Actions minutes
 5. **Script Proliferation Prevention**: Enhance existing scripts, don't create new ones
@@ -184,7 +184,7 @@ For previously completed waves (Wave 0 through Wave 3, Wave 6a), please see the 
 | # | Task | Effort | Priority | Notes |
 |---|------|--------|----------|-------|
 | 31a | TUI Error Boundary implementation | 3 hr | **High** | Capture panics and show graceful fallback |
-| 31b | Setup Guide CLI Parity Test | 2 hr | **High** | Ensure `ubuntu-fresh-install-setup-guide.md` perfectly mirrors TUI state |
+| 31b | Setup Guide CLI Parity Test | 2 hr | **High** | Ensure `manual-steps/ubuntu-fresh-install-setup-guide.md` perfectly mirrors TUI state |
 | 31c | Terminal state rescue | 1 hr | **High** | Ensure Ctrl+C never leaves terminal in broken state |
 
 **Total**: ~6 hours | **Status**: 🔴 Next up (Shifted based on UX feedback)
