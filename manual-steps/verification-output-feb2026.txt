@@ -1,0 +1,465 @@
+Welcome to fish, the friendly interactive shell
+Type help for instructions on how to use fish
+╰─❮ # Core system
+    fastfetch
+    fish --version
+    git --version
+
+    # Shell plugins
+    fisher --version
+    tide --version
+
+    # Node.js ecosystem
+    fnm --version
+    node --version
+    npm --version
+
+    # Go
+    go version
+
+    # System utilities
+    shellcheck --version
+    direnv --version
+    fzf --version
+
+    # GitHub
+    gh --version
+    gh auth status
+
+    # Python / uv
+    uv --version
+
+    # AI coding CLIs
+    claude --version
+    codex --version
+    gemini --version
+
+    # Task & spec tools
+    backlog --version
+    specify --help
+
+    # MCP servers
+    claude mcp list
+    codex mcp list
+
+    # Nerd Fonts
+    fc-list : family | grep -i 'JetBrainsMono\|FiraCode\|Hack\|Meslo'
+
+                             ....              kkk@kkk-ThinkPad-L14-Gen-4
+              .',:clooo:  .:looooo:.           --------------------------
+           .;looooooooc  .oooooooooo'          OS: Ubuntu 24.04.4 LTS (Noble Numbat) x86_64
+        .;looooool:,''.  :ooooooooooc          Host: 21H50022SG (ThinkPad L14 Gen 4)
+       ;looool;.         'oooooooooo,          Kernel: Linux 6.17.0-14-generic
+      ;clool'             .cooooooc.  ,,       Uptime: 2 hours, 6 mins
+         ...                ......  .:oo,      Packages: 1588 (dpkg), 10 (snap)
+  .;clol:,.                        .loooo'     Shell: fish 4.5.0
+ :ooooooooo,                        'ooool     Display (LEN40A9): 1920x1080 in 14", 60 Hz ]
+'ooooooooooo.                        loooo.    DE: GNOME 46.0
+'ooooooooool                         coooo.    WM: Mutter (Wayland)
+ ,loooooooc.                        .loooo.    WM Theme: Yaru-dark
+   .,;;;'.                          ;ooooc     Theme: Yaru-dark [GTK2/3/4]
+       ...                         ,ooool.     Icons: Yaru [GTK2/3/4]
+    .cooooc.              ..',,'.  .cooo.      Font: Ubuntu Sans (11pt) [GTK2/3/4]
+      ;ooooo:.           ;oooooooc.  :l.       Cursor: Yaru (24px)
+       .coooooc,..      coooooooooo.           Terminal: GNOME Terminal 3.52.0
+         .:ooooooolc:. .ooooooooooo'           Terminal Font: FiraCode Nerd Font (12pt)
+           .':loooooo;  ,oooooooooc            CPU: AMD Ryzen 7 PRO 7730U (16) @ 4.55 GHz
+               ..';::c'  .;loooo:'             GPU: AMD Barcelo [Integrated]
+                                               Memory: 4.14 GiB / 14.42 GiB (29%)
+                                               Swap: 0 B / 4.00 GiB (0%)
+                                               Disk (/): 12.98 GiB / 467.35 GiB (3%) - ext4
+                                               Disk (/media/kkk/system-boot): 99.68 MiB / t
+                                               Disk (/media/kkk/writable): 2.13 GiB / 3.214
+                                               Local IP (wlp6s0): 192.168.51.43/24
+                                               Battery (LNV-5B11H56343): 67% [Discharging]
+                                               Locale: en_US.UTF-8
+
+                                                                       
+                                                                       
+fish, version 4.5.0
+git version 2.43.0
+fisher, version 4.4.8
+tide, version 6.2.0
+fnm 1.38.1
+v25.6.1
+11.9.0
+go version go1.26.0 linux/amd64
+ShellCheck - shell script analysis tool
+version: 0.9.0
+license: GNU General Public License, version 3
+website: https://www.shellcheck.net
+2.32.1
+0.44.1 (debian)
+gh version 2.45.0 (2026-02-03 Ubuntu 2.45.0-1ubuntu0.3+esm2)
+https://github.com/cli/cli/releases/tag/v2.45.0
+github.com
+  ✓ Logged in to github.com account kairin (keyring)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'workflow'
+uv 0.10.5
+2.1.52 (Claude Code)
+codex-cli 0.104.0
+0.29.7
+1.39.2
+                   ███████╗██████╗ ███████╗ ██████╗██╗███████╗██╗   ██╗                    
+                   ██╔════╝██╔══██╗██╔════╝██╔════╝██║██╔════╝╚██╗ ██╔╝                    
+                   ███████╗██████╔╝█████╗  ██║     ██║█████╗   ╚████╔╝                     
+                   ╚════██║██╔═══╝ ██╔══╝  ██║     ██║██╔══╝    ╚██╔╝                      
+                   ███████║██║     ███████╗╚██████╗██║██║        ██║                       
+                   ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝        ╚═╝                       
+                                                                                           
+                     GitHub Spec Kit - Spec-Driven Development Toolkit                     
+
+                                                                                           
+ Usage: specify [OPTIONS] COMMAND [ARGS]...                                                
+                                                                                           
+ Setup tool for Specify spec-driven development projects                                   
+                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────╮
+│ init       Initialize a new Specify project from the latest template.                   │
+│ check      Check that all required tools are installed.                                 │
+│ version    Display version and system information.                                      │
+│ extension  Manage spec-kit extensions                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────╯
+
+Checking MCP server health...
+
+claude.ai Mermaid Chart: https://mcp.mermaidchart.com/mcp - ✓ Connected
+claude.ai Hugging Face: https://huggingface.co/mcp?login&gradio=none - ✓ Connected
+context7: https://mcp.context7.com/mcp (HTTP) - ✓ Connected
+Name      Command  Args                                                                            Env  Cwd  Status   Auth       
+context7  npx      -y @upstash/context7-mcp --api-key ctx7sk-************************************  -    -    enabled  Unsupported
+FiraCode Nerd Font,FiraCode Nerd Font Ret
+JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF Medium
+FiraCode Nerd Font Mono,FiraCode Nerd Font Mono SemBd
+FiraCode Nerd Font Propo
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP,JetBrainsMono NFP ExtraBold
+MesloLGSDZ Nerd Font Mono
+FiraCode Nerd Font,FiraCode Nerd Font Light
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF Medium
+FiraCode Nerd Font,FiraCode Nerd Font Med
+FiraCode Nerd Font Propo,FiraCode Nerd Font Propo Med
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF Thin
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP,JetBrainsMono NFP Thin
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM,JetBrainsMonoNL NFM Medium
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM,JetBrainsMonoNL NFM ExtraLight
+FiraCode Nerd Font
+MesloLGS Nerd Font
+Hack Nerd Font Propo
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP,JetBrainsMonoNL NFP Medium
+MesloLGS Nerd Font Mono
+JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF SemiBold
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM,JetBrainsMonoNL NFM ExtraBold
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM,JetBrainsMono NFM SemiBold
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP
+JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF ExtraBold
+MesloLGM Nerd Font Mono
+JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF Thin
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM,JetBrainsMonoNL NFM SemiBold
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP,JetBrainsMono NFP Medium
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM,JetBrainsMonoNL NFM Thin
+FiraCode Nerd Font Mono,FiraCode Nerd Font Mono Light
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM,JetBrainsMono NFM Light
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP,JetBrainsMono NFP Light
+FiraCode Nerd Font Mono
+FiraCode Nerd Font Mono,FiraCode Nerd Font Mono Med
+MesloLGSDZ Nerd Font Propo
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP,JetBrainsMonoNL NFP Thin
+JetBrainsMono Nerd Font,JetBrainsMono NF
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM,JetBrainsMono NFM Thin
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF ExtraBold
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP,JetBrainsMonoNL NFP SemiBold
+MesloLGMDZ Nerd Font Mono
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP,JetBrainsMono NFP ExtraLight
+Hack Nerd Font Mono
+MesloLGLDZ Nerd Font Mono
+FiraCode Nerd Font Propo,FiraCode Nerd Font Propo SemBd
+Hack Nerd Font
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP,JetBrainsMonoNL NFP ExtraBold
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF Light
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP,JetBrainsMonoNL NFP ExtraLight
+MesloLGS Nerd Font Propo
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP,JetBrainsMonoNL NFP Light
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF SemiBold
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP,JetBrainsMono NFP SemiBold
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM,JetBrainsMono NFM Medium
+MesloLGL Nerd Font
+MesloLGL Nerd Font Mono
+MesloLGM Nerd Font Propo
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF
+FiraCode Nerd Font,FiraCode Nerd Font SemBd
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM,JetBrainsMonoNL NFM Light
+FiraCode Nerd Font Propo,FiraCode Nerd Font Propo Ret
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP
+MesloLGMDZ Nerd Font Propo
+MesloLGL Nerd Font Propo
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM
+FiraCode Nerd Font Mono,FiraCode Nerd Font Mono Ret
+JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF ExtraLight
+MesloLGSDZ Nerd Font
+MesloLGLDZ Nerd Font
+MesloLGMDZ Nerd Font
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM,JetBrainsMono NFM ExtraLight
+MesloLGLDZ Nerd Font Propo
+JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF Light
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF ExtraLight
+MesloLGM Nerd Font
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM,JetBrainsMono NFM ExtraBold
+FiraCode Nerd Font Propo,FiraCode Nerd Font Propo Light
+╰─❮ echo ""
+    echo "━━━ Core System: fastfetch, fish, git ━━━"
+    fastfetch
+    fish --version
+    git --version
+
+    echo ""
+    echo "━━━ Shell Plugins: fisher, tide ━━━"
+    fisher --version
+    tide --version
+
+    echo ""
+    echo "━━━ Node.js Ecosystem: fnm, node, npm ━━━"
+    fnm --version
+    node --version
+    npm --version
+
+    echo ""
+    echo "━━━ Go ━━━"
+    go version
+
+    echo ""
+    echo "━━━ System Utilities: shellcheck, direnv, fzf ━━━"
+    shellcheck --version
+    direnv --version
+    fzf --version
+
+    echo ""
+    echo "━━━ GitHub: gh, auth status ━━━"
+    gh --version
+    gh auth status
+
+    echo ""
+    echo "━━━ Python / uv ━━━"
+    uv --version
+
+    echo ""
+    echo "━━━ AI Coding CLIs: claude, codex, gemini ━━━"
+    claude --version
+    codex --version
+    gemini --version
+
+    echo ""
+    echo "━━━ Task & Spec Tools: backlog, specify ━━━"
+    backlog --version
+    specify --help
+
+    echo ""
+    echo "━━━ MCP Servers: claude, codex ━━━"
+    claude mcp list
+    codex mcp list
+
+    echo ""
+    echo "━━━ Nerd Fonts: JetBrainsMono, FiraCode, Hack, Meslo ━━━"
+    fc-list : family | grep -i 'JetBrainsMono\|FiraCode\|Hack\|Meslo'
+
+
+━━━ Core System: fastfetch, fish, git ━━━
+                             ....              kkk@kkk-ThinkPad-L14-Gen-4
+              .',:clooo:  .:looooo:.           --------------------------
+           .;looooooooc  .oooooooooo'          OS: Ubuntu 24.04.4 LTS (Noble Numbat) x86_64
+        .;looooool:,''.  :ooooooooooc          Host: 21H50022SG (ThinkPad L14 Gen 4)
+       ;looool;.         'oooooooooo,          Kernel: Linux 6.17.0-14-generic
+      ;clool'             .cooooooc.  ,,       Uptime: 6 hours, 40 mins
+         ...                ......  .:oo,      Packages: 1588 (dpkg), 10 (snap)
+  .;clol:,.                        .loooo'     Shell: fish 4.5.0
+ :ooooooooo,                        'ooool     Display (LEN40A9): 1920x1080 in 14", 60 Hz ]
+'ooooooooooo.                        loooo.    DE: GNOME 46.0
+'ooooooooool                         coooo.    WM: Mutter (Wayland)
+ ,loooooooc.                        .loooo.    WM Theme: Yaru-dark
+   .,;;;'.                          ;ooooc     Theme: Yaru-dark [GTK2/3/4]
+       ...                         ,ooool.     Icons: Yaru [GTK2/3/4]
+    .cooooc.              ..',,'.  .cooo.      Font: Ubuntu Sans (11pt) [GTK2/3/4]
+      ;ooooo:.           ;oooooooc.  :l.       Cursor: Yaru (24px)
+       .coooooc,..      coooooooooo.           Terminal: GNOME Terminal 3.52.0
+         .:ooooooolc:. .ooooooooooo'           Terminal Font: FiraCode Nerd Font (12pt)
+           .':loooooo;  ,oooooooooc            CPU: AMD Ryzen 7 PRO 7730U (16) @ 4.55 GHz
+               ..';::c'  .;loooo:'             GPU: AMD Barcelo [Integrated]
+                                               Memory: 4.01 GiB / 14.42 GiB (28%)
+                                               Swap: 0 B / 4.00 GiB (0%)
+                                               Disk (/): 13.02 GiB / 467.35 GiB (3%) - ext4
+                                               Disk (/media/kkk/system-boot): 99.68 MiB / t
+                                               Disk (/media/kkk/writable): 2.13 GiB / 3.214
+                                               Local IP (wlp6s0): 192.168.51.43/24
+                                               Battery (LNV-5B11H56343): 49% [Discharging]
+                                               Locale: en_US.UTF-8
+
+                                                                       
+                                                                       
+fish, version 4.5.0
+git version 2.43.0
+
+━━━ Shell Plugins: fisher, tide ━━━
+fisher, version 4.4.8
+tide, version 6.2.0
+
+━━━ Node.js Ecosystem: fnm, node, npm ━━━
+fnm 1.38.1
+v25.6.1
+11.9.0
+
+━━━ Go ━━━
+go version go1.26.0 linux/amd64
+
+━━━ System Utilities: shellcheck, direnv, fzf ━━━
+ShellCheck - shell script analysis tool
+version: 0.9.0
+license: GNU General Public License, version 3
+website: https://www.shellcheck.net
+2.32.1
+0.44.1 (debian)
+
+━━━ GitHub: gh, auth status ━━━
+gh version 2.45.0 (2026-02-03 Ubuntu 2.45.0-1ubuntu0.3+esm2)
+https://github.com/cli/cli/releases/tag/v2.45.0
+github.com
+  ✓ Logged in to github.com account kairin (keyring)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'workflow'
+
+━━━ Python / uv ━━━
+uv 0.10.5
+
+━━━ AI Coding CLIs: claude, codex, gemini ━━━
+2.1.52 (Claude Code)
+codex-cli 0.104.0
+0.29.7
+
+━━━ Task & Spec Tools: backlog, specify ━━━
+1.39.2
+                   ███████╗██████╗ ███████╗ ██████╗██╗███████╗██╗   ██╗                    
+                   ██╔════╝██╔══██╗██╔════╝██╔════╝██║██╔════╝╚██╗ ██╔╝                    
+                   ███████╗██████╔╝█████╗  ██║     ██║█████╗   ╚████╔╝                     
+                   ╚════██║██╔═══╝ ██╔══╝  ██║     ██║██╔══╝    ╚██╔╝                      
+                   ███████║██║     ███████╗╚██████╗██║██║        ██║                       
+                   ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝        ╚═╝                       
+                                                                                           
+                     GitHub Spec Kit - Spec-Driven Development Toolkit                     
+
+                                                                                           
+ Usage: specify [OPTIONS] COMMAND [ARGS]...                                                
+                                                                                           
+ Setup tool for Specify spec-driven development projects                                   
+                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────╮
+│ init       Initialize a new Specify project from the latest template.                   │
+│ check      Check that all required tools are installed.                                 │
+│ version    Display version and system information.                                      │
+│ extension  Manage spec-kit extensions                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+━━━ MCP Servers: claude, codex ━━━
+Checking MCP server health...
+
+claude.ai Mermaid Chart: https://mcp.mermaidchart.com/mcp - ✓ Connected
+claude.ai Hugging Face: https://huggingface.co/mcp?login&gradio=none - ✓ Connected
+claude.ai Google Calendar: https://gcal.mcp.claude.com/mcp - ! Needs authentication
+claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
+context7: https://mcp.context7.com/mcp (HTTP) - ✓ Connected
+Name      Command  Args                                                                            Env  Cwd  Status   Auth       
+context7  npx      -y @upstash/context7-mcp --api-key ctx7sk-************************************  -    -    enabled  Unsupported
+
+━━━ Nerd Fonts: JetBrainsMono, FiraCode, Hack, Meslo ━━━
+FiraCode Nerd Font,FiraCode Nerd Font Ret
+JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF Medium
+FiraCode Nerd Font Mono,FiraCode Nerd Font Mono SemBd
+FiraCode Nerd Font Propo
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP,JetBrainsMono NFP ExtraBold
+MesloLGSDZ Nerd Font Mono
+FiraCode Nerd Font,FiraCode Nerd Font Light
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF Medium
+FiraCode Nerd Font,FiraCode Nerd Font Med
+FiraCode Nerd Font Propo,FiraCode Nerd Font Propo Med
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF Thin
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP,JetBrainsMono NFP Thin
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM,JetBrainsMonoNL NFM Medium
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM,JetBrainsMonoNL NFM ExtraLight
+FiraCode Nerd Font
+MesloLGS Nerd Font
+Hack Nerd Font Propo
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP,JetBrainsMonoNL NFP Medium
+MesloLGS Nerd Font Mono
+JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF SemiBold
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM,JetBrainsMonoNL NFM ExtraBold
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM,JetBrainsMono NFM SemiBold
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP
+JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF ExtraBold
+MesloLGM Nerd Font Mono
+JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF Thin
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM,JetBrainsMonoNL NFM SemiBold
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP,JetBrainsMono NFP Medium
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM,JetBrainsMonoNL NFM Thin
+FiraCode Nerd Font Mono,FiraCode Nerd Font Mono Light
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM,JetBrainsMono NFM Light
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP,JetBrainsMono NFP Light
+FiraCode Nerd Font Mono
+FiraCode Nerd Font Mono,FiraCode Nerd Font Mono Med
+MesloLGSDZ Nerd Font Propo
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP,JetBrainsMonoNL NFP Thin
+JetBrainsMono Nerd Font,JetBrainsMono NF
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM,JetBrainsMono NFM Thin
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF ExtraBold
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP,JetBrainsMonoNL NFP SemiBold
+MesloLGMDZ Nerd Font Mono
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP,JetBrainsMono NFP ExtraLight
+Hack Nerd Font Mono
+MesloLGLDZ Nerd Font Mono
+FiraCode Nerd Font Propo,FiraCode Nerd Font Propo SemBd
+Hack Nerd Font
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP,JetBrainsMonoNL NFP ExtraBold
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF Light
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP,JetBrainsMonoNL NFP ExtraLight
+MesloLGS Nerd Font Propo
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP,JetBrainsMonoNL NFP Light
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF SemiBold
+JetBrainsMono Nerd Font Propo,JetBrainsMono NFP,JetBrainsMono NFP SemiBold
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM,JetBrainsMono NFM Medium
+MesloLGL Nerd Font
+MesloLGL Nerd Font Mono
+MesloLGM Nerd Font Propo
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF
+FiraCode Nerd Font,FiraCode Nerd Font SemBd
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM,JetBrainsMonoNL NFM Light
+FiraCode Nerd Font Propo,FiraCode Nerd Font Propo Ret
+JetBrainsMonoNL Nerd Font Propo,JetBrainsMonoNL NFP
+MesloLGMDZ Nerd Font Propo
+MesloLGL Nerd Font Propo
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM
+FiraCode Nerd Font Mono,FiraCode Nerd Font Mono Ret
+JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF ExtraLight
+MesloLGSDZ Nerd Font
+MesloLGLDZ Nerd Font
+MesloLGMDZ Nerd Font
+JetBrainsMonoNL Nerd Font Mono,JetBrainsMonoNL NFM
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM,JetBrainsMono NFM ExtraLight
+MesloLGLDZ Nerd Font Propo
+JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF Light
+JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF ExtraLight
+MesloLGM Nerd Font
+JetBrainsMono Nerd Font Mono,JetBrainsMono NFM,JetBrainsMono NFM ExtraBold
+FiraCode Nerd Font Propo,FiraCode Nerd Font Propo Light
+
+╭─    ~/Apps ····················································  8s  02:34:57 ─╮
+╰─❮                                                                                      ─╯
+
