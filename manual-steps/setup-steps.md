@@ -504,7 +504,7 @@ codex mcp list
 
 echo ""
 echo "━━━ Nerd Fonts: JetBrainsMono, FiraCode, Hack, Meslo ━━━"
-fc-list : family | grep -i 'JetBrainsMono\|FiraCode\|Hack\|Meslo'
+fc-list : family | grep -E -i 'JetBrainsMono|FiraCode|Hack|Meslo'
 ```
 
 > **Note**: `specify` uses `--help` (no `--version` support). MCP lists verify Context7 + Backlog servers. `fc-list` verifies Nerd Fonts installed.

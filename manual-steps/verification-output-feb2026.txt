@@ -133,7 +133,7 @@ claude.ai Mermaid Chart: https://mcp.mermaidchart.com/mcp - ✓ Connected
 claude.ai Hugging Face: https://huggingface.co/mcp?login&gradio=none - ✓ Connected
 context7: https://mcp.context7.com/mcp (HTTP) - ✓ Connected
 Name      Command  Args                                                                            Env  Cwd  Status   Auth       
-context7  npx      -y @upstash/context7-mcp --api-key ctx7sk-2d5c5afa-6ce8-4882-96cc-4a0d00a3aa18  -    -    enabled  Unsupported
+context7  npx      -y @upstash/context7-mcp --api-key ctx7sk-************************************  -    -    enabled  Unsupported
 FiraCode Nerd Font,FiraCode Nerd Font Ret
 JetBrainsMono Nerd Font,JetBrainsMono NF,JetBrainsMono NF Medium
 FiraCode Nerd Font Mono,FiraCode Nerd Font Mono SemBd
@@ -378,7 +378,7 @@ claude.ai Google Calendar: https://gcal.mcp.claude.com/mcp - ! Needs authenticat
 claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
 context7: https://mcp.context7.com/mcp (HTTP) - ✓ Connected
 Name      Command  Args                                                                            Env  Cwd  Status   Auth       
-context7  npx      -y @upstash/context7-mcp --api-key ctx7sk-2d5c5afa-6ce8-4882-96cc-4a0d00a3aa18  -    -    enabled  Unsupported
+context7  npx      -y @upstash/context7-mcp --api-key ctx7sk-************************************  -    -    enabled  Unsupported
 
 ━━━ Nerd Fonts: JetBrainsMono, FiraCode, Hack, Meslo ━━━
 FiraCode Nerd Font,FiraCode Nerd Font Ret
