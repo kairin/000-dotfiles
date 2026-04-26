@@ -1,0 +1,25 @@
+# Global Agent Instructions
+
+This file is loaded by Gemini CLI at the start of every session, across all projects.
+Project-specific instructions live in each repo's `GEMINI.md` (symlink to `AGENTS.md`).
+
+## Communication Style
+
+- Responses should be short and direct. No preamble, no trailing summaries.
+- No emojis unless explicitly requested.
+- When referencing code, include `file:line` so I can navigate directly.
+- Default to no comments in code. Only add one when the WHY is non-obvious.
+
+## General Rules
+
+- Never commit or push without explicit instruction.
+- Never modify `.envrc`, `.gitignore`, lock files, or CI workflows without explicit per-file approval.
+- Prefer editing existing files over creating new ones.
+- Do not add error handling, fallbacks, or abstractions beyond what the task requires.
+- When uncertain about scope, ask — don't infer approval from a broader instruction.
+
+## Environment
+
+- Shell: fish
+- Package manager preference: uv (Python), npm (Node)
+- Branch convention: `YYYYMMDD-HHMMSS` timestamped branches; never commit directly to main.

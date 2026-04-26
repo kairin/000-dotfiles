@@ -1,0 +1,19 @@
+{
+  "model": "sonnet",
+  "effortLevel": "high",
+  "theme": "dark",
+  "permissions": {
+    "defaultMode": "auto",
+    "allow": [],
+    "deny": [
+      "Edit(//path/to/sensitive/dir)",
+      "Edit(//path/to/sensitive/dir/**)",
+      "Read(//path/to/sensitive/dir)",
+      "Read(//path/to/sensitive/dir/**)",
+      "Write(//path/to/sensitive/dir)",
+      "Write(//path/to/sensitive/dir/**)"
+    ]
+  },
+  "skipAutoPermissionPrompt": false,
+  "enabledPlugins": {}
+}

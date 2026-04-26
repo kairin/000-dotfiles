@@ -1,0 +1,35 @@
+# Codex auto-approval rules — commands that never require a confirmation prompt.
+# Format: prefix_rule(pattern=["cmd", "arg1", ...], decision="allow")
+# A prefix match means any command starting with this sequence is auto-approved.
+#
+# Keep this minimal. Only add rules for commands you've already decided are always safe.
+# Project-specific rules will accumulate here as you work; commit them to your dotfiles
+# after reviewing that no sensitive patterns (tokens, paths, secrets) crept in.
+
+# Read-only git inspection
+prefix_rule(pattern=["git", "status"], decision="allow")
+prefix_rule(pattern=["git", "diff"], decision="allow")
+prefix_rule(pattern=["git", "log"], decision="allow")
+prefix_rule(pattern=["git", "rev-parse"], decision="allow")
+prefix_rule(pattern=["git", "branch"], decision="allow")
+prefix_rule(pattern=["git", "show"], decision="allow")
+
+# Safe git write operations (branch, add, commit, switch)
+prefix_rule(pattern=["git", "add"], decision="allow")
+prefix_rule(pattern=["git", "commit"], decision="allow")
+prefix_rule(pattern=["git", "switch"], decision="allow")
+prefix_rule(pattern=["git", "checkout", "-b"], decision="allow")
+
+# gh CLI (read-only and PR operations)
+prefix_rule(pattern=["gh"], decision="allow")
+
+# Common safe read-only commands
+prefix_rule(pattern=["ls"], decision="allow")
+prefix_rule(pattern=["find"], decision="allow")
+prefix_rule(pattern=["cat"], decision="allow")
+prefix_rule(pattern=["grep"], decision="allow")
+prefix_rule(pattern=["test", "-f"], decision="allow")
+prefix_rule(pattern=["ps", "-ef"], decision="allow")
+
+# Directory creation
+prefix_rule(pattern=["mkdir", "-p"], decision="allow")
