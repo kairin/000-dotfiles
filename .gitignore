@@ -1,0 +1,5 @@
+*secrets*
+*secret*
+*.key
+*.token
+.DS_Store
