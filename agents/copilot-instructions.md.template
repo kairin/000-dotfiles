@@ -1,0 +1,33 @@
+# {{PROJECT_NAME}} — GitHub Copilot Instructions
+
+This file is loaded by GitHub Copilot as project-level context.
+Place it at `.github/copilot-instructions.md` in the repo root.
+
+## Project Overview
+
+**{{PROJECT_NAME}}** is a {{PROJECT_DESCRIPTION}}.
+
+## Code Style
+
+- Language: {{LANGUAGE}}
+- Package manager: {{PACKAGE_MANAGER}}
+- No comments unless the WHY is non-obvious.
+- No speculative abstractions — implement only what the task requires.
+- No error handling for impossible cases; trust internal guarantees.
+
+## Protected Files — Do Not Modify
+
+- `.envrc`, `.gitignore`, lock files, `.github/workflows/*.yml`
+- Ask before touching any of these.
+
+## Development Workflow
+
+```bash
+{{INSTALL_CMD}}
+{{RUN_CMD}}
+{{TEST_CMD}}
+```
+
+## Branch Convention
+
+Format: `YYYYMMDD-HHMMSS`. Never commit directly to `main`.

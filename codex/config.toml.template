@@ -1,4 +1,18 @@
+model = "o4-mini"
+model_reasoning_effort = "high"
+plan_mode_reasoning_effort = "high"
+approvals_reviewer = "user"
+
+# MCP servers — keep API keys out of URLs; use env var substitution if supported
+# Secrets in URLs will be committed to dotfiles and leaked.
 [mcp_servers.context7]
 type = "http"
 url = "https://mcp.context7.com/mcp"
 startup_timeout_sec = 45
+
+# Per-project trust — add as needed, one entry per project path
+# [projects."/home/user/Apps/my-project"]
+# trust_level = "trusted"
+
+[notice]
+hide_full_access_warning = true
