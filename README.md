@@ -30,40 +30,59 @@ ln -sf AGENTS.md GEMINI.md
 ## Bootstrap a new machine
 
 ```bash
-# Claude Code
-cp claude/settings.json.template ~/.claude/settings.json
-cp claude/keybindings.json.template ~/.claude/keybindings.json
-cp claude/CLAUDE.md.template ~/.claude/CLAUDE.md
+uv run python -m dotfiles_tools doctor --repo . --home "$HOME"
+uv run python -m dotfiles_tools plan --repo . --home "$HOME" --profile machine
+uv run python -m dotfiles_tools apply --repo . --home "$HOME" --profile machine --backup-dir "$HOME/.dotfiles-backups" --yes
+```
 
-# Codex
-cp codex/config.toml.template ~/.codex/config.toml
-cp codex/rules/default.rules.template ~/.codex/rules/default.rules
+`dotfiles-manifest.json` is the source of truth for machine targets. `doctor`
+audits without writing, `plan` prints exact operations, and `apply` writes only
+after `--yes`. Existing differing files are backed up before replacement.
 
-# Gemini CLI
-cp gemini/settings.json.template ~/.gemini/settings.json
-cp gemini/GEMINI.md.template ~/.gemini/GEMINI.md
+Protected entries are reported but skipped by default:
 
-# gh CLI
-cp gh/config.yml.template ~/.config/gh/config.yml
+- `git.config` -> `~/.config/git/config`
+- `fish.plugins` -> `~/.config/fish/fish_plugins`
+- `repo.gitignore` -> repository `.gitignore`
+- `agents.claude-template` and `agents.gemini-template` -> symlink templates
 
-# Fish
-cp fish/fish_plugins ~/.config/fish/fish_plugins
-cp fish/functions/direnv.fish ~/.config/fish/functions/direnv.fish
-cp fish/env.fish.template ~/.config/fish/env.fish
+To include a protected machine target, name the exact manifest ID:
 
-# Git
-cp git/config ~/.config/git/config
+```bash
+uv run python -m dotfiles_tools apply --repo . --home "$HOME" --profile machine --backup-dir "$HOME/.dotfiles-backups" --include-protected git.config --yes
 ```
 
 ## Bootstrap a new project repo
 
 ```bash
-cp path/to/dotfiles/agents/AGENTS.md.template ./AGENTS.md
-# fill in {{PLACEHOLDERS}} in AGENTS.md
-ln -sf AGENTS.md CLAUDE.md
-ln -sf AGENTS.md GEMINI.md
+cat > project-vars.json <<'JSON'
+{
+  "PROJECT_NAME": "Example Project",
+  "PROJECT_DESCRIPTION": "a concise project description",
+  "LANGUAGE": "Python",
+  "PACKAGE_MANAGER": "uv",
+  "RUNTIME_DESCRIPTION": "local CLI",
+  "INSTALL_CMD": "uv run python -m unittest discover -s tests",
+  "RUN_CMD": "uv run python -m dotfiles_tools doctor --repo . --home \"$HOME\"",
+  "TEST_CMD": "uv run python -m unittest discover -s tests"
+}
+JSON
 
-# optional: GitHub Copilot
-mkdir -p .github
-cp path/to/dotfiles/agents/copilot-instructions.md.template .github/copilot-instructions.md
+uv run python -m dotfiles_tools init-project --repo path/to/dotfiles --project . --vars project-vars.json --yes
+uv run python -m dotfiles_tools init-project --repo path/to/dotfiles --project . --vars project-vars.json --copilot --yes
 ```
+
+`init-project` renders `agents/AGENTS.md.template`, creates `CLAUDE.md` and
+`GEMINI.md` symlinks to `AGENTS.md`, and fails if required placeholders remain.
+
+## Validation and coverage
+
+```bash
+uv run python -m unittest discover -s tests
+uv run --with coverage coverage run -m unittest discover -s tests
+uv run --with coverage coverage xml
+test -f coverage.xml
+```
+
+CI runs the same validation suite and generates `coverage.xml`. Codacy upload is
+attempted only when `CODACY_API_TOKEN` is configured.

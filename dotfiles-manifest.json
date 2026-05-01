@@ -1,0 +1,186 @@
+{
+  "version": "1",
+  "profiles": {
+    "machine": {
+      "description": "Default developer machine bootstrap profile",
+      "entries": [
+        "claude.settings",
+        "claude.keybindings",
+        "claude.global-instructions",
+        "codex.config",
+        "codex.default-rules",
+        "gemini.settings",
+        "gemini.global-instructions",
+        "gh.config",
+        "fish.env",
+        "fish.direnv",
+        "fish.plugins",
+        "git.config"
+      ]
+    },
+    "repo": {
+      "description": "Repository-local protected files and symlink template checks",
+      "entries": [
+        "repo.gitignore",
+        "agents.claude-template",
+        "agents.gemini-template"
+      ]
+    }
+  },
+  "entries": [
+    {
+      "id": "claude.settings",
+      "source": "claude/settings.json.template",
+      "target": ".claude/settings.json",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "parse": "json",
+      "placeholders": "none"
+    },
+    {
+      "id": "claude.keybindings",
+      "source": "claude/keybindings.json.template",
+      "target": ".claude/keybindings.json",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "parse": "json",
+      "placeholders": "none"
+    },
+    {
+      "id": "claude.global-instructions",
+      "source": "claude/CLAUDE.md.template",
+      "target": ".claude/CLAUDE.md",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "placeholders": "none"
+    },
+    {
+      "id": "codex.config",
+      "source": "codex/config.toml.template",
+      "target": ".codex/config.toml",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "parse": "toml",
+      "placeholders": "allowed_examples"
+    },
+    {
+      "id": "codex.default-rules",
+      "source": "codex/rules/default.rules.template",
+      "target": ".codex/rules/default.rules",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "placeholders": "none"
+    },
+    {
+      "id": "gemini.settings",
+      "source": "gemini/settings.json.template",
+      "target": ".gemini/settings.json",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "parse": "json",
+      "placeholders": "none"
+    },
+    {
+      "id": "gemini.global-instructions",
+      "source": "gemini/GEMINI.md.template",
+      "target": ".gemini/GEMINI.md",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "placeholders": "none"
+    },
+    {
+      "id": "gh.config",
+      "source": "gh/config.yml.template",
+      "target": ".config/gh/config.yml",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "placeholders": "none"
+    },
+    {
+      "id": "fish.env",
+      "source": "fish/env.fish.template",
+      "target": ".config/fish/env.fish",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "placeholders": "allowed_examples"
+    },
+    {
+      "id": "fish.direnv",
+      "source": "fish/functions/direnv.fish",
+      "target": ".config/fish/functions/direnv.fish",
+      "kind": "file",
+      "profiles": ["machine"],
+      "protected": false,
+      "placeholders": "none"
+    },
+    {
+      "id": "fish.plugins",
+      "source": "fish/fish_plugins",
+      "target": ".config/fish/fish_plugins",
+      "kind": "file",
+      "profiles": ["machine"],
+      "protected": true,
+      "manual_reason": "Fish plugin lists are manually curated and require a fisher update run after changes.",
+      "placeholders": "none"
+    },
+    {
+      "id": "git.config",
+      "source": "git/config",
+      "target": ".config/git/config",
+      "kind": "file",
+      "profiles": ["machine"],
+      "protected": true,
+      "manual_reason": "Git config contains committer identity and credential helper behavior.",
+      "placeholders": "none"
+    },
+    {
+      "id": "repo.gitignore",
+      "source": ".gitignore",
+      "target": ".gitignore",
+      "kind": "file",
+      "profiles": ["repo"],
+      "protected": true,
+      "manual_reason": "Changing ignore rules can accidentally expose secrets or generated artifacts.",
+      "placeholders": "none",
+      "scope": "repo"
+    },
+    {
+      "id": "agents.claude-template",
+      "source": "agents/CLAUDE.md.template",
+      "target": "agents/CLAUDE.md.template",
+      "kind": "symlink",
+      "profiles": ["repo"],
+      "protected": true,
+      "manual_reason": "This symlink preserves agents/AGENTS.md.template as the project agent-doc source of truth.",
+      "placeholders": "none",
+      "link_target": "AGENTS.md.template",
+      "scope": "repo"
+    },
+    {
+      "id": "agents.gemini-template",
+      "source": "agents/GEMINI.md.template",
+      "target": "agents/GEMINI.md.template",
+      "kind": "symlink",
+      "profiles": ["repo"],
+      "protected": true,
+      "manual_reason": "This symlink preserves agents/AGENTS.md.template as the project agent-doc source of truth.",
+      "placeholders": "none",
+      "link_target": "AGENTS.md.template",
+      "scope": "repo"
+    }
+  ],
+  "project_init": {
+    "agent_template": "agents/AGENTS.md.template",
+    "symlinks": ["CLAUDE.md", "GEMINI.md"],
+    "copilot_template": "agents/copilot-instructions.md.template"
+  }
+}
