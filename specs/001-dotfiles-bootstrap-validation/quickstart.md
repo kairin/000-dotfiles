@@ -1,8 +1,10 @@
 # Quickstart: Dotfiles Bootstrap Validation
 
-This quickstart is written for the planned implementation. It must run without
-touching the user's real home directory unless the maintainer explicitly points
-commands at it.
+This quickstart covers the canonical `doctor`/`plan`/`apply`/`init-project`
+commands. It must run without touching the user's real home directory unless
+the maintainer explicitly points commands at it. For the wrapped flows that
+also handle font recipes and the interactive setup menu, see the `./setup`
+section in `README.md`.
 
 ## 1. Run Unit Tests
 
@@ -88,3 +90,30 @@ The GitHub Actions workflow `.github/workflows/dotfiles-validation.yml` should:
 2. Generate `coverage.xml`.
 3. Upload coverage to Codacy only when `CODACY_COVERAGE_API_TOKEN` is configured.
 4. Skip coverage upload without failing validation when the token is absent.
+
+## 9. Bootstrap Wrapper Commands
+
+The `bootstrap-plan` and `bootstrap-apply` commands extend `plan`/`apply` with
+font recipes (Nerd Fonts, apt fallbacks) on the `machine` profile.
+
+```bash
+TEMP_HOME="$(mktemp -d)"
+uv run python -m dotfiles_tools bootstrap-plan --repo . --home "$TEMP_HOME" --json
+uv run python -m dotfiles_tools bootstrap-apply --repo . --home "$TEMP_HOME" --yes
+```
+
+Expected result: identical manifest entries to `plan`/`apply` plus a `fonts`
+section in the report `extra` containing the per-family install state.
+
+## 10. Setup Entrypoint
+
+The repo-root `./setup` script wraps the CLI so a fresh machine or an empty
+project folder can bootstrap without remembering the long form. It also
+ensures `uv` is installed.
+
+```bash
+./setup                       # interactive machine setup menu
+./setup verify                # read-only project agent-doc check
+./setup init --yes            # bootstrap project AGENTS.md + symlinks
+./setup doctor                # wraps `dotfiles_tools doctor` with defaults
+```

@@ -58,21 +58,38 @@ specs/001-dotfiles-bootstrap-validation/
 
 ### Source Code (repository root)
 
+The first increment delivered the canonical `doctor`/`plan`/`apply`/`init-project`
+commands. Subsequent increments added the `./setup` entrypoint, machine summary
+dashboard, baseline tool checks, and platform-aware font recipes. The current
+module inventory below is the as-built state.
+
 ```text
 dotfiles-manifest.json
+setup                   # bash entrypoint that wraps dotfiles_tools with sensible defaults
 dotfiles_tools/
 ├── __init__.py
 ├── __main__.py
-├── backups.py
-├── cli.py
-├── doctor.py
-├── installer.py
-├── manifest.py
-├── placeholders.py
-├── project_init.py
-├── reports.py
-├── secrets.py
-└── templates.py
+├── cli.py              # argparse dispatch
+├── manifest.py         # manifest dataclasses, validation, path resolution
+├── doctor.py           # repo + symlink + target-state evaluation
+├── installer.py        # plan/apply for manifest entries (mkdir/copy/symlink/backup)
+├── bootstrap.py        # orchestrates manifest installer + font recipes
+├── backups.py          # timestamped backup paths and copy semantics
+├── reports.py          # human + stable JSON renderer; summary computation
+├── templates.py        # template rendering and parseability checks
+├── placeholders.py     # placeholder discovery and substitution
+├── secrets.py          # secret-like content scanner with allowlist behavior
+├── project_init.py     # AGENTS.md render + CLAUDE.md/GEMINI.md symlinks
+├── baseline.py         # PATH-based tool checks and auth guidance
+├── machine_summary.py  # concise change summary used by the ./setup menu
+├── fonts.py            # font plan + execute (Nerd Fonts and apt fallbacks)
+├── font_catalog.py     # Nerd Font + apt catalog constants
+├── font_context.py     # platform detection (linux/wsl/pi/pixel-terminal/pixel-avf)
+├── font_assets.py      # ttyd HTML/service generation for Pixel Terminal
+├── font_pixel.py       # Pixel Terminal ttyd plan composition
+├── font_records.py     # font summary records and version persistence
+├── font_runner.py      # subprocess + http abstraction for tests
+└── font_windows.py     # WSL host plan + Windows Terminal settings update
 
 tests/
 ├── helpers.py
@@ -84,6 +101,8 @@ tests/
 ├── test_doctor.py
 ├── test_doctor_reports.py
 ├── test_doctor_symlinks.py
+├── test_fonts.py
+├── test_machine_summary.py
 ├── test_manifest.py
 ├── test_plan_operations.py
 ├── test_project_init_backups.py
@@ -94,6 +113,7 @@ tests/
 ├── test_protected_manifest.py
 ├── test_protected_plan.py
 ├── test_secrets.py
+├── test_setup_script.py
 ├── test_templates.py
 └── test_workflow.py
 

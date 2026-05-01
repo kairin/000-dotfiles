@@ -2,9 +2,11 @@
 
 Single source of truth for LLM agents. `CLAUDE.md` and `GEMINI.md` symlink to this file.
 
+For human-facing setup instructions (quick start, scenarios, command reference), see `README.md`. This file focuses on conventions agents must respect.
+
 ## What this repo is
 
-A collection of config templates for AI coding tools (Claude Code, Codex, Gemini CLI, gh CLI) and shell environment (fish, git). Every file with a `.template` suffix is meant to be copied to its target path and customized — it is never executed or sourced directly from here.
+A collection of config templates for AI coding tools (Claude Code, Codex, Gemini CLI, gh CLI) and shell environment (fish, git), plus a small Python CLI (`dotfiles_tools`) and a bash entrypoint (`./setup`) that audit and apply those templates. Every file with a `.template` suffix is meant to be copied to its target path and customized — it is never executed or sourced directly from here.
 
 ## Protected Files — NEVER Modify Without Explicit Per-File Directive
 
@@ -23,13 +25,19 @@ A collection of config templates for AI coding tools (Claude Code, Codex, Gemini
 ## Repo Structure
 
 ```
-agents/     Project-level agent instruction templates (AGENTS.md, CLAUDE.md, GEMINI.md, copilot-instructions.md)
-claude/     ~/.claude/ templates (settings.json, keybindings.json, CLAUDE.md)
-codex/      ~/.codex/ templates (config.toml, rules/default.rules)
-gemini/     ~/.gemini/ templates (settings.json, GEMINI.md)
-gh/         ~/.config/gh/ templates (config.yml)
-fish/       ~/.config/fish/ templates and live files (fish_plugins, direnv.fish, env.fish)
-git/        ~/.config/git/ live files (config)
+agents/             Project-level agent doc templates (AGENTS.md, CLAUDE.md, GEMINI.md, copilot-instructions.md)
+claude/             ~/.claude/ templates (settings.json, keybindings.json, CLAUDE.md)
+codex/              ~/.codex/ templates (config.toml, rules/default.rules)
+gemini/             ~/.gemini/ templates (settings.json, GEMINI.md)
+gh/                 ~/.config/gh/ templates (config.yml)
+fish/               ~/.config/fish/ templates and live files (fish_plugins, direnv.fish, env.fish)
+git/                ~/.config/git/ live files (config)
+dotfiles_tools/     Python validation/setup CLI (stdlib only)
+tests/              unittest suite (uv-managed)
+specs/              Spec Kit feature specs (current: 001-dotfiles-bootstrap-validation)
+docs/               Operational docs (e.g. Codacy coverage rollout)
+setup               Bash entrypoint that wraps dotfiles_tools with sensible defaults
+dotfiles-manifest.json  Source of truth for what installs where
 ```
 
 ## Template Convention
