@@ -1,0 +1,7 @@
+# Lizard warnings reviewed for the setup/bootstrap dashboard PR.
+dotfiles_tools/baseline.py:render_setup_guidance
+dotfiles_tools/bootstrap.py:apply_bootstrap
+dotfiles_tools/fonts.py:build_font_plan, execute_font_operation, _detect_context, _nerd_font_summary, _windows_host_plan, _execute_verify_linux, _regular_mono_font
+dotfiles_tools/machine_summary.py:render_reports, _group_entries, _extend_font_summary, _extend_tool_summary, _action_summary, _option_one_label
+dotfiles_tools/reports.py:_extend_extra
+tests/test_fonts.py:test_standard_linux_plan_represents_all_catalog_items_when_missing, test_pi_plans_full_nerd_inventory_symbol_fallbacks_and_meslo_mono_verify, test_pixel_terminal_embeds_jetbrains_mono_subset_and_only_noto_emoji_package
