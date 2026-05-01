@@ -14,6 +14,10 @@ Config templates for AI coding tools and shell environment.
 | `fish/` | `~/.config/fish/` | `fish_plugins`, `functions/direnv.fish`, `env.fish` |
 | `git/` | `~/.config/git/` | `config` |
 
+The filenames listed above are installed target filenames. Source files in this
+repo may carry a `.template` suffix before they are copied or rendered to those
+targets.
+
 ## Conventions
 
 **`.template` suffix** — copy to the target path and fill in any `{{PLACEHOLDERS}}`.

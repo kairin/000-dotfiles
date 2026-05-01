@@ -16,6 +16,14 @@ a stable JSON validation report with the common report shape below.
 | `--repo PATH` | Yes | Repository root containing `dotfiles-manifest.json` |
 | `--json` | No | Emit stable JSON report instead of human-readable text |
 
+## Profiles
+
+- `machine`: default home bootstrap profile for installing and validating
+  dotfiles under the selected `--home` directory.
+- `repo`: repository-local protected checks for `.gitignore` and agent template
+  symlinks. This profile is for repository validation and maintenance, not
+  normal machine installation.
+
 ## Common JSON Report
 
 ```json
