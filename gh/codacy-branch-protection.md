@@ -16,6 +16,17 @@ For each repository, the default branch should be protected by both:
 Both protection layers should require every Codacy gate that is active and
 meaningful for the repository.
 
+Codacy's branch protection label is about the relationship between Codacy gates
+and GitHub protection rules. A branch can be protected in GitHub while Codacy
+still reports "partially protected" if GitHub does not require every Codacy
+check that the repository emits or that Codacy expects for the enabled gate
+profile.
+
+Coverage percentage and file coverage goals are reporting signals by themselves.
+They do not block commits or pull requests until Codacy coverage gates are
+configured and the matching GitHub protection rules require the coverage check
+contexts.
+
 For docs/config/template repositories without a real test and coverage pipeline,
 the correct gate set is usually:
 
@@ -41,6 +52,30 @@ statuses. That blocks normal PR merges and encourages admin bypasses or fake
 coverage. For docs/config/template repositories, disable Codacy coverage gates in
 Codacy settings and require only the static analysis gate in GitHub protection.
 
+## What Full Protection Requires
+
+Use this as the short checklist before marking a repository done:
+
+1. The repository is enabled in Codacy and the Codacy GitHub App emits
+   `Codacy Static Code Analysis`.
+2. If coverage is in scope, CI generates a real coverage report and uploads it
+   to Codacy for pull requests.
+3. If coverage is in scope, recent pull requests emit both
+   `Codacy Coverage Variation` and `Codacy Diff Coverage`.
+4. Codacy gates are configured for the repository's chosen profile:
+   - quality gates for static analysis;
+   - coverage gates only when the repo has real coverage upload.
+5. Classic GitHub branch protection requires every active Codacy check context.
+6. An active GitHub repository ruleset targeting the default branch requires the
+   same Codacy check contexts.
+7. Both GitHub protection layers use strict status checks, require pull
+   requests, block force pushes, and block branch deletion.
+
+In `000-dotfiles`, Codacy initially reported `main` as partially protected
+because the repo already emitted coverage checks on PRs, but GitHub required
+only `Codacy Static Code Analysis`. The fix was to require all three Codacy
+contexts in both classic branch protection and the default-branch ruleset.
+
 ## Inputs
 
 Set these per repository:
@@ -61,6 +96,46 @@ gh api "repos/$OWNER/$REPO/commits/$BRANCH/check-runs" \
   --jq '.check_runs[] | select(.name | startswith("Codacy")) | {name, app_id: .app.id, app_slug: .app.slug}'
 ```
 
+## Codacy Token Requirements
+
+Static analysis does not need a repository secret. It is emitted by the Codacy
+GitHub App after the repository is enabled in Codacy.
+
+Coverage upload does need a Codacy token available to GitHub Actions. Use one of
+these patterns:
+
+- Account API token: store it as `CODACY_COVERAGE_API_TOKEN` and pass it to the
+  coverage reporter as `api-token`.
+- Project token: store it as a repository secret and pass it to the coverage
+  reporter as `project-token`.
+
+Do not store either token in git. GitHub will show that a secret exists but will
+not reveal its value:
+
+```bash
+gh secret list --repo "$OWNER/$REPO"
+```
+
+For the account-token pattern used by this repo, the workflow shape is:
+
+```yaml
+env:
+  CODACY_COVERAGE_API_TOKEN: ${{ secrets.CODACY_COVERAGE_API_TOKEN }}
+
+- name: Upload coverage to Codacy
+  if: ${{ env.CODACY_COVERAGE_API_TOKEN != '' }}
+  uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699
+  with:
+    api-token: ${{ secrets.CODACY_COVERAGE_API_TOKEN }}
+    coverage-reports: coverage.xml
+```
+
+The conditional upload is useful during rollout. Before requiring coverage
+checks in branch protection, confirm the secret exists and that a pull request
+has emitted the Codacy coverage checks. If the secret is absent after coverage
+checks become required, pull requests can block because the coverage statuses
+will not be produced.
+
 ## Verify Current State
 
 ```bash
@@ -77,6 +152,8 @@ gh api "repos/$OWNER/$REPO/rulesets" \
 
 gh api "repos/$OWNER/$REPO/rules/branches/$BRANCH" \
   --jq '[.[] | {type, parameters}]'
+
+gh secret list --repo "$OWNER/$REPO"
 ```
 
 Expected protected state:
@@ -91,6 +168,30 @@ Expected protected state:
   `pull_request`, and `required_status_checks`.
 - Effective rules require every active Codacy context for the chosen profile
   with strict status checks.
+- Coverage-enabled repositories have the correct Codacy token secret configured
+  before coverage checks are required.
+
+For a recent pull request, verify the exact Codacy check names before adding
+them to protection:
+
+```bash
+PR_NUMBER="{{PR_NUMBER}}"
+
+gh pr view "$PR_NUMBER" --repo "$OWNER/$REPO" \
+  --json statusCheckRollup \
+  --jq '.statusCheckRollup[] | select(.name | startswith("Codacy")) | {name, conclusion, detailsUrl}'
+```
+
+For a push workflow, verify coverage upload passed:
+
+```bash
+gh run list --repo "$OWNER/$REPO" --branch "$BRANCH" --limit 5 \
+  --json databaseId,headSha,status,conclusion,url
+
+RUN_ID="{{RUN_ID}}"
+
+gh run view "$RUN_ID" --repo "$OWNER/$REPO" --json conclusion,jobs
+```
 
 ## Choose The Protection Profile
 
@@ -106,10 +207,18 @@ Use the coverage-enabled profile only when all of these are true:
 - CI uploads that report to Codacy for pull requests.
 - Codacy emits `Codacy Coverage Variation` and `Codacy Diff Coverage` check
   runs on pull requests.
+- The correct Codacy API or project token is available as a GitHub Actions
+  secret for the target repository.
 
 If a repository starts as static-only and later gains real test coverage, enable
 the Codacy coverage gates first, verify the two coverage checks appear on a PR,
 then add those contexts to GitHub branch protection and the ruleset.
+
+If Codacy shows coverage numbers but says no coverage gates are set up, coverage
+is being reported but not used as a threshold. Set `Coverage variation is under`
+and/or `Diff coverage is under` in Codacy before expecting low coverage to fail
+pull requests. Still require the two coverage contexts in GitHub when the repo
+is coverage-enabled so Codacy can report the coverage gates as protected.
 
 ## Enable Classic Branch Protection
 

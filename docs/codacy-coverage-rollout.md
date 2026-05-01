@@ -28,6 +28,14 @@ Use this document as the checklist for applying the same pattern to other repos.
    - Commit: `29f7529`
    - Language: Python
    - Status: `Processed`
+9. Verified pull requests emitted the required Codacy coverage checks.
+   - `Codacy Static Code Analysis`
+   - `Codacy Coverage Variation`
+   - `Codacy Diff Coverage`
+10. Updated GitHub protection after coverage checks were proven.
+   - Classic `main` branch protection requires all three Codacy contexts.
+   - The active default-branch ruleset requires the same three Codacy contexts.
+   - Both protection layers use strict status checks.
 
 ## Reuse Steps For Another Repo
 
@@ -54,6 +62,9 @@ Use this document as the checklist for applying the same pattern to other repos.
      gh secret set CODACY_COVERAGE_API_TOKEN --repo OWNER/REPO
      ```
    - Paste the Codacy account API token when prompted.
+   - If the target repo uses a Codacy project token instead, keep it in a
+     GitHub secret and use the action's `project-token` input instead of
+     `api-token`.
    - Do not commit the token to any file.
 5. Use the account-token input in the workflow.
    - Required workflow shape:
@@ -83,6 +94,21 @@ Use this document as the checklist for applying the same pattern to other repos.
 8. Check Codacy's coverage page.
    - Confirm the report is received for the expected commit and branch.
    - Expected status after processing: `Processed`.
+9. Open or update a pull request and confirm Codacy emits the coverage checks.
+   - Required check names for the coverage-enabled profile:
+     - `Codacy Static Code Analysis`
+     - `Codacy Coverage Variation`
+     - `Codacy Diff Coverage`
+10. Configure Codacy gates for the target repo.
+    - Static analysis gates should match the repo's quality policy.
+    - Coverage gates only block when thresholds are set in Codacy.
+    - Coverage percentage and file coverage goals are reporting signals until
+      coverage gates are configured.
+11. Apply GitHub protection after the checks are visible.
+    - Use `gh/codacy-branch-protection.md`.
+    - Require all active Codacy contexts in classic branch protection.
+    - Require the same contexts in the active default-branch ruleset.
+    - Keep both protection layers on strict status checks.
 
 ## Pending / Optional Follow-Up
 
@@ -91,9 +117,11 @@ Use this document as the checklist for applying the same pattern to other repos.
 2. Decide whether to use one shared account token or repo-specific Codacy project tokens.
    - This repo uses an account token stored as `CODACY_COVERAGE_API_TOKEN`.
    - If a repo uses a Codacy project token instead, the action input should be `project-token`, not `api-token`.
-3. Do not enable strict coverage gates immediately.
+3. Enable strict coverage gates only after coverage upload is stable.
    - First confirm a few PRs upload coverage consistently.
    - Then set a reasonable threshold in Codacy.
+   - After thresholds are set, require `Codacy Coverage Variation` and
+     `Codacy Diff Coverage` in GitHub branch protection and the ruleset.
 4. Decide whether coverage should run on every `push`, every `pull_request`, or only protected branches.
    - This repo currently runs on both `push` and `pull_request`.
 5. Keep static analysis and coverage separate.
