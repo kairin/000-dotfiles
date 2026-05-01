@@ -105,6 +105,22 @@ class SetupScriptTests(DotfilesTestCase):
         self.assertIn("project-vars.json", result.stderr)
         self.assertIn("PROJECT_NAME", result.stderr)
 
+    def test_init_success_with_vars(self) -> None:
+        project = self.make_project()
+        self.vars_file(project)
+        result = run_setup("init", "--project", str(project), "--yes")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Verification passed.", result.stdout)
+        self.assertTrue((project / "AGENTS.md").is_file())
+        self.assertTrue((project / "CLAUDE.md").is_symlink())
+        self.assertTrue((project / "GEMINI.md").is_symlink())
+
+    def test_doctor_runs_against_home(self) -> None:
+        home = self.make_home()
+        result = run_setup("doctor", "--home", str(home))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("doctor:", result.stdout.lower())
+
 
 if __name__ == "__main__":
     import unittest

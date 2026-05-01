@@ -154,14 +154,16 @@ cmd_verify() {
   fi
 
   local copilot_file="$project/.github/copilot-instructions.md"
-  if [[ -f "$copilot_file" ]]; then
-    if ! check_placeholders "$copilot_file"; then
-      echo "  FAIL  unresolved placeholders in .github/copilot-instructions.md"; fail=1
+  if [[ "$copilot" -eq 1 ]]; then
+    if [[ -f "$copilot_file" ]]; then
+      if ! check_placeholders "$copilot_file"; then
+        echo "  FAIL  unresolved placeholders in .github/copilot-instructions.md"; fail=1
+      else
+        echo "  OK    .github/copilot-instructions.md clean"
+      fi
     else
-      echo "  OK    .github/copilot-instructions.md clean"
+      echo "  FAIL  --copilot specified but $copilot_file missing"; fail=1
     fi
-  elif [[ "$copilot" -eq 1 ]]; then
-    echo "  FAIL  --copilot specified but $copilot_file missing"; fail=1
   fi
 
   if [[ "$fail" -ne 0 ]]; then
@@ -200,7 +202,7 @@ cmd_init() {
   [[ "$copilot" -eq 1 ]] && cli_args+=(--copilot)
   [[ "$yes" -eq 1 ]] && cli_args+=(--yes)
 
-  uv run --project "$DOTFILES_REPO" python -m dotfiles_tools init-project "${cli_args[@]}"
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools init-project "${cli_args[@]}")
 
   echo
   local verify_args=(--project "$project")
@@ -219,10 +221,10 @@ cmd_doctor() {
     esac
   done
   preflight_common
-  uv run --project "$DOTFILES_REPO" python -m dotfiles_tools doctor \
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools doctor \
     --repo "$DOTFILES_REPO" \
     --home "${home_arg:-$HOME}" \
-    --profile "${profile:-machine}"
+    --profile "${profile:-machine}")
 }
 
 main() {
