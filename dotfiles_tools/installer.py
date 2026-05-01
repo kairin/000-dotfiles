@@ -43,78 +43,110 @@ def apply_plan(
     home_path = Path(home).resolve()
     backup_path = Path(backup_dir).expanduser().resolve()
     if not yes:
-        return Report(
-            "apply",
-            "failed",
-            str(repo_path),
-            home=str(home_path),
-            profile=profile,
-            errors=[{"message": "apply requires --yes before writing"}],
-        )
+        return _approval_error(repo_path, home_path, profile)
     report = build_plan(repo_path, home_path, profile=profile, include_protected=include_protected)
     report.command = "apply"
+    if _attach_blocking_errors(report):
+        return report
+
+    return _execute_apply_operations(report, repo_path, backup_path)
+
+
+def _approval_error(repo: Path, home: Path, profile: str) -> Report:
+    return Report(
+        "apply",
+        "failed",
+        str(repo),
+        home=str(home),
+        profile=profile,
+        errors=[{"message": "apply requires --yes before writing"}],
+    )
+
+
+def _attach_blocking_errors(report: Report) -> bool:
+    if report.errors:
+        report.status = "failed"
+        return True
     blocking_entries = [entry for entry in report.entries if entry.get("state") in {"invalid", "blocked"}]
+    for entry in blocking_entries:
+        report.errors.append({"entry_id": entry["entry_id"], "message": entry.get("reason", "entry blocks apply")})
     if blocking_entries:
         report.status = "failed"
-        report.errors.extend({
-            "entry_id": entry["entry_id"],
-            "message": entry.get("reason", "entry blocks apply"),
-        } for entry in blocking_entries)
-        return report
+        return True
+    return False
+
+
+def _execute_apply_operations(report: Report, repo_path: Path, backup_path: Path) -> Report:
     backups: list[dict[str, Any]] = []
     completed_writes = 0
     executed: list[dict[str, Any]] = []
     for op in report.operations:
         try:
-            if op["type"] == "mkdir":
-                Path(op["target"]).mkdir(parents=True, exist_ok=True)
-                completed_writes += 1
-            elif op["type"] == "backup":
-                record = create_backup(Path(op["target"]), backup_path, entry_id=op["entry_id"])
-                op["backup_target"] = record["backup_target"]
-                backups.append(record)
-                completed_writes += 1
-            elif op["type"] == "copy":
-                target = Path(op["target"])
-                target.parent.mkdir(parents=True, exist_ok=True)
-                source = Path(op["source"])
-                target.write_text(expected_text(source, _entry_for(report.entries, op["entry_id"], repo_path)))
-                completed_writes += 1
-            elif op["type"] == "symlink":
-                target = Path(op["target"])
-                target.parent.mkdir(parents=True, exist_ok=True)
-                if target.exists() or target.is_symlink():
-                    if target.is_dir() and not target.is_symlink():
-                        raise OSError(f"cannot replace directory with symlink: {target}")
-                    target.unlink()
-                target.symlink_to(op["link_target"])
-                completed_writes += 1
-            elif op["type"] in {"skip", "refuse"}:
-                pass
+            completed_writes += _execute_operation(op, repo_path, backup_path, backups)
             executed.append(op)
         except (OSError, BackupError) as exc:
-            error = {"operation_id": op.get("operation_id", ""), "entry_id": op.get("entry_id", ""), "message": str(exc)}
-            report.errors.append(error)
-            report.operations = executed + [op]
-            report.backups = backups
-            if completed_writes:
-                report.status = "partial"
-                report.operations.append({
-                    "operation_id": f"op-{len(report.operations) + 1:03d}",
-                    "entry_id": op.get("entry_id", ""),
-                    "type": "partial_apply",
-                    "target": op.get("target"),
-                    "reason": "stopped on first failed write",
-                    "requires_approval": False,
-                })
-            else:
-                report.status = "failed"
-            return report
+            return _failed_apply_report(report, executed, op, backups, completed_writes, exc)
     report.backups = backups
-    if report.errors:
-        report.status = "failed"
-    else:
-        report.status = "warning" if any(op["type"] == "refuse" for op in report.operations) else "ok"
+    report.status = "warning" if any(op["type"] == "refuse" for op in report.operations) else "ok"
+    return report
+
+
+def _execute_operation(op: dict[str, Any], repo_path: Path, backup_path: Path, backups: list[dict[str, Any]]) -> int:
+    if op["type"] == "mkdir":
+        Path(op["target"]).mkdir(parents=True, exist_ok=True)
+        return 1
+    if op["type"] == "backup":
+        record = create_backup(Path(op["target"]), backup_path, entry_id=op["entry_id"])
+        op["backup_target"] = record["backup_target"]
+        backups.append(record)
+        return 1
+    if op["type"] == "copy":
+        _copy_operation(op, repo_path)
+        return 1
+    if op["type"] == "symlink":
+        _symlink_operation(op)
+        return 1
+    return 0
+
+
+def _copy_operation(op: dict[str, Any], repo_path: Path) -> None:
+    target = Path(op["target"])
+    target.parent.mkdir(parents=True, exist_ok=True)
+    source = Path(op["source"])
+    target.write_text(expected_text(source, _entry_for(op["entry_id"], repo_path)))
+
+
+def _symlink_operation(op: dict[str, Any]) -> None:
+    target = Path(op["target"])
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists() or target.is_symlink():
+        if target.is_dir() and not target.is_symlink():
+            raise OSError(f"cannot replace directory with symlink: {target}")
+        target.unlink()
+    target.symlink_to(op["link_target"])
+
+
+def _failed_apply_report(
+    report: Report,
+    executed: list[dict[str, Any]],
+    op: dict[str, Any],
+    backups: list[dict[str, Any]],
+    completed_writes: int,
+    exc: Exception,
+) -> Report:
+    report.errors.append({"operation_id": op.get("operation_id", ""), "entry_id": op.get("entry_id", ""), "message": str(exc)})
+    report.operations = executed + [op]
+    report.backups = backups
+    report.status = "partial" if completed_writes else "failed"
+    if completed_writes:
+        report.operations.append({
+            "operation_id": f"op-{len(report.operations) + 1:03d}",
+            "entry_id": op.get("entry_id", ""),
+            "type": "partial_apply",
+            "target": op.get("target"),
+            "reason": "stopped on first failed write",
+            "requires_approval": False,
+        })
     return report
 
 
@@ -150,6 +182,6 @@ def _renumber_operations(operations: list[dict[str, Any]]) -> None:
         operation["operation_id"] = f"op-{index:03d}"
 
 
-def _entry_for(entries: list[dict[str, Any]], entry_id: str, repo: Path):
+def _entry_for(entry_id: str, repo: Path):
     manifest = load_manifest(repo)
     return manifest.entry_map()[entry_id]

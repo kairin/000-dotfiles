@@ -88,6 +88,14 @@ def parse_manifest(data: dict[str, Any], repo: Path) -> Manifest:
     if not isinstance(raw_entries, list) or not raw_entries:
         raise ManifestError("manifest entries must be a non-empty array")
 
+    entries = _parse_entries(raw_entries, repo)
+    profiles = _parse_profiles(raw_profiles, {entry.id for entry in entries})
+    _validate_entry_profile_refs(entries, set(profiles))
+    project_init = _parse_project_init(data.get("project_init", {}))
+    return Manifest(version=version, profiles=profiles, entries=tuple(entries), project_init=project_init)
+
+
+def _parse_entries(raw_entries: list[Any], repo: Path) -> list[ManifestEntry]:
     entries: list[ManifestEntry] = []
     seen: set[str] = set()
     for raw_entry in raw_entries:
@@ -113,8 +121,10 @@ def parse_manifest(data: dict[str, Any], repo: Path) -> Manifest:
         if entry.scope not in {"home", "repo", "project"}:
             raise ManifestError(f"unsupported scope for {entry.id}: {entry.scope}")
         entries.append(entry)
+    return entries
 
-    entry_ids = {entry.id for entry in entries}
+
+def _parse_profiles(raw_profiles: dict[str, Any], entry_ids: set[str]) -> dict[str, Profile]:
     profiles: dict[str, Profile] = {}
     for profile_id, raw_profile in raw_profiles.items():
         if not isinstance(raw_profile, dict):
@@ -131,15 +141,14 @@ def parse_manifest(data: dict[str, Any], repo: Path) -> Manifest:
             description=str(raw_profile.get("description", "")),
             entries=refs,
         )
+    return profiles
 
-    profile_ids = set(profiles)
+
+def _validate_entry_profile_refs(entries: list[ManifestEntry], profile_ids: set[str]) -> None:
     for entry in entries:
         unknown_profiles = [profile_id for profile_id in entry.profiles if profile_id not in profile_ids]
         if unknown_profiles:
             raise ManifestError(f"entry {entry.id} references unknown profiles: {', '.join(unknown_profiles)}")
-
-    project_init = _parse_project_init(data.get("project_init", {}))
-    return Manifest(version=version, profiles=profiles, entries=tuple(entries), project_init=project_init)
 
 
 def validate_included_protected(manifest: Manifest, include_ids: list[str] | tuple[str, ...] | None) -> set[str]:

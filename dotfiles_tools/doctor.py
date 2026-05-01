@@ -49,6 +49,35 @@ def evaluate_entry(repo: Path, home: Path, entry: ManifestEntry, include_protect
     include_protected = include_protected or set()
     source_path = resolve_source(repo, entry)
     target_path = resolve_target(repo, home, entry)
+    result = _base_result(entry, source_path, target_path)
+
+    source_error = _source_error(source_path, entry)
+    if source_error:
+        return _state(result, "invalid", source_error)
+
+    if entry.protected and entry.id not in include_protected:
+        return _state(result, "protected", entry.manual_reason or "protected/manual entry")
+
+    if target_path.exists() and target_path.is_dir() and entry.kind != "symlink":
+        return _state(result, "blocked", "target is a directory")
+
+    if entry.kind == "symlink":
+        return _symlink_target_state(result, target_path, entry.link_target or "")
+
+    if not target_path.exists():
+        return _state(result, "missing", "target is missing")
+
+    try:
+        source_text = expected_text(source_path, entry)
+        target_text = target_path.read_text()
+    except OSError as exc:
+        return _state(result, "blocked", str(exc))
+    if target_text == source_text:
+        return _state(result, "current", "target matches source")
+    return _state(result, "drifted", "target differs from source")
+
+
+def _base_result(entry: ManifestEntry, source_path: Path, target_path: Path) -> dict[str, Any]:
     result = {
         "entry_id": entry.id,
         "source": str(source_path),
@@ -59,73 +88,37 @@ def evaluate_entry(repo: Path, home: Path, entry: ManifestEntry, include_protect
     }
     if entry.manual_reason:
         result["manual_reason"] = entry.manual_reason
+    return result
 
+
+def _source_error(source_path: Path, entry: ManifestEntry) -> str | None:
     if not source_path.exists() and not source_path.is_symlink():
-        result["state"] = "invalid"
-        result["reason"] = "source path is missing"
-        return result
-
+        return "source path is missing"
     if entry.kind == "symlink":
         if not source_path.is_symlink():
-            result["state"] = "invalid"
-            result["reason"] = "source is not a symlink"
-            return result
+            return "source is not a symlink"
         if entry.link_target and str(source_path.readlink()) != entry.link_target:
-            result["state"] = "invalid"
-            result["reason"] = f"source symlink must point to {entry.link_target}"
-            return result
-    else:
-        template_errors = validate_template(source_path, entry)
-        secret_findings = scan_file(source_path)
-        errors = template_errors + [f"secret-like {finding.kind} on line {finding.line}" for finding in secret_findings]
-        if errors:
-            result["state"] = "invalid"
-            result["reason"] = "; ".join(errors)
-            return result
+            return f"source symlink must point to {entry.link_target}"
+        return None
+    template_errors = validate_template(source_path, entry)
+    secret_errors = [f"secret-like {finding.kind} on line {finding.line}" for finding in scan_file(source_path)]
+    errors = template_errors + secret_errors
+    return "; ".join(errors) if errors else None
 
-    if entry.protected and entry.id not in include_protected:
-        result["state"] = "protected"
-        result["reason"] = entry.manual_reason or "protected/manual entry"
-        return result
 
-    if target_path.exists() and target_path.is_dir() and entry.kind != "symlink":
-        result["state"] = "blocked"
-        result["reason"] = "target is a directory"
-        return result
+def _symlink_target_state(result: dict[str, Any], target_path: Path, expected: str) -> dict[str, Any]:
+    if not target_path.exists() and not target_path.is_symlink():
+        return _state(result, "missing", "target symlink is missing")
+    if not target_path.is_symlink():
+        return _state(result, "drifted", "target is not a symlink")
+    if str(target_path.readlink()) == expected:
+        return _state(result, "current", "target symlink matches")
+    return _state(result, "drifted", "target symlink differs")
 
-    if entry.kind == "symlink":
-        if not target_path.exists() and not target_path.is_symlink():
-            result["state"] = "missing"
-            result["reason"] = "target symlink is missing"
-        elif not target_path.is_symlink():
-            result["state"] = "drifted"
-            result["reason"] = "target is not a symlink"
-        elif str(target_path.readlink()) == (entry.link_target or ""):
-            result["state"] = "current"
-            result["reason"] = "target symlink matches"
-        else:
-            result["state"] = "drifted"
-            result["reason"] = "target symlink differs"
-        return result
 
-    if not target_path.exists():
-        result["state"] = "missing"
-        result["reason"] = "target is missing"
-        return result
-
-    try:
-        source_text = expected_text(source_path, entry)
-        target_text = target_path.read_text()
-    except OSError as exc:
-        result["state"] = "blocked"
-        result["reason"] = str(exc)
-        return result
-    if target_text == source_text:
-        result["state"] = "current"
-        result["reason"] = "target matches source"
-    else:
-        result["state"] = "drifted"
-        result["reason"] = "target differs from source"
+def _state(result: dict[str, Any], state: str, reason: str) -> dict[str, Any]:
+    result["state"] = state
+    result["reason"] = reason
     return result
 
 

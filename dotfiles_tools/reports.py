@@ -68,28 +68,10 @@ class Report:
         lines.append("summary:")
         for key, value in self.summary().items():
             lines.append(f"  {key}: {value}")
-        if self.entries:
-            lines.append("entries:")
-            for entry in self.entries:
-                reason = entry.get("reason") or ""
-                manual = entry.get("manual_reason")
-                suffix = f" ({reason})" if reason else ""
-                if manual:
-                    suffix += f" manual: {manual}"
-                lines.append(f"  - {entry.get('entry_id')}: {entry.get('state')}{suffix}")
-        if self.operations:
-            lines.append("operations:")
-            for op in self.operations:
-                bits = [op.get("operation_id", ""), op.get("type", ""), op.get("entry_id", "")]
-                lines.append("  - " + " ".join(bit for bit in bits if bit))
-        if self.backups:
-            lines.append("backups:")
-            for backup in self.backups:
-                lines.append(f"  - {backup.get('entry_id')}: {backup.get('backup_target')}")
-        if self.errors:
-            lines.append("errors:")
-            for error in self.errors:
-                lines.append(f"  - {error}")
+        _extend_entries(lines, self.entries)
+        _extend_operations(lines, self.operations)
+        _extend_backups(lines, self.backups)
+        _extend_errors(lines, self.errors)
         return "\n".join(lines) + "\n"
 
 
@@ -110,3 +92,41 @@ def render(report: Report, as_json: bool = False) -> str:
 
 def path_text(path: Path | None) -> str | None:
     return str(path) if path is not None else None
+
+
+def _extend_entries(lines: list[str], entries: list[dict[str, Any]]) -> None:
+    if not entries:
+        return
+    lines.append("entries:")
+    for entry in entries:
+        reason = entry.get("reason") or ""
+        manual = entry.get("manual_reason")
+        suffix = f" ({reason})" if reason else ""
+        if manual:
+            suffix += f" manual: {manual}"
+        lines.append(f"  - {entry.get('entry_id')}: {entry.get('state')}{suffix}")
+
+
+def _extend_operations(lines: list[str], operations: list[dict[str, Any]]) -> None:
+    if not operations:
+        return
+    lines.append("operations:")
+    for op in operations:
+        bits = [op.get("operation_id", ""), op.get("type", ""), op.get("entry_id", "")]
+        lines.append("  - " + " ".join(bit for bit in bits if bit))
+
+
+def _extend_backups(lines: list[str], backups: list[dict[str, Any]]) -> None:
+    if not backups:
+        return
+    lines.append("backups:")
+    for backup in backups:
+        lines.append(f"  - {backup.get('entry_id')}: {backup.get('backup_target')}")
+
+
+def _extend_errors(lines: list[str], errors: list[dict[str, Any] | str]) -> None:
+    if not errors:
+        return
+    lines.append("errors:")
+    for error in errors:
+        lines.append(f"  - {error}")
