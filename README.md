@@ -150,8 +150,9 @@ uv run --with coverage coverage run -m unittest discover -s tests
 uv run --with coverage coverage xml
 ```
 
-CI runs the same commands. Codacy upload is attempted only when the
-`CODACY_COVERAGE_API_TOKEN` GitHub secret is configured. See
+CI runs the same commands on pushes and pull requests. Codacy upload is
+attempted on push events only when the `CODACY_PROJECT_TOKEN` GitHub secret is
+configured. See
 `docs/codacy-coverage-rollout.md` for replicating this pattern in other repos.
 
 ## Conventions and safety

@@ -168,7 +168,7 @@
 - [X] T055 [US5] Update validation and coverage documentation with uv-based test and coverage commands in `README.md`
 - [X] T056 [US5] Update runtime agent guidance with uv-based validation commands and no-lock-file constraints in `AGENTS.md`
 
-**Checkpoint**: Local coverage produces `coverage.xml`, and workflow upload is skipped safely without `CODACY_COVERAGE_API_TOKEN`.
+**Checkpoint**: Local coverage produces `coverage.xml`, and workflow upload is skipped safely without `CODACY_PROJECT_TOKEN`; pull request validation does not duplicate the push coverage upload for the same commit.
 
 ---
 
