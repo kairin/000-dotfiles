@@ -10,7 +10,7 @@ Config templates for AI coding tools and shell environment.
 | `claude/` | `~/.claude/` | `settings.json`, `keybindings.json`, global `CLAUDE.md` |
 | `codex/` | `~/.codex/` | `config.toml`, `rules/default.rules` |
 | `gemini/` | `~/.gemini/` | `settings.json`, global `GEMINI.md` |
-| `gh/` | `~/.config/gh/` | `config.yml` |
+| `gh/` | `~/.config/gh/` | `config.yml`, Codacy branch protection checklist |
 | `fish/` | `~/.config/fish/` | `fish_plugins`, `functions/direnv.fish`, `env.fish` |
 | `git/` | `~/.config/git/` | `config` |
 
