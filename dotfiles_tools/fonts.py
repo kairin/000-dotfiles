@@ -138,12 +138,14 @@ class CommandRunner:
     def run(self, args: list[str], *, capture_output: bool = False, check: bool = True) -> subprocess.CompletedProcess[str]:
         env = dict(self.env)
         env["PATH"] = self.path
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use
         return subprocess.run(  # nosec B603
             args,
             check=check,
             capture_output=capture_output,
             text=True,
             env=env,
+            shell=False,
         )
 
     def fetch_json(self, url: str) -> dict[str, Any]:
