@@ -3,13 +3,18 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import platform
 import shutil
 import zipfile
 from typing import Any, Mapping
 
-from .backups import create_backup
-from .font_assets import pixel_avf_prompt_text, ttyd_html, ttyd_service, windows_font_install_script
+from .font_context import (
+    apt_items_for_platform as _apt_items_for_platform,
+    detect_context as _detect_context,
+    host_action as _host_action,
+    nerd_items_for_platform as _nerd_items_for_platform,
+    terminal_impact as _terminal_impact,
+)
+from .font_assets import pixel_avf_prompt_text, ttyd_html, ttyd_service
 from .font_catalog import (
     APT_FONT_CATALOG,
     EXPECTED_TTF,
@@ -30,13 +35,16 @@ from .font_catalog import (
     NerdFontItem,
     PIXEL_AVF_ENTRY_ID,
     PIXEL_AVF_PROMPT_REL,
-    PIXEL_TTYD_ENTRY_ID,
     PIXEL_TTYD_FONT_ALIAS,
-    WINDOWS_ENTRY_ID,
-    WINDOWS_TERMINAL_PACKAGES,
     FontError,
 )
+from .font_pixel import pixel_ttyd_plan as _pixel_ttyd_plan
 from .font_runner import CommandRunner
+from .font_windows import (
+    execute_install_windows as _execute_install_windows,
+    execute_update_windows_terminal as _execute_update_windows_terminal,
+    windows_host_plan as _windows_host_plan,
+)
 
 __all__ = (
     "APT_FONT_CATALOG",
@@ -243,89 +251,6 @@ def _execute_systemd(op: dict[str, Any], runner: CommandRunner, *args: str) -> i
     return 1
 
 
-def _detect_context(home: Path, env: Mapping[str, str], path: str, runner: CommandRunner) -> dict[str, Any]:
-    return {
-        "platform": _platform_id(env),
-        "architecture": platform.machine().lower(),
-        "path": path,
-        "powershell": runner.which("powershell.exe"),
-        "wslpath": runner.which("wslpath"),
-        "windows_terminal_settings": _discover_windows_terminal_settings(home, env),
-    }
-
-
-def _platform_id(env: Mapping[str, str]) -> str:
-    override = (env.get("DOTFILES_PLATFORM") or "").strip().lower()
-    override_id = _platform_override(override)
-    if override_id:
-        return override_id
-    return _detected_platform(env)
-
-
-def _platform_override(override: str) -> str | None:
-    overrides = {
-        "linux": "linux",
-        "native-linux": "linux",
-        "ubuntu": "linux",
-        "pi": "pi",
-        "raspberry-pi": "pi",
-        "raspberrypi": "pi",
-        "wsl": "wsl",
-        "wsl-linux": "wsl",
-        "wsl2": "wsl",
-        "pixel-terminal": "pixel-terminal",
-        "pixel_ttyd": "pixel-terminal",
-        "ttyd": "pixel-terminal",
-        "pixel-avf": "pixel-avf",
-        "avf": "pixel-avf",
-    }
-    return overrides.get(override)
-
-
-def _detected_platform(env: Mapping[str, str]) -> str:
-    if _is_wsl(env):
-        return "wsl"
-    if _is_raspberry_pi():
-        return "pi"
-    if Path("/etc/ttyd").exists() or Path("/etc/systemd/system/ttyd.service").exists():
-        return "pixel-terminal"
-    return "linux" if platform.system().lower() == "linux" else "unsupported"
-
-
-def _is_wsl(env: Mapping[str, str]) -> bool:
-    if env.get("WSL_DISTRO_NAME") or env.get("WSL_INTEROP"):
-        return True
-    try:
-        return "microsoft" in Path("/proc/version").read_text(errors="ignore").lower()
-    except OSError:
-        return False
-
-
-def _is_raspberry_pi() -> bool:
-    try:
-        return "raspberry pi" in Path("/proc/device-tree/model").read_text(errors="ignore").lower()
-    except OSError:
-        return False
-
-
-def _discover_windows_terminal_settings(home: Path, env: Mapping[str, str]) -> str | None:
-    explicit = env.get("DOTFILES_WINDOWS_TERMINAL_SETTINGS")
-    if explicit:
-        path = Path(explicit)
-        return str(path) if path.exists() else None
-    users_root = Path("/mnt/c/Users")
-    if not users_root.exists():
-        return None
-    candidates: list[Path] = []
-    for user_dir in users_root.glob("*"):
-        for package in WINDOWS_TERMINAL_PACKAGES:
-            candidates.append(user_dir / "AppData/Local/Packages" / package / "LocalState/settings.json")
-    for candidate in candidates:
-        if candidate.exists():
-            return str(candidate)
-    return None
-
-
 def _release_metadata(home: Path, env: Mapping[str, str], runner: CommandRunner, *, fetch: bool) -> dict[str, Any]:
     cache_path = home / FONT_CACHE_REL / "nerd-fonts.latest.json"
     if _truthy(env.get("DOTFILES_FONT_OFFLINE")):
@@ -346,28 +271,6 @@ def _release_metadata(home: Path, env: Mapping[str, str], runner: CommandRunner,
 
 def _truthy(value: str | None) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _nerd_items_for_platform(platform_id: str) -> tuple[NerdFontItem, ...]:
-    if platform_id == "pixel-terminal":
-        return (NERD_FONT_CATALOG[0],)
-    if platform_id in {"linux", "wsl", "pi"}:
-        return NERD_FONT_CATALOG
-    return ()
-
-
-def _apt_items_for_platform(platform_id: str) -> tuple[dict[str, str], ...]:
-    if platform_id in {"linux", "wsl"}:
-        return APT_FONT_CATALOG
-    if platform_id == "pi":
-        return tuple(item for item in APT_FONT_CATALOG if item["package"] != "fonts-dejavu-core")
-    if platform_id == "pixel-terminal":
-        return tuple(item for item in APT_FONT_CATALOG if item["package"] == "fonts-noto-color-emoji")
-    return ()
-
-
-def _paths(home: Path) -> dict[str, Path]:
-    return _nerd_paths(home, NERD_FONT_CATALOG[0])
 
 
 def _nerd_paths(home: Path, item: NerdFontItem) -> dict[str, Path]:
@@ -547,33 +450,6 @@ def _font_entry(summary: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _terminal_impact(platform_id: str) -> str:
-    if platform_id == "wsl":
-        return "Linux terminals get Nerd Font Mono faces; Windows Terminal is updated when its settings file is discoverable."
-    if platform_id == "pixel-terminal":
-        return "Pixel Terminal ttyd pages use an embedded JetBrainsMono Nerd Font Mono subset."
-    if platform_id == "pi":
-        return "Local Linux terminal apps can select Nerd Font Mono faces; emoji/symbol fallbacks are installed with apt."
-    if platform_id == "pixel-avf":
-        return "Pixel AVF weston-terminal ignores Nerd Font configuration; a plain prompt fallback is used."
-    return "Local Linux terminal apps can select Nerd Font Mono faces after install."
-
-
-def _host_action(context: dict[str, Any]) -> str:
-    platform_id = context["platform"]
-    if platform_id == "wsl":
-        if context.get("powershell") and context.get("windows_terminal_settings"):
-            return "PowerShell installs JetBrainsMono Nerd Font Mono on Windows and Windows Terminal defaults are updated."
-        if context.get("powershell"):
-            return "PowerShell installs JetBrainsMono Nerd Font Mono on Windows; set Windows Terminal manually if no settings file is found."
-        return "Manual Windows host font install required because powershell.exe was not found."
-    if platform_id == "pixel-terminal":
-        return "sudo writes /etc/ttyd/index.html and ttyd.service, then restarts ttyd.service."
-    if platform_id == "pixel-avf":
-        return "No host font action; weston-terminal ignores Nerd Font UI configuration."
-    return "No host-side action."
-
-
 def _nerd_font_operations(home: Path, item: NerdFontItem, *, reason: str) -> list[dict[str, Any]]:
     paths = _nerd_paths(home, item)
     base = {
@@ -639,137 +515,6 @@ def _apt_package_operation(summary: dict[str, Any]) -> dict[str, Any]:
         "requires_sudo": True,
         "recipe": "fonts",
     }
-
-
-def _windows_host_plan(
-    home: Path,
-    context: dict[str, Any],
-    item: NerdFontItem,
-    font_summary: dict[str, Any],
-) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
-    powershell = context.get("powershell")
-    state = "missing" if powershell else "manual"
-    reason = "powershell.exe is available for Windows per-user font install" if powershell else "powershell.exe is not visible from WSL"
-    operations = _windows_host_operations(home, context, item, font_summary)
-    return _windows_host_entry(home, context, item, state, reason), operations, {"host_action": _host_action(context), "requires_sudo": False}
-
-
-def _windows_host_entry(
-    home: Path,
-    context: dict[str, Any],
-    item: NerdFontItem,
-    state: str,
-    reason: str,
-) -> dict[str, Any]:
-    return {
-        "entry_id": WINDOWS_ENTRY_ID,
-        "source": str(_nerd_paths(home, item)["install_dir"]),
-        "source_type": "windows_host",
-        "family": item.family,
-        "target": "Windows per-user font store",
-        "state": state,
-        "protected": False,
-        "reason": reason,
-        "recipe": "fonts",
-        "requires_sudo": False,
-        "terminal_face": item.terminal_face,
-        "terminal_impact": _terminal_impact("wsl"),
-        "host_action": _host_action(context),
-    }
-
-
-def _windows_host_operations(
-    home: Path,
-    context: dict[str, Any],
-    item: NerdFontItem,
-    font_summary: dict[str, Any],
-) -> list[dict[str, Any]]:
-    if not context.get("powershell"):
-        return [_manual_op(WINDOWS_ENTRY_ID, f"Install {item.terminal_face} on the Windows host manually.")]
-    operations = [_windows_font_install_operation(home, item, font_summary)]
-    settings = context.get("windows_terminal_settings")
-    if settings:
-        operations.append(_windows_terminal_update_operation(item, settings))
-    else:
-        operations.append(_manual_op(WINDOWS_ENTRY_ID, f"Set Windows Terminal font face to {item.terminal_face} manually."))
-    return operations
-
-
-def _windows_font_install_operation(home: Path, item: NerdFontItem, font_summary: dict[str, Any]) -> dict[str, Any]:
-    source_dir = _nerd_paths(home, item)["install_dir"] if font_summary["state"] == "installed" else _nerd_paths(home, item)["extract_dir"]
-    return {
-        "entry_id": WINDOWS_ENTRY_ID,
-        "type": "font_install_windows",
-        "source": str(source_dir),
-        "target": "Windows per-user font store",
-        "terminal_face": item.terminal_face,
-        "reason": "install JetBrainsMono Nerd Font Mono into the Windows user font store through PowerShell",
-        "requires_approval": True,
-        "recipe": "fonts",
-    }
-
-
-def _windows_terminal_update_operation(item: NerdFontItem, settings: str) -> dict[str, Any]:
-    return {
-        "entry_id": WINDOWS_ENTRY_ID,
-        "type": "font_update_windows_terminal",
-        "source": item.terminal_face,
-        "target": settings,
-        "reason": "set Windows Terminal profile defaults font.face",
-        "requires_approval": True,
-        "recipe": "fonts",
-    }
-
-
-def _pixel_ttyd_plan(home: Path, context: dict[str, Any], font_summary: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
-    paths = _paths(home)
-    entry = {
-        "entry_id": PIXEL_TTYD_ENTRY_ID,
-        "source": str(paths["install_dir"]),
-        "source_type": "pixel_ttyd",
-        "family": "JetBrainsMono",
-        "target": "/etc/ttyd/index.html",
-        "state": "missing",
-        "protected": False,
-        "reason": "Pixel Terminal ttyd font embedding is managed as a system recipe",
-        "recipe": "fonts",
-        "requires_sudo": True,
-        "terminal_face": font_summary["terminal_face"],
-        "terminal_impact": _terminal_impact("pixel-terminal"),
-        "host_action": _host_action(context),
-    }
-    base = {"entry_id": PIXEL_TTYD_ENTRY_ID, "requires_approval": True, "requires_sudo": True, "recipe": "fonts"}
-    operations = [
-        {
-            **base,
-            "type": "font_ttyd_write_html",
-            "source": str(paths["install_dir"]),
-            "target": "/etc/ttyd/index.html",
-            "cache_dir": str(paths["cache_dir"]),
-            "reason": "backup and write ttyd HTML with embedded JetBrainsMono Nerd Font Mono subset",
-        },
-        {
-            **base,
-            "type": "font_ttyd_write_service",
-            "source": "generated ttyd.service",
-            "target": "/etc/systemd/system/ttyd.service",
-            "cache_dir": str(paths["cache_dir"]),
-            "reason": "backup and write ttyd systemd service using the custom index",
-        },
-        {
-            **base,
-            "type": "font_systemd_daemon_reload",
-            "target": "systemd",
-            "reason": "reload systemd after ttyd.service update",
-        },
-        {
-            **base,
-            "type": "font_systemd_restart",
-            "target": "ttyd.service",
-            "reason": "restart Pixel Terminal ttyd service",
-        },
-    ]
-    return entry, operations, {"host_action": _host_action(context), "terminal_impact": _terminal_impact("pixel-terminal")}
 
 
 def _build_pixel_avf_plan(home: Path, context: dict[str, Any]) -> dict[str, Any]:
@@ -1017,53 +762,6 @@ def _execute_install_packages(op: dict[str, Any], runner: CommandRunner) -> int:
     prefix = [] if hasattr(os, "geteuid") and os.geteuid() == 0 else ["sudo"]
     runner.run([*prefix, apt_get, "update"])
     runner.run([*prefix, apt_get, "install", "-y", *packages])
-    return 1
-
-
-def _execute_install_windows(op: dict[str, Any], runner: CommandRunner) -> int:
-    powershell = runner.which("powershell.exe")
-    if not powershell:
-        op["result"] = "powershell.exe not found; install Windows host font manually"
-        return 0
-    source = Path(op["source"])
-    if not source.exists():
-        raise FontError(f"Windows font source directory is missing: {source}")
-    windows_source = str(source)
-    wslpath = runner.which("wslpath")
-    if wslpath:
-        converted = runner.run([wslpath, "-w", str(source)], capture_output=True)
-        windows_source = converted.stdout.strip()
-    script = windows_font_install_script(windows_source)
-    runner.run([powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script])
-    return 1
-
-
-def _execute_update_windows_terminal(op: dict[str, Any], backup_dir: Path, backups: list[dict[str, Any]]) -> int:
-    target = Path(op["target"])
-    if not target.exists():
-        op["result"] = "Windows Terminal settings file was not found; set font face manually"
-        return 0
-    record = create_backup(target, backup_dir, entry_id=op["entry_id"])
-    backups.append(record)
-    try:
-        data = json.loads(target.read_text())
-    except json.JSONDecodeError as exc:
-        raise FontError(f"invalid Windows Terminal settings JSON: {target}") from exc
-    profiles = data.setdefault("profiles", {})
-    if not isinstance(profiles, dict):
-        profiles = {}
-        data["profiles"] = profiles
-    defaults = profiles.setdefault("defaults", {})
-    if not isinstance(defaults, dict):
-        defaults = {}
-        profiles["defaults"] = defaults
-    font = defaults.setdefault("font", {})
-    if not isinstance(font, dict):
-        font = {}
-        defaults["font"] = font
-    font["face"] = FONT_FACE
-    target.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
-    op["backup_target"] = record["backup_target"]
     return 1
 
 
