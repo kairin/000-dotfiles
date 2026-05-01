@@ -1,0 +1,257 @@
+#!/usr/bin/env bash
+# Self-locating entrypoint for the dotfiles repo.
+# Wraps `dotfiles_tools` with sensible defaults so a project in any folder can
+# bootstrap or verify its agent docs without remembering the long CLI form.
+#
+# Usage: ./setup <subcommand> [flags]
+#   verify [--project PATH] [--copilot]
+#   init   [--project PATH] [--vars FILE] [--copilot] [--yes]
+#   doctor [--home PATH] [--profile NAME]
+#   help
+#
+# Self-locates through symlinks, so installing on PATH works:
+#   ln -s /path/to/000-dotfiles/setup ~/.local/bin/dotfiles-setup
+
+set -euo pipefail
+IFS=$'\n\t'
+
+resolve_script_path() {
+  local source="${BASH_SOURCE[0]}"
+  local dir
+  while [[ -L "$source" ]]; do
+    dir="$(cd -P "$(dirname "$source")" >/dev/null 2>&1 && pwd)" || return 1
+    source="$(readlink "$source")" || return 1
+    [[ "$source" == /* ]] || source="$dir/$source"
+  done
+  dir="$(cd -P "$(dirname "$source")" >/dev/null 2>&1 && pwd)" || return 1
+  printf '%s/%s\n' "$dir" "$(basename "$source")"
+}
+
+SCRIPT_PATH="$(resolve_script_path)"
+DOTFILES_REPO="$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$SCRIPT_PATH") <command> [flags]
+
+Commands:
+  verify [--project PATH] [--copilot]
+      Read-only check that the project has AGENTS.md, valid CLAUDE.md/GEMINI.md
+      symlinks, and no unresolved {{PLACEHOLDER}} values.
+
+  init   [--project PATH] [--vars FILE] [--copilot] [--yes]
+      Bootstrap a project's agent docs by wrapping
+      'dotfiles_tools init-project'. Auto-discovers project-vars.json in
+      <project>/ or <project>/.dotfiles/ when --vars is omitted.
+
+  doctor [--home PATH] [--profile NAME]
+      Audit a machine home directory by wrapping 'dotfiles_tools doctor'.
+      Defaults: --home="\$HOME", --profile=machine.
+
+  help, -h, --help
+      Show this message.
+
+--project defaults to \$PWD. Exit codes: 0 ok, 1 verification/CLI failure,
+2 preflight or usage error.
+EOF
+}
+
+die() { echo "ERROR: $*" >&2; exit 2; }
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "'$1' not found in PATH"
+}
+
+preflight_common() {
+  require_cmd uv
+  [[ -f "$DOTFILES_REPO/dotfiles-manifest.json" ]] \
+    || die "manifest missing at $DOTFILES_REPO/dotfiles-manifest.json"
+}
+
+preflight_project_templates() {
+  [[ -f "$DOTFILES_REPO/agents/AGENTS.md.template" ]] \
+    || die "agent template missing at $DOTFILES_REPO/agents/AGENTS.md.template"
+}
+
+resolve_project() {
+  local raw="${1:-$PWD}"
+  [[ -d "$raw" ]] || die "project path not found: $raw"
+  (cd "$raw" && pwd)
+}
+
+print_vars_example() {
+  cat >&2 <<'EOF'
+ERROR: no project-vars.json found.
+Create one at <project>/project-vars.json (or <project>/.dotfiles/project-vars.json):
+
+  {
+    "PROJECT_NAME": "my-app",
+    "PROJECT_DESCRIPTION": "what this project does",
+    "LANGUAGE": "Python 3.12",
+    "PACKAGE_MANAGER": "uv",
+    "RUNTIME_DESCRIPTION": "local CLI",
+    "INSTALL_CMD": "uv sync",
+    "RUN_CMD": "uv run python -m myapp",
+    "TEST_CMD": "uv run pytest"
+  }
+EOF
+}
+
+find_vars_file() {
+  local project="$1"
+  local candidate
+  for candidate in "$project/project-vars.json" "$project/.dotfiles/project-vars.json"; do
+    if [[ -f "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+check_placeholders() {
+  local file="$1"
+  if grep -nE '\{\{[A-Z][A-Z0-9_]*\}\}' "$file" >/dev/null 2>&1; then
+    return 1
+  fi
+  return 0
+}
+
+cmd_verify() {
+  local project="" copilot=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project) project="${2:?--project requires a path}"; shift 2 ;;
+      --copilot) copilot=1; shift ;;
+      -h|--help) usage; return 0 ;;
+      *) die "unknown flag for verify: $1" ;;
+    esac
+  done
+  # verify is a lightweight read-only check with no external dependencies.
+  project="$(resolve_project "${project:-$PWD}")"
+
+  echo "Verifying project: $project"
+  local fail=0
+
+  if [[ -L "$project/AGENTS.md" ]]; then
+    echo "  FAIL  AGENTS.md is a symlink (must be a regular file)"; fail=1
+  elif [[ ! -f "$project/AGENTS.md" ]]; then
+    echo "  FAIL  AGENTS.md missing"; fail=1
+  else
+    echo "  OK    AGENTS.md present"
+  fi
+
+  local name target
+  for name in CLAUDE.md GEMINI.md; do
+    if [[ ! -L "$project/$name" ]]; then
+      echo "  FAIL  $name is not a symlink"; fail=1
+      continue
+    fi
+    target="$(readlink "$project/$name")"
+    if [[ "$target" != "AGENTS.md" ]]; then
+      echo "  FAIL  $name -> $target (expected AGENTS.md)"; fail=1
+    else
+      echo "  OK    $name -> AGENTS.md"
+    fi
+  done
+
+  if [[ -f "$project/AGENTS.md" && ! -L "$project/AGENTS.md" ]]; then
+    if ! check_placeholders "$project/AGENTS.md"; then
+      echo "  FAIL  unresolved placeholders in AGENTS.md"
+      grep -nE '\{\{[A-Z][A-Z0-9_]*\}\}' "$project/AGENTS.md" | sed 's/^/        /'
+      fail=1
+    else
+      echo "  OK    AGENTS.md has no unresolved placeholders"
+    fi
+  fi
+
+  local copilot_file="$project/.github/copilot-instructions.md"
+  if [[ "$copilot" -eq 1 ]]; then
+    if [[ -f "$copilot_file" ]]; then
+      if ! check_placeholders "$copilot_file"; then
+        echo "  FAIL  unresolved placeholders in .github/copilot-instructions.md"; fail=1
+      else
+        echo "  OK    .github/copilot-instructions.md clean"
+      fi
+    else
+      echo "  FAIL  --copilot specified but $copilot_file missing"; fail=1
+    fi
+  fi
+
+  if [[ "$fail" -ne 0 ]]; then
+    echo "Verification failed."
+    return 1
+  fi
+  echo "Verification passed."
+  return 0
+}
+
+cmd_init() {
+  local project="" vars="" copilot=0 yes=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project) project="${2:?--project requires a path}"; shift 2 ;;
+      --vars)    vars="${2:?--vars requires a path}"; shift 2 ;;
+      --copilot) copilot=1; shift ;;
+      --yes)     yes=1; shift ;;
+      -h|--help) usage; return 0 ;;
+      *) die "unknown flag for init: $1" ;;
+    esac
+  done
+  preflight_common
+  preflight_project_templates
+  project="$(resolve_project "${project:-$PWD}")"
+
+  if [[ -z "$vars" ]]; then
+    vars="$(find_vars_file "$project")" || { print_vars_example; return 2; }
+  fi
+  [[ -f "$vars" ]] || die "vars file not found: $vars"
+
+  echo "Bootstrapping project: $project"
+  echo "Using vars file: $vars"
+
+  local cli_args=(--repo "$DOTFILES_REPO" --project "$project" --vars "$vars")
+  [[ "$copilot" -eq 1 ]] && cli_args+=(--copilot)
+  [[ "$yes" -eq 1 ]] && cli_args+=(--yes)
+
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools init-project "${cli_args[@]}")
+
+  echo
+  local verify_args=(--project "$project")
+  [[ "$copilot" -eq 1 ]] && verify_args+=(--copilot)
+  cmd_verify "${verify_args[@]}"
+}
+
+cmd_doctor() {
+  local home_arg="" profile=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --home)    home_arg="${2:?--home requires a path}"; shift 2 ;;
+      --profile) profile="${2:?--profile requires a name}"; shift 2 ;;
+      -h|--help) usage; return 0 ;;
+      *) die "unknown flag for doctor: $1" ;;
+    esac
+  done
+  preflight_common
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools doctor \
+    --repo "$DOTFILES_REPO" \
+    --home "${home_arg:-$HOME}" \
+    --profile "${profile:-machine}")
+}
+
+main() {
+  if [[ $# -eq 0 ]]; then
+    usage
+    return 0
+  fi
+  local sub="$1"; shift
+  case "$sub" in
+    verify) cmd_verify "$@" ;;
+    init)   cmd_init "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    help|-h|--help) usage ;;
+    *) usage; die "unknown command: $sub" ;;
+  esac
+}
+
+main "$@"
