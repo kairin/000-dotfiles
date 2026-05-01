@@ -62,6 +62,19 @@ The `./setup` entrypoint at the repo root is the recommended way to scaffold or
 verify agent docs in a project that lives in any folder. It self-locates this
 dotfiles repo so it works directly or via a `PATH` symlink.
 
+What `./setup` can complete:
+
+| Command | What it completes | Notes |
+|---|---|---|
+| `./setup init --yes` | Renders project `AGENTS.md`, creates `CLAUDE.md` and `GEMINI.md` symlinks to `AGENTS.md`, then automatically runs `verify`. | Uses `project-vars.json` from the project root or `.dotfiles/` unless `--vars` is provided. Requires `uv` because it wraps `dotfiles_tools init-project`. |
+| `./setup init --copilot --yes` | Completes the same agent-doc bootstrap plus `.github/copilot-instructions.md`, then verifies all generated agent docs. | Use when the project should also receive Copilot instructions from this repo's template. |
+| `./setup verify` | Performs a read-only project check for `AGENTS.md`, `CLAUDE.md`/`GEMINI.md` symlink targets, and unresolved `{{PLACEHOLDER}}` values. | Does not require `uv` or Python, so it is suitable for quick local checks, CI, or pre-commit hooks. Add `--copilot` to require and check `.github/copilot-instructions.md`. |
+| `./setup doctor` | Runs the repo's machine-home audit with sensible defaults. | Wraps `dotfiles_tools doctor --repo <this repo> --home "$HOME" --profile machine`; this is read-only and requires `uv`. |
+
+`./setup` does not apply machine dotfiles. Use the direct `dotfiles_tools plan`
+and `dotfiles_tools apply` commands in the machine bootstrap section when you
+want to preview or write files into a home directory.
+
 ```bash
 cd path/to/your-project
 cat > project-vars.json <<'JSON'
