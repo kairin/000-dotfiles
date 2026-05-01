@@ -6,7 +6,21 @@ from pathlib import Path
 from typing import Any
 
 
-SUMMARY_KEYS = ("missing", "current", "drifted", "protected", "invalid", "blocked", "operations", "backups", "errors")
+SUMMARY_KEYS = (
+    "missing",
+    "current",
+    "drifted",
+    "protected",
+    "invalid",
+    "blocked",
+    "installed",
+    "needs_update",
+    "manual",
+    "unsupported",
+    "operations",
+    "backups",
+    "errors",
+)
 
 
 @dataclass
@@ -72,6 +86,7 @@ class Report:
         _extend_operations(lines, self.operations)
         _extend_backups(lines, self.backups)
         _extend_errors(lines, self.errors)
+        _extend_extra(lines, self.extra)
         return "\n".join(lines) + "\n"
 
 
@@ -130,3 +145,39 @@ def _extend_errors(lines: list[str], errors: list[dict[str, Any] | str]) -> None
     lines.append("errors:")
     for error in errors:
         lines.append(f"  - {error}")
+
+
+def _extend_extra(lines: list[str], extra: dict[str, Any]) -> None:
+    fonts = extra.get("fonts") or []
+    if fonts:
+        lines.append("font actions:")
+        for item in fonts:
+            sudo = "yes" if item.get("requires_sudo") else "no"
+            source_type = item.get("source_type")
+            version = item.get("latest_version") or item.get("candidate_version") or "unknown"
+            lines.append(f"  - {item.get('label')}: {item.get('state')} ({source_type}) -> {item.get('target')}")
+            lines.append(f"    version: installed={item.get('installed_version') or 'unknown'} latest/candidate={version}")
+            if item.get("cache_path"):
+                lines.append(f"    cache: {item.get('cache_path')}")
+            lines.append(f"    terminal face: {item.get('terminal_face') or 'n/a'}")
+            lines.append(f"    sudo: {sudo}; host: {item.get('host_action')}")
+            lines.append(f"    terminal: {item.get('terminal_impact')}")
+
+    tool_checks = extra.get("tool_checks") or []
+    if tool_checks:
+        lines.append("tool checks:")
+        for item in tool_checks:
+            path = item.get("path")
+            location = f" ({path})" if path else ""
+            bootstrap = " bootstrap" if item.get("bootstrap") else ""
+            hint = f" - {item.get('install_hint')}" if item.get("state") == "missing" else ""
+            lines.append(f"  - {item.get('command')}: {item.get('state')}{location}{bootstrap}{hint}")
+
+    auth_guidance = extra.get("auth_guidance") or []
+    if auth_guidance:
+        lines.append("auth/setup guidance:")
+        for item in auth_guidance:
+            if item.get("state") == "available":
+                lines.append(f"  - {item.get('command')}: {item.get('guidance')}")
+            else:
+                lines.append(f"  - {item.get('tool')}: install tool before auth setup")

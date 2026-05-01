@@ -3,7 +3,10 @@
 # Wraps `dotfiles_tools` with sensible defaults so a project in any folder can
 # bootstrap or verify its agent docs without remembering the long CLI form.
 #
-# Usage: ./setup <subcommand> [flags]
+# Usage: ./setup [project-path]
+#        ./setup <subcommand> [flags]
+#   (no args) prepare/check this computer
+#   /path/to/project
 #   verify [--project PATH] [--copilot]
 #   init   [--project PATH] [--vars FILE] [--copilot] [--yes]
 #   doctor [--home PATH] [--profile NAME]
@@ -32,7 +35,18 @@ DOTFILES_REPO="$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$SCRIPT_PATH") <command> [flags]
+Usage: $(basename "$SCRIPT_PATH") [project-path]
+       $(basename "$SCRIPT_PATH") <command> [flags]
+
+Default:
+  (no args)
+      Prepare/check this computer. Ensures uv is available first, audits the
+      machine profile, prints a concise change summary including fonts, then
+      offers apply/details choices.
+
+  /path/to/project
+      Inspect or prepare a separate project folder for project agent docs.
+      Inferred project metadata is stored in <project>/.dotfiles/project-vars.json.
 
 Commands:
   verify [--project PATH] [--copilot]
@@ -41,8 +55,9 @@ Commands:
 
   init   [--project PATH] [--vars FILE] [--copilot] [--yes]
       Bootstrap a project's agent docs by wrapping
-      'dotfiles_tools init-project'. Auto-discovers project-vars.json in
-      <project>/ or <project>/.dotfiles/ when --vars is omitted.
+      'dotfiles_tools init-project'. When --vars is omitted, auto-discovers
+      project-vars.json in <project>/ or <project>/.dotfiles/, then falls back
+      to inferred defaults from common project files.
 
   doctor [--home PATH] [--profile NAME]
       Audit a machine home directory by wrapping 'dotfiles_tools doctor'.
@@ -58,12 +73,63 @@ EOF
 
 die() { echo "ERROR: $*" >&2; exit 2; }
 
+GENERATED_VARS_FILE=""
+UV_BOOTSTRAPPED=0
+cleanup_generated_vars() {
+  if [[ -n "${GENERATED_VARS_FILE:-}" && -f "$GENERATED_VARS_FILE" ]]; then
+    rm -f "$GENERATED_VARS_FILE"
+  fi
+}
+trap cleanup_generated_vars EXIT
+
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "'$1' not found in PATH"
 }
 
+refresh_uv_path() {
+  export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+}
+
+install_uv() {
+  echo "uv is required before dotfiles_tools can run."
+  if command -v curl >/dev/null 2>&1; then
+    echo "Installing uv with official standalone installer (curl)."
+    curl -LsSf https://astral.sh/uv/install.sh | sh || die "uv installer failed"
+  elif command -v wget >/dev/null 2>&1; then
+    echo "Installing uv with official standalone installer (wget)."
+    wget -qO- https://astral.sh/uv/install.sh | sh || die "uv installer failed"
+  else
+    die "uv is missing and neither curl nor wget is available to run the official installer"
+  fi
+  refresh_uv_path
+}
+
+ensure_uv() {
+  [[ "$UV_BOOTSTRAPPED" -eq 1 ]] && return 0
+
+  if command -v uv >/dev/null 2>&1; then
+    echo "uv found at $(command -v uv)"
+    if uv self update; then
+      echo "uv self update completed."
+    else
+      echo "WARN: uv self update failed or is unsupported for this installation; continuing with the existing uv." >&2
+    fi
+  else
+    install_uv
+  fi
+
+  if ! command -v uv >/dev/null 2>&1; then
+    die "uv is still not available after PATH refresh"
+  fi
+
+  local uv_version
+  uv_version="$(uv --version)" || die "uv is present but uv --version failed"
+  echo "Using $uv_version"
+  UV_BOOTSTRAPPED=1
+}
+
 preflight_common() {
-  require_cmd uv
+  ensure_uv
   [[ -f "$DOTFILES_REPO/dotfiles-manifest.json" ]] \
     || die "manifest missing at $DOTFILES_REPO/dotfiles-manifest.json"
 }
@@ -79,24 +145,6 @@ resolve_project() {
   (cd "$raw" && pwd)
 }
 
-print_vars_example() {
-  cat >&2 <<'EOF'
-ERROR: no project-vars.json found.
-Create one at <project>/project-vars.json (or <project>/.dotfiles/project-vars.json):
-
-  {
-    "PROJECT_NAME": "my-app",
-    "PROJECT_DESCRIPTION": "what this project does",
-    "LANGUAGE": "Python 3.12",
-    "PACKAGE_MANAGER": "uv",
-    "RUNTIME_DESCRIPTION": "local CLI",
-    "INSTALL_CMD": "uv sync",
-    "RUN_CMD": "uv run python -m myapp",
-    "TEST_CMD": "uv run pytest"
-  }
-EOF
-}
-
 find_vars_file() {
   local project="$1"
   local candidate
@@ -107,6 +155,171 @@ find_vars_file() {
     fi
   done
   return 1
+}
+
+infer_vars_file() {
+  local project="$1"
+  local vars_file
+  vars_file="$(mktemp "${TMPDIR:-/tmp}/dotfiles-project-vars.XXXXXX.json")" || return 1
+  GENERATED_VARS_FILE="$vars_file"
+
+  (cd "$DOTFILES_REPO" && uv run python - "$project" "$vars_file" <<'PY')
+import json
+import sys
+from pathlib import Path
+
+project = Path(sys.argv[1])
+output = Path(sys.argv[2])
+
+
+def read_json(path):
+    try:
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def read_pyproject(path):
+    try:
+        import tomllib
+    except ModuleNotFoundError:
+        return {}
+    try:
+        return tomllib.loads(path.read_text())
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+
+
+def readme_description():
+    for name in ("README.md", "README.rst", "README.txt"):
+        path = project / name
+        if not path.is_file():
+            continue
+        for line in path.read_text(errors="ignore").splitlines():
+            text = line.strip().strip("#").strip()
+            if text and not text.startswith(("!", "[", "<!--")):
+                return text.rstrip(".")
+    return ""
+
+
+def has_any(*names):
+    return any((project / name).exists() for name in names)
+
+
+def noop(label):
+    return f"true  # no {label} command configured yet"
+
+
+name = project.name or "project"
+description = readme_description()
+language = "Not detected"
+package_manager = "not specified"
+runtime = "local project"
+install_cmd = noop("install")
+run_cmd = noop("run")
+test_cmd = noop("test")
+
+package_json = read_json(project / "package.json")
+pyproject = read_pyproject(project / "pyproject.toml")
+
+if package_json:
+    name = str(package_json.get("name") or name)
+    description = str(package_json.get("description") or description)
+    deps = {
+        **(package_json.get("dependencies") or {}),
+        **(package_json.get("devDependencies") or {}),
+    }
+    language = "TypeScript" if has_any("tsconfig.json") or "typescript" in deps else "JavaScript"
+    if has_any("pnpm-lock.yaml"):
+        package_manager = "pnpm"
+    elif has_any("yarn.lock"):
+        package_manager = "yarn"
+    else:
+        package_manager = "npm"
+    runtime = "Node.js project"
+    scripts = package_json.get("scripts") or {}
+    install_cmd = f"{package_manager} install"
+    if "dev" in scripts:
+        run_cmd = f"{package_manager} run dev"
+    elif "start" in scripts:
+        run_cmd = f"{package_manager} start"
+    if "test" in scripts and "no test specified" not in str(scripts["test"]).lower():
+        test_cmd = f"{package_manager} test"
+elif pyproject or has_any("requirements.txt") or any(project.glob("*.py")):
+    project_table = pyproject.get("project") or {}
+    name = str(project_table.get("name") or name)
+    description = str(project_table.get("description") or description)
+    language = "Python"
+    package_manager = "uv" if pyproject or has_any("uv.lock") else "pip"
+    runtime = "Python project"
+    install_cmd = "uv sync" if package_manager == "uv" else "python -m pip install -r requirements.txt"
+    scripts = project_table.get("scripts") or {}
+    if scripts:
+        run_cmd = f"uv run {next(iter(scripts))}"
+    elif has_any("app.py"):
+        run_cmd = "uv run python app.py"
+    elif has_any("main.py"):
+        run_cmd = "uv run python main.py"
+    if has_any("pytest.ini") or (pyproject.get("tool") or {}).get("pytest"):
+        test_cmd = "uv run pytest"
+    elif (project / "tests").is_dir():
+        test_cmd = "uv run python -m unittest discover -s tests"
+elif has_any("Cargo.toml"):
+    language = "Rust"
+    package_manager = "cargo"
+    runtime = "Rust project"
+    install_cmd = "cargo build"
+    run_cmd = "cargo run"
+    test_cmd = "cargo test"
+elif has_any("go.mod"):
+    language = "Go"
+    package_manager = "go"
+    runtime = "Go module"
+    install_cmd = "go mod download"
+    run_cmd = "go run ./..."
+    test_cmd = "go test ./..."
+elif has_any("Makefile", "makefile"):
+    package_manager = "make"
+    runtime = "Makefile-driven project"
+    install_cmd = "make"
+    run_cmd = "make run"
+    test_cmd = "make test"
+
+if not description:
+    description = "local project workspace"
+
+output.write_text(json.dumps({
+    "PROJECT_NAME": name,
+    "PROJECT_DESCRIPTION": description,
+    "LANGUAGE": language,
+    "PACKAGE_MANAGER": package_manager,
+    "RUNTIME_DESCRIPTION": runtime,
+    "INSTALL_CMD": install_cmd,
+    "RUN_CMD": run_cmd,
+    "TEST_CMD": test_cmd,
+}, indent=2) + "\n")
+PY
+
+  echo "$vars_file"
+}
+
+persist_inferred_vars_file() {
+  local project="$1"
+  local vars_file target_dir target
+  vars_file="$(infer_vars_file "$project")" || return 1
+  target_dir="$project/.dotfiles"
+  target="$target_dir/project-vars.json"
+  mkdir -p "$target_dir"
+  cp "$vars_file" "$target"
+  echo "$target"
+}
+
+resolve_project_vars_file() {
+  local project="$1"
+  if find_vars_file "$project"; then
+    return 0
+  fi
+  persist_inferred_vars_file "$project"
 }
 
 check_placeholders() {
@@ -187,7 +400,7 @@ cmd_verify() {
 }
 
 cmd_init() {
-  local project="" vars="" copilot=0 yes=0
+  local project="" vars="" vars_source="" copilot=0 yes=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --project) project="${2:?--project requires a path}"; shift 2 ;;
@@ -203,12 +416,27 @@ cmd_init() {
   project="$(resolve_project "${project:-$PWD}")"
 
   if [[ -z "$vars" ]]; then
-    vars="$(find_vars_file "$project")" || { print_vars_example; return 2; }
+    if vars="$(find_vars_file "$project")"; then
+      vars_source="discovered"
+    elif [[ "$yes" -eq 1 ]]; then
+      vars="$(persist_inferred_vars_file "$project")" || die "failed to infer project defaults for: $project"
+      vars_source="inferred-persisted"
+    else
+      vars="$(infer_vars_file "$project")" || die "failed to infer project defaults for: $project"
+      vars_source="inferred"
+    fi
+  else
+    vars_source="provided"
   fi
   [[ -f "$vars" ]] || die "vars file not found: $vars"
 
   echo "Bootstrapping project: $project"
-  echo "Using vars file: $vars"
+  case "$vars_source" in
+    inferred) echo "Using inferred project defaults (override with --vars or project-vars.json)." ;;
+    inferred-persisted) echo "Using inferred project defaults saved to: $vars" ;;
+    discovered) echo "Using discovered vars file: $vars" ;;
+    *) echo "Using vars file: $vars" ;;
+  esac
 
   local cli_args=(--repo "$DOTFILES_REPO" --project "$project" --vars "$vars")
   [[ "$copilot" -eq 1 ]] && cli_args+=(--copilot)
@@ -239,10 +467,205 @@ cmd_doctor() {
     --profile "${profile:-machine}")
 }
 
+run_machine_doctor() {
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools doctor \
+    --repo "$DOTFILES_REPO" \
+    --home "$HOME" \
+    --profile machine)
+}
+
+run_machine_plan() {
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools bootstrap-plan \
+    --repo "$DOTFILES_REPO" \
+    --home "$HOME" \
+    --profile machine)
+}
+
+run_machine_apply() {
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools bootstrap-apply \
+    --repo "$DOTFILES_REPO" \
+    --home "$HOME" \
+    --profile machine \
+    --backup-dir "$HOME/.dotfiles-backups" \
+    --yes)
+}
+
+run_machine_summary() {
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools.machine_summary \
+    --repo "$DOTFILES_REPO" \
+    --home "$HOME" \
+    --profile machine)
+}
+
+run_machine_menu_label() {
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools.machine_summary \
+    --repo "$DOTFILES_REPO" \
+    --home "$HOME" \
+    --profile machine \
+    --menu-label)
+}
+
+run_machine_details() {
+  echo "Full machine doctor:"
+  run_machine_doctor
+  echo
+  echo "Full machine plan:"
+  run_machine_plan
+}
+
+show_tool_auth_commands() {
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools.baseline)
+}
+
+machine_menu() {
+  local option_one="${1:-Apply safe non-protected dotfiles and approved install/update recipes.}"
+  while true; do
+    cat <<EOF
+
+Next steps:
+  1. $option_one
+  2. Show full technical details.
+  3. Show tool and sign-in guidance.
+  4. Exit without writing.
+EOF
+    printf 'Choose [1-4]: '
+    local choice
+    if ! read -r choice; then
+      echo
+      echo "No interactive selection received; no changes applied."
+      return 0
+    fi
+    case "$choice" in
+      1)
+        echo
+        echo "Applying safe non-protected machine dotfiles and approved install/update recipes..."
+        run_machine_apply
+        return $?
+        ;;
+      2)
+        echo
+        run_machine_details
+        ;;
+      3)
+        echo
+        show_tool_auth_commands
+        ;;
+      4|"")
+        echo "No changes applied."
+        return 0
+        ;;
+      *)
+        echo "Unknown choice: $choice" >&2
+        ;;
+    esac
+  done
+}
+
+cmd_machine_setup() {
+  preflight_common
+  echo "Preparing/checking this computer with profile: machine"
+  echo
+  run_machine_summary
+  local option_one
+  if ! option_one="$(run_machine_menu_label)" || [[ -z "$option_one" ]]; then
+    option_one="Apply safe non-protected dotfiles and approved install/update recipes."
+  fi
+  machine_menu "$option_one"
+}
+
+project_is_empty() {
+  local project="$1"
+  [[ -z "$(find "$project" -mindepth 1 -maxdepth 1 -print -quit)" ]]
+}
+
+show_project_vars() {
+  local vars="$1"
+  echo "Project metadata: $vars"
+  sed -n '1,200p' "$vars"
+}
+
+empty_project_menu() {
+  local project="$1" vars="$2"
+  while true; do
+    cat <<EOF
+
+Project setup options:
+  1. Bootstrap AGENTS.md plus CLAUDE.md/GEMINI.md symlinks.
+  2. Bootstrap agent docs plus Copilot instructions.
+  3. Show inferred project metadata.
+  4. Exit.
+EOF
+    printf 'Choose [1-4]: '
+    local choice
+    if ! read -r choice; then
+      echo
+      echo "No interactive selection received; project files were not changed."
+      return 0
+    fi
+    case "$choice" in
+      1) cmd_init --project "$project" --vars "$vars" --yes; return $? ;;
+      2) cmd_init --project "$project" --vars "$vars" --copilot --yes; return $? ;;
+      3) show_project_vars "$vars" ;;
+      4|"") echo "Project files were not changed."; return 0 ;;
+      *) echo "Unknown choice: $choice" >&2 ;;
+    esac
+  done
+}
+
+existing_project_menu() {
+  local project="$1" vars="$2"
+  while true; do
+    cat <<EOF
+
+Project setup options:
+  1. Verify agent docs.
+  2. Repair/bootstrap AGENTS.md plus CLAUDE.md/GEMINI.md symlinks.
+  3. Add or refresh Copilot instructions.
+  4. Show project metadata.
+  5. Exit.
+EOF
+    printf 'Choose [1-5]: '
+    local choice
+    if ! read -r choice; then
+      echo
+      echo "No interactive selection received; project files were not changed."
+      return 0
+    fi
+    case "$choice" in
+      1) cmd_verify --project "$project" || true ;;
+      2) cmd_init --project "$project" --vars "$vars" --yes; return $? ;;
+      3) cmd_init --project "$project" --vars "$vars" --copilot --yes; return $? ;;
+      4) show_project_vars "$vars" ;;
+      5|"") echo "Project files were not changed."; return 0 ;;
+      *) echo "Unknown choice: $choice" >&2 ;;
+    esac
+  done
+}
+
+cmd_project_folder() {
+  local project="$1" was_empty=0 vars
+  project="$(resolve_project "$project")"
+  project_is_empty "$project" && was_empty=1
+  preflight_common
+  preflight_project_templates
+  vars="$(resolve_project_vars_file "$project")" || die "failed to resolve project metadata for: $project"
+
+  echo "Inspecting project: $project"
+  echo "Project metadata stored at: $vars"
+  if [[ "$was_empty" -eq 1 ]]; then
+    echo "Project folder is empty; agent-doc setup is available."
+    empty_project_menu "$project" "$vars"
+  else
+    echo "Project folder has existing files; running a read-only verification first."
+    cmd_verify --project "$project" || true
+    existing_project_menu "$project" "$vars"
+  fi
+}
+
 main() {
   if [[ $# -eq 0 ]]; then
-    usage
-    return 0
+    cmd_machine_setup
+    return $?
   fi
   local sub="$1"; shift
   case "$sub" in
@@ -250,7 +673,14 @@ main() {
     init)   cmd_init "$@" ;;
     doctor) cmd_doctor "$@" ;;
     help|-h|--help) usage ;;
-    *) usage; die "unknown command: $sub" ;;
+    *)
+      if [[ $# -eq 0 && -d "$sub" ]]; then
+        cmd_project_folder "$sub"
+      else
+        usage
+        die "unknown command or project path: $sub"
+      fi
+      ;;
   esac
 }
 

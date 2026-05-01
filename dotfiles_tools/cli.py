@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
+from .bootstrap import apply_bootstrap, build_bootstrap_plan
 from .doctor import run_doctor
 from .installer import apply_plan, build_plan
 from .project_init import init_project
@@ -33,6 +34,26 @@ def build_parser() -> argparse.ArgumentParser:
     apply.add_argument("--yes", action="store_true")
     apply.add_argument("--include-protected", action="append", default=[])
 
+    bootstrap_plan = subparsers.add_parser(
+        "bootstrap-plan",
+        help="Print machine setup operations including install recipes",
+    )
+    _common(bootstrap_plan)
+    bootstrap_plan.add_argument("--home", required=True)
+    bootstrap_plan.add_argument("--profile", default="machine")
+    bootstrap_plan.add_argument("--include-protected", action="append", default=[])
+
+    bootstrap_apply = subparsers.add_parser(
+        "bootstrap-apply",
+        help="Apply machine setup operations and install recipes",
+    )
+    _common(bootstrap_apply)
+    bootstrap_apply.add_argument("--home", required=True)
+    bootstrap_apply.add_argument("--profile", default="machine")
+    bootstrap_apply.add_argument("--backup-dir")
+    bootstrap_apply.add_argument("--yes", action="store_true")
+    bootstrap_apply.add_argument("--include-protected", action="append", default=[])
+
     project = subparsers.add_parser("init-project", help="Initialize project-level agent docs")
     _common(project)
     project.add_argument("--project", required=True)
@@ -57,7 +78,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.command == "plan":
         report = build_plan(repo, args.home, profile=args.profile, include_protected=args.include_protected)
     elif args.command == "apply":
-        report = apply_plan(repo, args.home, profile=args.profile, backup_dir=args.backup_dir, yes=args.yes, include_protected=args.include_protected)
+        report = apply_plan(
+            repo,
+            args.home,
+            profile=args.profile,
+            backup_dir=args.backup_dir,
+            yes=args.yes,
+            include_protected=args.include_protected,
+        )
+    elif args.command == "bootstrap-plan":
+        report = build_bootstrap_plan(repo, args.home, profile=args.profile, include_protected=args.include_protected)
+    elif args.command == "bootstrap-apply":
+        report = apply_bootstrap(
+            repo,
+            args.home,
+            profile=args.profile,
+            backup_dir=args.backup_dir,
+            yes=args.yes,
+            include_protected=args.include_protected,
+        )
     elif args.command == "init-project":
         report = init_project(repo, args.project, args.vars, backup_dir=args.backup_dir, yes=args.yes, copilot=args.copilot)
     else:

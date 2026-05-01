@@ -91,6 +91,10 @@ def _execute_apply_operations(report: Report, repo_path: Path, backup_path: Path
     return report
 
 
+def execute_manifest_operation(op: dict[str, Any], repo_path: Path, backup_path: Path, backups: list[dict[str, Any]]) -> int:
+    return _execute_operation(op, repo_path, backup_path, backups)
+
+
 def _execute_operation(op: dict[str, Any], repo_path: Path, backup_path: Path, backups: list[dict[str, Any]]) -> int:
     if op["type"] == "mkdir":
         Path(op["target"]).mkdir(parents=True, exist_ok=True)
