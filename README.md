@@ -58,7 +58,12 @@ uv run python -m dotfiles_tools apply --repo . --home "$HOME" --profile machine 
 
 ## Bootstrap a new project repo
 
+The `./setup` entrypoint at the repo root is the recommended way to scaffold or
+verify agent docs in a project that lives in any folder. It self-locates this
+dotfiles repo so it works directly or via a `PATH` symlink.
+
 ```bash
+cd path/to/your-project
 cat > project-vars.json <<'JSON'
 {
   "PROJECT_NAME": "Example Project",
@@ -72,12 +77,30 @@ cat > project-vars.json <<'JSON'
 }
 JSON
 
+/path/to/000-dotfiles/setup init --yes              # bootstrap + auto-verify
+/path/to/000-dotfiles/setup verify                  # read-only re-check
+/path/to/000-dotfiles/setup init --copilot --yes    # also write copilot file
+```
+
+`init` defaults `--project` to the current directory and auto-discovers
+`project-vars.json` (or `.dotfiles/project-vars.json`). It renders
+`agents/AGENTS.md.template`, creates `CLAUDE.md` and `GEMINI.md` symlinks to
+`AGENTS.md`, and fails if required placeholders remain. `verify` is a fast
+read-only check (no writes) suitable for CI or pre-commit.
+
+### Install on `PATH`
+
+```bash
+ln -s /path/to/000-dotfiles/setup ~/.local/bin/dotfiles-setup
+dotfiles-setup verify --project ~/code/my-app
+```
+
+### Direct CLI (advanced)
+
+```bash
 uv run python -m dotfiles_tools init-project --repo path/to/dotfiles --project . --vars project-vars.json --yes
 uv run python -m dotfiles_tools init-project --repo path/to/dotfiles --project . --vars project-vars.json --copilot --yes
 ```
-
-`init-project` renders `agents/AGENTS.md.template`, creates `CLAUDE.md` and
-`GEMINI.md` symlinks to `AGENTS.md`, and fails if required placeholders remain.
 
 ## Validation and coverage
 
