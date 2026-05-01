@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "dotfiles manifest",
+  "type": "object",
+  "required": ["version", "profiles", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["entries"],
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "target", "kind", "profiles", "protected"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$"
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["file", "template", "symlink"]
+          },
+          "profiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "protected": {
+            "type": "boolean"
+          },
+          "manual_reason": {
+            "type": "string"
+          },
+          "parse": {
+            "type": "string",
+            "enum": ["json", "toml"]
+          },
+          "placeholders": {
+            "type": "string",
+            "enum": ["required", "allowed_examples", "none"]
+          },
+          "link_target": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["home", "repo", "project"]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "protected": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "required": ["manual_reason"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "symlink"
+                }
+              }
+            },
+            "then": {
+              "required": ["link_target"]
+            }
+          }
+        ]
+      }
+    },
+    "project_init": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "agent_template": {
+          "type": "string"
+        },
+        "symlinks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "copilot_template": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

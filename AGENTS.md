@@ -63,4 +63,25 @@ git add <specific files>      # never git add -A
 git commit -m "..."
 ```
 
-No build step, no tests, no lock files. Changes are valid the moment the template content is correct and placeholders are documented.
+Runtime validation tooling uses Python standard library modules and uv-managed
+developer commands:
+
+```bash
+uv run python -m dotfiles_tools doctor --repo . --home "$HOME"
+uv run python -m dotfiles_tools plan --repo . --home "$HOME" --profile machine
+uv run python -m dotfiles_tools apply --repo . --home "$HOME" --profile machine --backup-dir "$HOME/.dotfiles-backups" --yes
+uv run python -m dotfiles_tools init-project --repo . --project /path/to/project --vars project-vars.json --yes
+uv run python -m unittest discover -s tests
+uv run --with coverage coverage run -m unittest discover -s tests
+uv run --with coverage coverage xml
+```
+
+Do not add lock files unless runtime dependencies are introduced and the Spec
+Kit plan explains why they are needed. Coverage is only meaningful for real
+validation/setup code and must generate `coverage.xml` before Codacy upload.
+
+<!-- SPECKIT START -->
+Current Spec Kit plan: `specs/001-dotfiles-bootstrap-validation/plan.md`.
+Use it for feature-specific technology choices, project structure, validation
+commands, and constitution gates.
+<!-- SPECKIT END -->

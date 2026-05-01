@@ -1,0 +1,18 @@
+import json
+
+from dotfiles_tools.doctor import run_doctor
+from tests.helpers import DotfilesTestCase, REPO_ROOT
+
+
+class DoctorReportTests(DotfilesTestCase):
+    def test_json_report_contains_target_states(self):
+        home = self.make_home()
+        target = home / ".claude" / "settings.json"
+        target.parent.mkdir(parents=True)
+        target.write_text('{"drift": true}')
+        report = run_doctor(REPO_ROOT, home)
+        data = json.loads(report.to_json())
+        states = {entry["entry_id"]: entry["state"] for entry in data["entries"]}
+        self.assertEqual(states["claude.settings"], "drifted")
+        self.assertEqual(states["git.config"], "protected")
+        self.assertIn("summary", data)
