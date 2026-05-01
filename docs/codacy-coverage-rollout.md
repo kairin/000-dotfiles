@@ -15,10 +15,10 @@ Use this document as the checklist for applying the same pattern to other repos.
 4. Added `.github/workflows/dotfiles-validation.yml`.
    - Runs the unit tests with `coverage.py`.
    - Generates `coverage.xml`.
-   - Uploads `coverage.xml` to Codacy only when `CODACY_COVERAGE_API_TOKEN` is configured.
-5. Added the GitHub Actions secret `CODACY_COVERAGE_API_TOKEN`.
-6. Updated the workflow to use Codacy's account-token input:
-   - `api-token: ${{ secrets.CODACY_COVERAGE_API_TOKEN }}`
+   - Uploads `coverage.xml` to Codacy on push events only when `CODACY_PROJECT_TOKEN` is configured.
+5. Added the GitHub Actions secret `CODACY_PROJECT_TOKEN`.
+6. Updated the workflow to use Codacy's repository-token input:
+   - `project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}`
 7. Verified the workflow on `main`.
    - Run: `https://github.com/kairin/000-dotfiles/actions/runs/25203399909`
    - Commit: `29f7529c100b6b2c6ae7aa9fcc6aa1ea1b60a5e8`
@@ -59,24 +59,24 @@ Use this document as the checklist for applying the same pattern to other repos.
 4. Add the coverage token as a GitHub Actions secret in the target repo.
    - Use the same secret name for consistency:
      ```bash
-     gh secret set CODACY_COVERAGE_API_TOKEN --repo OWNER/REPO
+     gh secret set CODACY_PROJECT_TOKEN --repo OWNER/REPO
      ```
-   - Paste the Codacy account API token when prompted.
-   - If the target repo uses a Codacy project token instead, keep it in a
-     GitHub secret and use the action's `project-token` input instead of
-     `api-token`.
+   - Paste the Codacy repository API token when prompted.
+   - If the target repo uses a Codacy account token instead, keep it in a
+     GitHub secret and use the action's `api-token` input plus the required
+     provider, owner, and repository metadata.
    - Do not commit the token to any file.
-5. Use the account-token input in the workflow.
+5. Use the repository-token input in the workflow.
    - Required workflow shape:
      ```yaml
      env:
-       CODACY_COVERAGE_API_TOKEN: ${{ secrets.CODACY_COVERAGE_API_TOKEN }}
+       CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
 
      - name: Upload coverage to Codacy
-       if: ${{ env.CODACY_COVERAGE_API_TOKEN != '' }}
+       if: ${{ github.event_name == 'push' && env.CODACY_PROJECT_TOKEN != '' }}
        uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699
        with:
-         api-token: ${{ secrets.CODACY_COVERAGE_API_TOKEN }}
+         project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
          coverage-reports: coverage.xml
      ```
 6. Commit through a pull request.
@@ -114,16 +114,16 @@ Use this document as the checklist for applying the same pattern to other repos.
 
 1. Apply this same workflow pattern repo by repo.
    - Each target repo needs its own test command and workflow name adjusted.
-2. Decide whether to use one shared account token or repo-specific Codacy project tokens.
-   - This repo uses an account token stored as `CODACY_COVERAGE_API_TOKEN`.
-   - If a repo uses a Codacy project token instead, the action input should be `project-token`, not `api-token`.
+2. Decide whether to use repo-specific Codacy project tokens or one shared account token.
+   - This repo uses a repository token stored as `CODACY_PROJECT_TOKEN`.
+   - If a repo uses a Codacy account token instead, the action input should be `api-token`, not `project-token`.
 3. Enable strict coverage gates only after coverage upload is stable.
    - First confirm a few PRs upload coverage consistently.
    - Then set a reasonable threshold in Codacy.
    - After thresholds are set, require `Codacy Coverage Variation` and
      `Codacy Diff Coverage` in GitHub branch protection and the ruleset.
-4. Decide whether coverage should run on every `push`, every `pull_request`, or only protected branches.
-   - This repo currently runs on both `push` and `pull_request`.
+4. Decide whether coverage should upload on every `push`, every `pull_request`, or only protected branches.
+   - This repo runs validation on both `push` and `pull_request`, but uploads coverage on `push` only to avoid duplicate reports for the same commit.
 5. Keep static analysis and coverage separate.
    - Codacy static analysis is handled by the Codacy GitHub app/check.
-   - Coverage upload is handled by the GitHub Actions workflow and `CODACY_COVERAGE_API_TOKEN`.
+   - Coverage upload is handled by the GitHub Actions workflow and `CODACY_PROJECT_TOKEN`.
