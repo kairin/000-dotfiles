@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-dotfiles-bootstrap-validation`
 **Created**: 2026-05-01
-**Status**: Draft
+**Status**: Implemented (2026-05-01) — see `tasks.md` for the completed task list and `plan.md` for the as-built module inventory.
 **Input**: User description: "Build a real validation/setup layer for 000-dotfiles so the repo has meaningful testable code, can configure new machines, verify drift on existing machines, initialize project agent docs, and generate legitimate coverage reports only after validation tests exist."
 
 ## Clarifications
