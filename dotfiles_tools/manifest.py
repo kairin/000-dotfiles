@@ -100,28 +100,41 @@ def _parse_entries(raw_entries: list[Any], repo: Path) -> list[ManifestEntry]:
     seen: set[str] = set()
     for raw_entry in raw_entries:
         entry = _parse_entry(raw_entry)
-        if entry.id in seen:
-            raise ManifestError(f"duplicate entry id: {entry.id}")
-        seen.add(entry.id)
-        _validate_relative_path(entry.source, "source", allow_dotfile=True)
-        _validate_relative_path(entry.target, "target", allow_dotfile=True)
-        source_path = repo / entry.source
-        if not source_path.exists() and not source_path.is_symlink():
-            raise ManifestError(f"source path does not exist for {entry.id}: {entry.source}")
-        if entry.protected and not entry.manual_reason:
-            raise ManifestError(f"protected entry lacks manual_reason: {entry.id}")
-        if entry.kind == "symlink" and not entry.link_target:
-            raise ManifestError(f"symlink entry lacks link_target: {entry.id}")
-        if entry.kind not in {"file", "template", "symlink"}:
-            raise ManifestError(f"unsupported kind for {entry.id}: {entry.kind}")
-        if entry.parse not in {None, "json", "toml"}:
-            raise ManifestError(f"unsupported parse value for {entry.id}: {entry.parse}")
-        if entry.placeholders not in {"required", "allowed_examples", "none"}:
-            raise ManifestError(f"unsupported placeholders value for {entry.id}: {entry.placeholders}")
-        if entry.scope not in {"home", "repo", "project"}:
-            raise ManifestError(f"unsupported scope for {entry.id}: {entry.scope}")
+        _validate_unique_entry(entry, seen)
+        _validate_entry_paths(entry, repo)
+        _validate_entry_metadata(entry)
         entries.append(entry)
     return entries
+
+
+def _validate_unique_entry(entry: ManifestEntry, seen: set[str]) -> None:
+    if entry.id in seen:
+        raise ManifestError(f"duplicate entry id: {entry.id}")
+    seen.add(entry.id)
+
+
+def _validate_entry_paths(entry: ManifestEntry, repo: Path) -> None:
+    _validate_relative_path(entry.source, "source", allow_dotfile=True)
+    _validate_relative_path(entry.target, "target", allow_dotfile=True)
+    source_path = repo / entry.source
+    if not source_path.exists() and not source_path.is_symlink():
+        raise ManifestError(f"source path does not exist for {entry.id}: {entry.source}")
+
+
+def _validate_entry_metadata(entry: ManifestEntry) -> None:
+    if entry.protected and not entry.manual_reason:
+        raise ManifestError(f"protected entry lacks manual_reason: {entry.id}")
+    if entry.kind == "symlink" and not entry.link_target:
+        raise ManifestError(f"symlink entry lacks link_target: {entry.id}")
+    _validate_choice(entry.kind, {"file", "template", "symlink"}, "kind", entry.id)
+    _validate_choice(entry.parse, {None, "json", "toml"}, "parse value", entry.id)
+    _validate_choice(entry.placeholders, {"required", "allowed_examples", "none"}, "placeholders value", entry.id)
+    _validate_choice(entry.scope, {"home", "repo", "project"}, "scope", entry.id)
+
+
+def _validate_choice(value: Any, allowed: set[Any], label: str, entry_id: str) -> None:
+    if value not in allowed:
+        raise ManifestError(f"unsupported {label} for {entry_id}: {value}")
 
 
 def _parse_profiles(raw_profiles: dict[str, Any], entry_ids: set[str]) -> dict[str, Profile]:

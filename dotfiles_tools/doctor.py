@@ -51,22 +51,35 @@ def evaluate_entry(repo: Path, home: Path, entry: ManifestEntry, include_protect
     target_path = resolve_target(repo, home, entry)
     result = _base_result(entry, source_path, target_path)
 
+    early_state = _early_entry_state(result, source_path, target_path, entry, include_protected)
+    if early_state:
+        return early_state
+
+    return _file_target_state(result, source_path, target_path, entry)
+
+
+def _early_entry_state(
+    result: dict[str, Any],
+    source_path: Path,
+    target_path: Path,
+    entry: ManifestEntry,
+    include_protected: set[str],
+) -> dict[str, Any] | None:
     source_error = _source_error(source_path, entry)
     if source_error:
         return _state(result, "invalid", source_error)
-
     if entry.protected and entry.id not in include_protected:
         return _state(result, "protected", entry.manual_reason or "protected/manual entry")
-
     if target_path.exists() and target_path.is_dir() and entry.kind != "symlink":
         return _state(result, "blocked", "target is a directory")
-
     if entry.kind == "symlink":
         return _symlink_target_state(result, target_path, entry.link_target or "")
-
     if not target_path.exists():
         return _state(result, "missing", "target is missing")
+    return None
 
+
+def _file_target_state(result: dict[str, Any], source_path: Path, target_path: Path, entry: ManifestEntry) -> dict[str, Any]:
     try:
         source_text = expected_text(source_path, entry)
         target_text = target_path.read_text()
@@ -95,11 +108,19 @@ def _source_error(source_path: Path, entry: ManifestEntry) -> str | None:
     if not source_path.exists() and not source_path.is_symlink():
         return "source path is missing"
     if entry.kind == "symlink":
-        if not source_path.is_symlink():
-            return "source is not a symlink"
-        if entry.link_target and str(source_path.readlink()) != entry.link_target:
-            return f"source symlink must point to {entry.link_target}"
-        return None
+        return _symlink_source_error(source_path, entry)
+    return _file_source_error(source_path, entry)
+
+
+def _symlink_source_error(source_path: Path, entry: ManifestEntry) -> str | None:
+    if not source_path.is_symlink():
+        return "source is not a symlink"
+    if entry.link_target and str(source_path.readlink()) != entry.link_target:
+        return f"source symlink must point to {entry.link_target}"
+    return None
+
+
+def _file_source_error(source_path: Path, entry: ManifestEntry) -> str | None:
     template_errors = validate_template(source_path, entry)
     secret_errors = [f"secret-like {finding.kind} on line {finding.line}" for finding in scan_file(source_path)]
     errors = template_errors + secret_errors
