@@ -59,9 +59,9 @@ Files ending in `.template` are copy-and-customize sources. Placeholders use
 |---|---|
 | `./setup` | Audit machine, present a menu, optionally apply non-protected dotfiles + font recipes |
 | `./setup /path/to/project` | Inspect project folder, offer agent-doc actions |
-| `./setup init [--copilot] [--vars FILE] --yes` | Render `AGENTS.md` + `CLAUDE.md`/`GEMINI.md` symlinks; auto-discovers `project-vars.json` or `.dotfiles/project-vars.json` and infers defaults from `package.json`/`pyproject.toml`/`Cargo.toml`/`go.mod`/Makefile when missing |
-| `./setup verify [--copilot]` | Read-only check: requires no `uv`, suitable for CI |
-| `./setup doctor` | Read-only machine audit (wraps `dotfiles_tools doctor`) |
+| `./setup init [--project PATH] [--vars FILE] [--copilot] --yes` | Render `AGENTS.md` + `CLAUDE.md`/`GEMINI.md` symlinks; auto-discovers `project-vars.json` or `.dotfiles/project-vars.json` and infers defaults from `package.json`/`pyproject.toml`/`Cargo.toml`/`go.mod`/Makefile when missing |
+| `./setup verify [--project PATH] [--copilot]` | Read-only check: requires no `uv`, suitable for CI |
+| `./setup doctor [--home PATH] [--profile NAME]` | Read-only machine audit (wraps `dotfiles_tools doctor`) |
 
 Install on `PATH`:
 
