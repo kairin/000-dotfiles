@@ -1,4 +1,3 @@
-import os
 import shutil
 
 from dotfiles_tools.doctor import check_symlinks

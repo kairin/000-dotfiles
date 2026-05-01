@@ -1,0 +1,10 @@
+---
+exclude_paths:
+  - ".agents/**"
+  - ".specify/**"
+  - "specs/**"
+  - "AGENTS.md"
+engines:
+  metric:
+    exclude_paths:
+      - "dotfiles_tools/**"

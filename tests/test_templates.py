@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from dotfiles_tools.manifest import ManifestEntry
 from dotfiles_tools.placeholders import PlaceholderError, assert_no_unresolved, find_placeholders
 from dotfiles_tools.templates import validate_template

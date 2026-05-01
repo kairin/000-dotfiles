@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from tests.helpers import DotfilesTestCase, REPO_ROOT
 
 
@@ -10,4 +8,4 @@ class WorkflowTests(DotfilesTestCase):
         self.assertIn("coverage xml", workflow)
         self.assertIn("coverage.xml", workflow)
         self.assertIn("CODACY_API_TOKEN", workflow)
-        self.assertIn("codacy/codacy-coverage-reporter-action@v1.3.0", workflow)
+        self.assertIn("codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699", workflow)
