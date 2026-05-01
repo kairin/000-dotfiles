@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-import subprocess
+import os
+# Tests execute only the repo-local setup script.
+import subprocess  # nosec B404
 from pathlib import Path
 
 from tests.helpers import REPO_ROOT, DotfilesTestCase
@@ -9,12 +11,20 @@ from tests.helpers import REPO_ROOT, DotfilesTestCase
 SETUP = REPO_ROOT / "setup"
 
 
-def run_setup(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        [str(SETUP), *args],
+def run_setup(
+    *args: str,
+    executable: str | Path = SETUP,
+    cwd: Path = REPO_ROOT,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess:
+    # Fixed executable path, test-controlled args, shell=False.
+    return subprocess.run(  # nosec B603
+        [str(executable), *args],
         capture_output=True,
         text=True,
-        cwd=str(REPO_ROOT),
+        cwd=str(cwd),
+        env=env,
+        shell=False,
     )
 
 
@@ -34,6 +44,9 @@ class SetupScriptTests(DotfilesTestCase):
         result = run_setup("help")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Usage:", result.stdout)
+
+    def test_source_does_not_require_gnu_readlink_f(self) -> None:
+        self.assertNotIn("readlink -f", SETUP.read_text())
 
     def test_unknown_command(self) -> None:
         result = run_setup("nope")
@@ -98,6 +111,21 @@ class SetupScriptTests(DotfilesTestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(".github/copilot-instructions.md clean", result.stdout)
 
+    def test_verify_works_from_symlink_on_path(self) -> None:
+        project = self.make_project()
+        write_clean_project(project)
+        bin_dir = self.make_home() / "bin"
+        bin_dir.mkdir()
+        relative_target = os.path.relpath(SETUP, start=bin_dir)
+        (bin_dir / "dotfiles-setup").symlink_to(relative_target)
+        env = os.environ.copy()
+        env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
+
+        result = run_setup("verify", executable="dotfiles-setup", cwd=project, env=env)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Verification passed.", result.stdout)
+
     def test_init_missing_vars_prints_example(self) -> None:
         project = self.make_project()
         result = run_setup("init", "--project", str(project), "--yes")
@@ -110,6 +138,17 @@ class SetupScriptTests(DotfilesTestCase):
         self.vars_file(project)
         result = run_setup("init", "--project", str(project), "--yes")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Verification passed.", result.stdout)
+        self.assertTrue((project / "AGENTS.md").is_file())
+        self.assertTrue((project / "CLAUDE.md").is_symlink())
+        self.assertTrue((project / "GEMINI.md").is_symlink())
+
+    def test_init_defaults_to_current_project_and_auto_verifies(self) -> None:
+        project = self.make_project()
+        self.vars_file(project)
+        result = run_setup("init", "--yes", cwd=project)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Bootstrapping project:", result.stdout)
         self.assertIn("Verification passed.", result.stdout)
         self.assertTrue((project / "AGENTS.md").is_file())
         self.assertTrue((project / "CLAUDE.md").is_symlink())

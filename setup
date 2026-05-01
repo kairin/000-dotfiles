@@ -9,14 +9,26 @@
 #   doctor [--home PATH] [--profile NAME]
 #   help
 #
-# Self-locates via readlink -f, so symlinking into PATH works:
+# Self-locates through symlinks, so installing on PATH works:
 #   ln -s /path/to/000-dotfiles/setup ~/.local/bin/dotfiles-setup
 
 set -euo pipefail
 IFS=$'\n\t'
 
-SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
-DOTFILES_REPO="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+resolve_script_path() {
+  local source="${BASH_SOURCE[0]}"
+  local dir
+  while [[ -L "$source" ]]; do
+    dir="$(cd -P "$(dirname "$source")" >/dev/null 2>&1 && pwd)" || return 1
+    source="$(readlink "$source")" || return 1
+    [[ "$source" == /* ]] || source="$dir/$source"
+  done
+  dir="$(cd -P "$(dirname "$source")" >/dev/null 2>&1 && pwd)" || return 1
+  printf '%s/%s\n' "$dir" "$(basename "$source")"
+}
+
+SCRIPT_PATH="$(resolve_script_path)"
+DOTFILES_REPO="$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
 
 usage() {
   cat <<EOF
