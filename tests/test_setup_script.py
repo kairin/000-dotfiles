@@ -62,6 +62,15 @@ class SetupScriptTests(DotfilesTestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("unresolved placeholders", result.stdout)
 
+    def test_verify_unresolved_placeholder_with_digit(self) -> None:
+        project = self.make_project()
+        (project / "AGENTS.md").write_text("# rev {{VERSION_2}}\n")
+        (project / "CLAUDE.md").symlink_to("AGENTS.md")
+        (project / "GEMINI.md").symlink_to("AGENTS.md")
+        result = run_setup("verify", "--project", str(project))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("unresolved placeholders", result.stdout)
+
     def test_verify_wrong_symlink_target(self) -> None:
         project = self.make_project()
         (project / "AGENTS.md").write_text("# ok\n")

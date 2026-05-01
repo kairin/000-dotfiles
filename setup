@@ -99,7 +99,7 @@ find_vars_file() {
 
 check_placeholders() {
   local file="$1"
-  if grep -nE '\{\{[A-Z_]+\}\}' "$file" >/dev/null 2>&1; then
+  if grep -nE '\{\{[A-Z][A-Z0-9_]*\}\}' "$file" >/dev/null 2>&1; then
     return 1
   fi
   return 0
@@ -147,7 +147,7 @@ cmd_verify() {
   if [[ -f "$project/AGENTS.md" && ! -L "$project/AGENTS.md" ]]; then
     if ! check_placeholders "$project/AGENTS.md"; then
       echo "  FAIL  unresolved placeholders in AGENTS.md"
-      grep -nE '\{\{[A-Z_]+\}\}' "$project/AGENTS.md" | sed 's/^/        /'
+      grep -nE '\{\{[A-Z][A-Z0-9_]*\}\}' "$project/AGENTS.md" | sed 's/^/        /'
       fail=1
     else
       echo "  OK    AGENTS.md has no unresolved placeholders"
