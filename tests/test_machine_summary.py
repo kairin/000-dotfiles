@@ -52,8 +52,8 @@ def nerd_font(state: str = "missing") -> dict:
         "state": state,
         "requires_sudo": False,
         "reason": "font files are not installed",
-        "cache_path": "/tmp/cache/JetBrainsMono.zip",
-        "target": "/tmp/home/.local/share/fonts/JetBrainsMonoNerdFont",
+        "cache_path": "cache/JetBrainsMono.zip",
+        "target": "home/.local/share/fonts/JetBrainsMonoNerdFont",
         "terminal_face": "JetBrainsMono Nerd Font Mono",
         "terminal_impact": "Local terminals can select a Mono face.",
     }
@@ -167,7 +167,7 @@ class MachineSummaryTests(DotfilesTestCase):
         self.assertIn("Install/update 1 Nerd Font.", text)
         self.assertIn("Network may be used for Nerd Font downloads unless cached.", text)
         self.assertIn("JetBrainsMono Nerd Font: missing (network if cache is missing)", text)
-        self.assertNotIn("/tmp/cache/JetBrainsMono.zip", text)
+        self.assertNotIn("cache/JetBrainsMono.zip", text)
 
     def test_apt_font_missing_shows_sudo_need(self) -> None:
         home = self.make_home()

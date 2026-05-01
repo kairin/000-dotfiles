@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-import subprocess
+import subprocess  # nosec B404
 import zipfile
 
 from dotfiles_tools.bootstrap import build_bootstrap_plan
