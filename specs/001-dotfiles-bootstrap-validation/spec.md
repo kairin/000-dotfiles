@@ -141,6 +141,13 @@ A maintainer wants CI to run validation tests and produce a supported coverage r
 - **FR-023**: If an approved apply operation fails after earlier writes have completed, the system MUST stop on the first failed write, preserve completed changes and backups, and report partial-apply status.
 - **FR-024**: The user-facing CLI command names MUST be `doctor`, `plan`, `apply`, and `init-project`; documentation MUST use those names as canonical.
 
+### Protected Entry Classification
+
+Manifest entries SHOULD be classified as protected when automatic writes could
+change local identity, expose secrets or generated artifacts, require external
+or manual tool actions after installation, or break symlink/source-of-truth
+invariants.
+
 ### Key Entities
 
 - **Manifest**: The repository-owned source of truth describing setup profiles, source files, target paths, template handling, and protected/manual entries.

@@ -82,9 +82,9 @@ Expected result: `coverage.xml` exists after tests pass.
 
 ## 8. CI Behavior
 
-The GitHub Actions workflow should:
+The GitHub Actions workflow `.github/workflows/dotfiles-validation.yml` should:
 
 1. Run the unit tests.
 2. Generate `coverage.xml`.
-3. Upload coverage to Codacy only when `CODACY_API_TOKEN` is configured.
+3. Upload coverage to Codacy only when `CODACY_COVERAGE_API_TOKEN` is configured.
 4. Skip coverage upload without failing validation when the token is absent.

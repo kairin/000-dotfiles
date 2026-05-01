@@ -12,11 +12,13 @@ Fields:
 
 Validation rules:
 - `version` is required.
-- `profiles.machine.entries` must reference existing entry IDs.
+- Each profile's `entries` list must reference existing entry IDs.
+- The committed manifest defines `machine` for home bootstrap and `repo` for
+  repository-local protected checks.
 - Every entry ID must be unique.
 - Source paths must be relative to the repository root and must not escape it.
 - Target paths must be relative to the selected home directory or project
-  directory unless explicitly marked as repository-local validation only.
+  directory, or repository-relative when `scope=repo`.
 
 ## Manifest Entry
 
@@ -26,8 +28,10 @@ Fields:
 - `id`: stable unique ID, used for protected opt-in.
 - `source`: repository-relative source path.
 - `target`: target path relative to home or project root.
+- `scope`: target root classification, allowed values `home`, `repo`, and
+  `project`; omitted scope defaults to current home-target behavior.
 - `profiles`: profile membership array, initially containing `machine`,
-  `project`, or both where applicable.
+  `repo`, `project`, or combinations where applicable.
 - `kind`: `template`, `file`, or `symlink`.
 - `protected`: boolean.
 - `manual_reason`: required when `protected` is true.
