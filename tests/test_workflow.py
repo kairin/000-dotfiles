@@ -7,5 +7,6 @@ class WorkflowTests(DotfilesTestCase):
         self.assertIn("coverage run -m unittest discover -s tests", workflow)
         self.assertIn("coverage xml", workflow)
         self.assertIn("coverage.xml", workflow)
-        self.assertIn("CODACY_API_TOKEN", workflow)
+        self.assertIn("CODACY_COVERAGE_API_TOKEN", workflow)
+        self.assertIn("api-token:", workflow)
         self.assertIn("codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699", workflow)
