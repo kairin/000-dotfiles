@@ -1,0 +1,101 @@
+# Codacy Coverage Rollout
+
+This repo now has real validation code and test coverage upload wired to Codacy.
+Use this document as the checklist for applying the same pattern to other repos.
+
+## What Was Implemented Here
+
+1. Added meaningful Python validation/setup code in `dotfiles_tools/`.
+   - `doctor` audits repo integrity, symlinks, template parseability, missing targets, drifted targets, and protected/manual files.
+   - `plan` prints setup operations without writing.
+   - `apply` writes approved operations, creates parent directories, and backs up drifted files before replacement.
+   - `init-project` renders project agent docs, creates `CLAUDE.md` and `GEMINI.md` symlinks, and fails on unresolved placeholders.
+2. Added `dotfiles-manifest.json` as the source of truth for bootstrap targets.
+3. Added `tests/` with `unittest` coverage for manifest validation, template parsing, secret scanning, drift detection, apply behavior, protected targets, project initialization, docs, and workflow behavior.
+4. Added `.github/workflows/dotfiles-validation.yml`.
+   - Runs the unit tests with `coverage.py`.
+   - Generates `coverage.xml`.
+   - Uploads `coverage.xml` to Codacy only when `CODACY_COVERAGE_API_TOKEN` is configured.
+5. Added the GitHub Actions secret `CODACY_COVERAGE_API_TOKEN`.
+6. Updated the workflow to use Codacy's account-token input:
+   - `api-token: ${{ secrets.CODACY_COVERAGE_API_TOKEN }}`
+7. Verified the workflow on `main`.
+   - Run: `https://github.com/kairin/000-dotfiles/actions/runs/25203399909`
+   - Commit: `29f7529c100b6b2c6ae7aa9fcc6aa1ea1b60a5e8`
+   - Result: tests passed, `coverage.xml` generated, Codacy upload step passed.
+8. Verified Codacy received the report.
+   - Branch: `main`
+   - Commit: `29f7529`
+   - Language: Python
+   - Status: `Processed`
+
+## Reuse Steps For Another Repo
+
+1. Make sure the repo has real tests worth measuring.
+   - For Python, prefer a command that can run locally and in CI.
+   - Example:
+     ```bash
+     uv run python -m unittest discover -s tests
+     ```
+2. Generate a Codacy-supported coverage report.
+   - For Python, `coverage.py` can generate `coverage.xml`.
+   - Example:
+     ```bash
+     uv run --with coverage coverage run -m unittest discover -s tests
+     uv run --with coverage coverage xml
+     test -f coverage.xml
+     ```
+3. Add a GitHub Actions workflow that runs tests and generates coverage.
+   - Start from this repo's `.github/workflows/dotfiles-validation.yml`.
+   - Change the test command if the target repo uses a different test runner.
+4. Add the coverage token as a GitHub Actions secret in the target repo.
+   - Use the same secret name for consistency:
+     ```bash
+     gh secret set CODACY_COVERAGE_API_TOKEN --repo OWNER/REPO
+     ```
+   - Paste the Codacy account API token when prompted.
+   - Do not commit the token to any file.
+5. Use the account-token input in the workflow.
+   - Required workflow shape:
+     ```yaml
+     env:
+       CODACY_COVERAGE_API_TOKEN: ${{ secrets.CODACY_COVERAGE_API_TOKEN }}
+
+     - name: Upload coverage to Codacy
+       if: ${{ env.CODACY_COVERAGE_API_TOKEN != '' }}
+       uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699
+       with:
+         api-token: ${{ secrets.CODACY_COVERAGE_API_TOKEN }}
+         coverage-reports: coverage.xml
+     ```
+6. Commit through a pull request.
+   - Let the target repo's normal branch protection and Codacy static analysis run.
+7. After merge, verify the push workflow.
+   - Example:
+     ```bash
+     gh run list --repo OWNER/REPO --workflow "Dotfiles Validation" --branch main --limit 5
+     gh run view RUN_ID --repo OWNER/REPO --json conclusion,jobs
+     ```
+   - Confirm these steps passed:
+     - test run
+     - coverage XML generation
+     - Codacy coverage upload
+8. Check Codacy's coverage page.
+   - Confirm the report is received for the expected commit and branch.
+   - Expected status after processing: `Processed`.
+
+## Pending / Optional Follow-Up
+
+1. Apply this same workflow pattern repo by repo.
+   - Each target repo needs its own test command and workflow name adjusted.
+2. Decide whether to use one shared account token or repo-specific Codacy project tokens.
+   - This repo uses an account token stored as `CODACY_COVERAGE_API_TOKEN`.
+   - If a repo uses a Codacy project token instead, the action input should be `project-token`, not `api-token`.
+3. Do not enable strict coverage gates immediately.
+   - First confirm a few PRs upload coverage consistently.
+   - Then set a reasonable threshold in Codacy.
+4. Decide whether coverage should run on every `push`, every `pull_request`, or only protected branches.
+   - This repo currently runs on both `push` and `pull_request`.
+5. Keep static analysis and coverage separate.
+   - Codacy static analysis is handled by the Codacy GitHub app/check.
+   - Coverage upload is handled by the GitHub Actions workflow and `CODACY_COVERAGE_API_TOKEN`.

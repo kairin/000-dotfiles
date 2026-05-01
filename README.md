@@ -87,3 +87,6 @@ test -f coverage.xml
 CI runs the same validation suite and generates `coverage.xml`. Codacy upload is
 attempted only when the `CODACY_COVERAGE_API_TOKEN` GitHub Actions secret is
 configured.
+
+For the reusable setup checklist and current Codacy rollout status, see
+`docs/codacy-coverage-rollout.md`.
