@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .baseline import collect_tool_baseline
 from .manifest import ManifestEntry, ManifestError, load_manifest, resolve_source, resolve_target, validate_included_protected
 from .reports import Report, status_from_entries
 from .secrets import scan_file
@@ -168,11 +169,14 @@ def run_doctor(repo: Path | str, home: Path | str, *, profile: str = "machine", 
     home_path = Path(home).resolve()
     entries: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
+    extra: dict[str, Any] = {}
     try:
         manifest = load_manifest(repo_path)
         include_set = validate_included_protected(manifest, include_protected)
         entries.extend(check_symlinks(repo_path))
         entries.extend(evaluate_entry(repo_path, home_path, entry, include_set) for entry in manifest.entries_for_profile(profile))
+        if profile == "machine":
+            extra.update(collect_tool_baseline())
     except ManifestError as exc:
         errors.append({"message": str(exc)})
     status = status_from_entries(entries, errors)
@@ -184,4 +188,5 @@ def run_doctor(repo: Path | str, home: Path | str, *, profile: str = "machine", 
         profile=profile,
         entries=entries,
         errors=errors,
+        extra=extra,
     )

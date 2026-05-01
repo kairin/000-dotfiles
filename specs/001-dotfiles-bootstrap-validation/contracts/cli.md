@@ -41,6 +41,10 @@ a stable JSON validation report with the common report shape below.
     "protected": 0,
     "invalid": 0,
     "blocked": 0,
+    "installed": 0,
+    "needs_update": 0,
+    "manual": 0,
+    "unsupported": 0,
     "operations": 0,
     "backups": 0,
     "errors": 0
@@ -136,6 +140,76 @@ JSON requirements:
 - If a write fails after earlier writes completed, `status` is `partial`,
   operations after the failed write are not executed, and errors identify the
   failed operation.
+
+## `bootstrap-plan`
+
+Prints the machine setup plan including manifest-backed dotfiles and approved
+install/update recipes such as fonts.
+
+```bash
+uv run python -m dotfiles_tools bootstrap-plan --repo . --home "$HOME" --json
+```
+
+Options:
+
+| Option | Required | Description |
+|---|---:|---|
+| `--home PATH` | Yes | Target home directory |
+| `--profile ID` | No | Manifest profile; default `machine` |
+| `--include-protected ID` | No | Exact protected manifest entry ID to include; repeatable |
+
+JSON requirements:
+- `entries[]` includes normal manifest entries plus recipe entries.
+- Font recipe entries use states such as `missing`, `installed`,
+  `needs_update`, `manual`, and `unsupported`.
+- Top-level `fonts[]` has one record per applicable catalog item. Each record
+  includes `family`, `source_type`, `state`, `installed_version`,
+  `latest_version` for Nerd Font assets or `candidate_version` for apt
+  packages, `target`, and `terminal_face`.
+
+## `bootstrap-apply`
+
+Applies the combined machine bootstrap plan after explicit approval.
+
+```bash
+uv run python -m dotfiles_tools bootstrap-apply --repo . --home "$HOME" --yes
+uv run python -m dotfiles_tools bootstrap-apply --repo . --home "$HOME" --backup-dir "$HOME/.dotfiles-backups" --yes --json
+```
+
+Options:
+
+| Option | Required | Description |
+|---|---:|---|
+| `--home PATH` | Yes | Target home directory |
+| `--profile ID` | No | Manifest profile; default `machine` |
+| `--backup-dir PATH` | No | Backup directory; defaults to `<home>/.dotfiles-backups` |
+| `--yes` | Yes for writes | Approval flag required before any write |
+| `--include-protected ID` | No | Exact protected manifest entry ID to include; repeatable |
+
+Font recipe requirements:
+- Standard Ubuntu-style Linux plans `JetBrainsMono.zip`, `FiraCode.zip`,
+  `Hack.zip`, and `Meslo.zip` from the latest Nerd Fonts release and installs
+  each family under `~/.local/share/fonts/`.
+- Terminal checks and generated settings always use `* Nerd Font Mono` faces;
+  Propo faces may be installed from the full archives but are never selected
+  for terminal configuration.
+- Apt package records use `dpkg-query` for `installed_version` and
+  `apt-cache policy` for `candidate_version`; missing or stale packages are
+  installed with `apt-get install -y`.
+- Standard Ubuntu-style Linux installs or updates `fonts-noto-color-emoji`,
+  `fonts-symbola`, `fonts-freefont-ttf`, and `fonts-dejavu-core`.
+- In WSL, all Nerd Font families are installed Linux-side. PowerShell Windows
+  host installation is limited to JetBrainsMono Nerd Font Mono and Windows
+  Terminal is updated only when the settings JSON is discoverable.
+- On Raspberry Pi, all four Nerd Font families are installed with Noto Color
+  Emoji, Symbola, and FreeFont apt fallbacks, and `MesloLGS Nerd Font Mono` is
+  verified through fontconfig when available.
+- On Pixel Terminal, backs up ttyd HTML/service files before sudo writes and
+  orders systemd daemon reload before service restart. The embedded `JBMono NF`
+  face is a subset/alias of JetBrainsMono Nerd Font Mono, and
+  `fonts-noto-color-emoji` is installed through apt.
+- On Pixel AVF, skips Tide/Nerd Font UI setup and writes a plain prompt
+  fallback instead.
 
 ## `init-project`
 

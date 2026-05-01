@@ -16,3 +16,12 @@ class DoctorReportTests(DotfilesTestCase):
         self.assertEqual(states["claude.settings"], "drifted")
         self.assertEqual(states["git.config"], "protected")
         self.assertIn("summary", data)
+
+    def test_machine_doctor_includes_tool_and_auth_guidance(self):
+        home = self.make_home()
+        report = run_doctor(REPO_ROOT, home)
+        data = json.loads(report.to_json())
+        tool_ids = {item["id"] for item in data["tool_checks"]}
+        self.assertGreaterEqual(tool_ids, {"uv", "git", "gh", "fish", "direnv", "codex", "claude", "gemini"})
+        auth_commands = {item["command"] for item in data["auth_guidance"]}
+        self.assertIn("gh auth status", auth_commands)
