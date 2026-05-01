@@ -115,8 +115,7 @@ cmd_verify() {
       *) die "unknown flag for verify: $1" ;;
     esac
   done
-  preflight_common
-  preflight_project_templates
+  # verify is a lightweight read-only check with no external dependencies.
   project="$(resolve_project "${project:-$PWD}")"
 
   echo "Verifying project: $project"
