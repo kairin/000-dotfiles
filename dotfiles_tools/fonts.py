@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import json
 import os
 from pathlib import Path
@@ -10,6 +9,7 @@ import zipfile
 from typing import Any, Mapping
 
 from .backups import create_backup
+from .font_assets import pixel_avf_prompt_text, ttyd_html, ttyd_service, windows_font_install_script
 from .font_catalog import (
     APT_FONT_CATALOG,
     EXPECTED_TTF,
@@ -37,6 +37,25 @@ from .font_catalog import (
     FontError,
 )
 from .font_runner import CommandRunner
+
+__all__ = (
+    "APT_FONT_CATALOG",
+    "CommandRunner",
+    "EXPECTED_TTF",
+    "FONT_ARCHIVE_NAME",
+    "FONT_ASSET_NAME",
+    "FONT_EXTRACTED_DIR",
+    "FONT_FACE",
+    "FONT_INSTALL_REL",
+    "FONT_LABEL",
+    "FONT_VERSION_NAME",
+    "FontError",
+    "NERD_FONT_CATALOG",
+    "NerdFontItem",
+    "build_font_plan",
+    "execute_font_operation",
+    "select_nerd_font_asset",
+)
 
 
 def select_nerd_font_asset(release: Mapping[str, Any], asset_name: str = FONT_ASSET_NAME) -> dict[str, Any]:
@@ -755,7 +774,7 @@ def _pixel_ttyd_plan(home: Path, context: dict[str, Any], font_summary: dict[str
 
 def _build_pixel_avf_plan(home: Path, context: dict[str, Any]) -> dict[str, Any]:
     prompt_path = home / PIXEL_AVF_PROMPT_REL
-    desired = _pixel_avf_prompt_text()
+    desired = pixel_avf_prompt_text()
     prompt_state = "installed" if prompt_path.exists() and prompt_path.read_text(errors="ignore") == desired else "missing"
     fonts = [_unsupported_nerd_summary(home, context, item, "Pixel AVF weston-terminal ignores Nerd Font configuration") for item in NERD_FONT_CATALOG]
     entries = [_font_entry(summary) for summary in fonts]
@@ -1014,23 +1033,9 @@ def _execute_install_windows(op: dict[str, Any], runner: CommandRunner) -> int:
     if wslpath:
         converted = runner.run([wslpath, "-w", str(source)], capture_output=True)
         windows_source = converted.stdout.strip()
-    script = _windows_font_install_script(windows_source)
+    script = windows_font_install_script(windows_source)
     runner.run([powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script])
     return 1
-
-
-def _windows_font_install_script(source_dir: str) -> str:
-    escaped = source_dir.replace("'", "''")
-    return (
-        "$FontDir = Join-Path $env:LOCALAPPDATA 'Microsoft\\Windows\\Fonts'; "
-        "New-Item -ItemType Directory -Force -Path $FontDir | Out-Null; "
-        f"Get-ChildItem -Path '{escaped}' -File | Where-Object {{ $_.Extension -in '.ttf','.otf' }} | ForEach-Object {{ "
-        "$Dest = Join-Path $FontDir $_.Name; "
-        "Copy-Item $_.FullName $Dest -Force; "
-        "New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts' "
-        "-Name \"$($_.BaseName) (TrueType)\" -Value $_.Name -PropertyType String -Force | Out-Null "
-        "}"
-    )
 
 
 def _execute_update_windows_terminal(op: dict[str, Any], backup_dir: Path, backups: list[dict[str, Any]]) -> int:
@@ -1065,7 +1070,7 @@ def _execute_update_windows_terminal(op: dict[str, Any], backup_dir: Path, backu
 def _execute_ttyd_html(op: dict[str, Any], runner: CommandRunner, backups: list[dict[str, Any]]) -> int:
     source_dir = Path(op["source"])
     font = _regular_mono_font(source_dir)
-    html = _ttyd_html(font)
+    html = ttyd_html(font)
     generated = Path(op["cache_dir"]) / "ttyd-index.html"
     generated.parent.mkdir(parents=True, exist_ok=True)
     generated.write_text(html)
@@ -1076,7 +1081,7 @@ def _execute_ttyd_html(op: dict[str, Any], runner: CommandRunner, backups: list[
 def _execute_ttyd_service(op: dict[str, Any], runner: CommandRunner, backups: list[dict[str, Any]]) -> int:
     generated = Path(op["cache_dir"]) / "ttyd.service"
     generated.parent.mkdir(parents=True, exist_ok=True)
-    generated.write_text(_ttyd_service())
+    generated.write_text(ttyd_service())
     _sudo_backup_and_install(op["target"], generated, runner, backups, op["entry_id"])
     return 1
 
@@ -1107,61 +1112,8 @@ def _first_mono_font(fonts: list[Path], *, require_regular: bool) -> Path | None
     return None
 
 
-def _ttyd_html(font_path: Path) -> str:
-    encoded = base64.b64encode(font_path.read_bytes()).decode("ascii")
-    return f"""<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-@font-face {{
-  font-family: '{PIXEL_TTYD_FONT_ALIAS}';
-  src: url(data:font/truetype;charset=utf-8;base64,{encoded}) format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}}
-body, #terminal, .terminal, .xterm, .xterm-rows {{
-  font-family: '{PIXEL_TTYD_FONT_ALIAS}', 'Noto Color Emoji', monospace !important;
-}}
-</style>
-</head>
-<body>
-<div id="terminal"></div>
-</body>
-</html>
-"""
-
-
-def _ttyd_service() -> str:
-    return """[Unit]
-Description=ttyd terminal with dotfiles-managed font embedding
-After=network.target
-
-[Service]
-ExecStart=/usr/bin/ttyd --index /etc/ttyd/index.html -W /bin/bash
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-"""
-
-
 def _execute_pixel_avf_prompt(op: dict[str, Any]) -> int:
     target = Path(op["target"])
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(_pixel_avf_prompt_text())
+    target.write_text(pixel_avf_prompt_text())
     return 1
-
-
-def _pixel_avf_prompt_text() -> str:
-    return """# Managed by 000-dotfiles for Pixel AVF weston-terminal.
-# Uses a plain prompt without Nerd Font private-use glyphs.
-function fish_prompt
-    set -l code $status
-    set -l marker '>'
-    if test $code -ne 0
-        set marker '!'
-    end
-    printf '%s %s ' (prompt_pwd) $marker
-end
-"""
