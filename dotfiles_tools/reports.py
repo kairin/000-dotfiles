@@ -148,36 +148,54 @@ def _extend_errors(lines: list[str], errors: list[dict[str, Any] | str]) -> None
 
 
 def _extend_extra(lines: list[str], extra: dict[str, Any]) -> None:
-    fonts = extra.get("fonts") or []
+    _extend_extra_fonts(lines, extra.get("fonts") or [])
+    _extend_extra_tool_checks(lines, extra.get("tool_checks") or [])
+    _extend_extra_auth_guidance(lines, extra.get("auth_guidance") or [])
+
+
+def _extend_extra_fonts(lines: list[str], fonts: list[dict[str, Any]]) -> None:
     if fonts:
         lines.append("font actions:")
         for item in fonts:
-            sudo = "yes" if item.get("requires_sudo") else "no"
-            source_type = item.get("source_type")
-            version = item.get("latest_version") or item.get("candidate_version") or "unknown"
-            lines.append(f"  - {item.get('label')}: {item.get('state')} ({source_type}) -> {item.get('target')}")
-            lines.append(f"    version: installed={item.get('installed_version') or 'unknown'} latest/candidate={version}")
-            if item.get("cache_path"):
-                lines.append(f"    cache: {item.get('cache_path')}")
-            lines.append(f"    terminal face: {item.get('terminal_face') or 'n/a'}")
-            lines.append(f"    sudo: {sudo}; host: {item.get('host_action')}")
-            lines.append(f"    terminal: {item.get('terminal_impact')}")
+            _extend_extra_font_item(lines, item)
 
-    tool_checks = extra.get("tool_checks") or []
+
+def _extend_extra_font_item(lines: list[str], item: dict[str, Any]) -> None:
+    sudo = "yes" if item.get("requires_sudo") else "no"
+    source_type = item.get("source_type")
+    version = item.get("latest_version") or item.get("candidate_version") or "unknown"
+    lines.append(f"  - {item.get('label')}: {item.get('state')} ({source_type}) -> {item.get('target')}")
+    lines.append(f"    version: installed={item.get('installed_version') or 'unknown'} latest/candidate={version}")
+    if item.get("cache_path"):
+        lines.append(f"    cache: {item.get('cache_path')}")
+    lines.append(f"    terminal face: {item.get('terminal_face') or 'n/a'}")
+    lines.append(f"    sudo: {sudo}; host: {item.get('host_action')}")
+    lines.append(f"    terminal: {item.get('terminal_impact')}")
+
+
+def _extend_extra_tool_checks(lines: list[str], tool_checks: list[dict[str, Any]]) -> None:
     if tool_checks:
         lines.append("tool checks:")
         for item in tool_checks:
-            path = item.get("path")
-            location = f" ({path})" if path else ""
-            bootstrap = " bootstrap" if item.get("bootstrap") else ""
-            hint = f" - {item.get('install_hint')}" if item.get("state") == "missing" else ""
-            lines.append(f"  - {item.get('command')}: {item.get('state')}{location}{bootstrap}{hint}")
+            lines.append(_extra_tool_check_line(item))
 
-    auth_guidance = extra.get("auth_guidance") or []
+
+def _extra_tool_check_line(item: dict[str, Any]) -> str:
+    path = item.get("path")
+    location = f" ({path})" if path else ""
+    bootstrap = " bootstrap" if item.get("bootstrap") else ""
+    hint = f" - {item.get('install_hint')}" if item.get("state") == "missing" else ""
+    return f"  - {item.get('command')}: {item.get('state')}{location}{bootstrap}{hint}"
+
+
+def _extend_extra_auth_guidance(lines: list[str], auth_guidance: list[dict[str, Any]]) -> None:
     if auth_guidance:
         lines.append("auth/setup guidance:")
         for item in auth_guidance:
-            if item.get("state") == "available":
-                lines.append(f"  - {item.get('command')}: {item.get('guidance')}")
-            else:
-                lines.append(f"  - {item.get('tool')}: install tool before auth setup")
+            lines.append(_extra_auth_line(item))
+
+
+def _extra_auth_line(item: dict[str, Any]) -> str:
+    if item.get("state") == "available":
+        return f"  - {item.get('command')}: {item.get('guidance')}"
+    return f"  - {item.get('tool')}: install tool before auth setup"

@@ -1,168 +1,42 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
 import platform
 import shutil
-import subprocess  # nosec B404
-import urllib.request
 import zipfile
 from typing import Any, Mapping
 
 from .backups import create_backup
-
-
-NERD_FONTS_RELEASE_URL = "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest"
-NERD_FONTS_REPO = "ryanoasis/nerd-fonts"
-FONT_CACHE_REL = Path(".cache/000-dotfiles/fonts")
-FONT_INSTALL_BASE_REL = Path(".local/share/fonts")
-FONT_MARKER_NAME = ".000-dotfiles-font-source.json"
-WINDOWS_TERMINAL_PACKAGES = (
-    "Microsoft.WindowsTerminal_8wekyb3d8bbwe",
-    "Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe",
+from .font_catalog import (
+    APT_FONT_CATALOG,
+    EXPECTED_TTF,
+    FONT_ARCHIVE_NAME,
+    FONT_ASSET_NAME,
+    FONT_CACHE_REL,
+    FONT_ENTRY_ID,
+    FONT_EXTRACTED_DIR,
+    FONT_FACE,
+    FONT_INSTALL_BASE_REL,
+    FONT_INSTALL_REL,
+    FONT_MARKER_NAME,
+    FONT_LABEL,
+    FONT_VERSION_NAME,
+    NERD_FONTS_RELEASE_URL,
+    NERD_FONTS_REPO,
+    NERD_FONT_CATALOG,
+    NerdFontItem,
+    PIXEL_AVF_ENTRY_ID,
+    PIXEL_AVF_PROMPT_REL,
+    PIXEL_TTYD_ENTRY_ID,
+    PIXEL_TTYD_FONT_ALIAS,
+    WINDOWS_ENTRY_ID,
+    WINDOWS_TERMINAL_PACKAGES,
+    FontError,
 )
-
-FONT_ASSET_NAME = "JetBrainsMono.zip"
-FONT_FACE = "JetBrainsMono Nerd Font Mono"
-FONT_LABEL = "JetBrainsMono Nerd Font"
-FONT_ENTRY_ID = "fonts.jetbrains-mono-nerd"
-FONT_INSTALL_REL = FONT_INSTALL_BASE_REL / "JetBrainsMonoNerdFont"
-FONT_EXTRACTED_DIR = "JetBrainsMono"
-FONT_ARCHIVE_NAME = FONT_ASSET_NAME
-FONT_VERSION_NAME = "JetBrainsMono.version.json"
-EXPECTED_TTF = "JetBrainsMonoNerdFontMono-Regular.ttf"
-WINDOWS_ENTRY_ID = "fonts.windows-host"
-PIXEL_TTYD_ENTRY_ID = "fonts.pixel-ttyd"
-PIXEL_AVF_ENTRY_ID = "fonts.pixel-avf-prompt"
-PIXEL_TTYD_FONT_ALIAS = "JBMono NF"
-PIXEL_AVF_PROMPT_REL = Path(".config/fish/conf.d/000-dotfiles-pixel-avf-prompt.fish")
-
-
-@dataclass(frozen=True)
-class NerdFontItem:
-    entry_id: str
-    label: str
-    family: str
-    asset_name: str
-    install_dir_name: str
-    terminal_face: str
-    expected_regular: str
-
-    @property
-    def cache_stem(self) -> str:
-        return Path(self.asset_name).stem
-
-
-NERD_FONT_CATALOG: tuple[NerdFontItem, ...] = (
-    NerdFontItem(
-        FONT_ENTRY_ID,
-        FONT_LABEL,
-        "JetBrainsMono",
-        FONT_ASSET_NAME,
-        "JetBrainsMonoNerdFont",
-        FONT_FACE,
-        EXPECTED_TTF,
-    ),
-    NerdFontItem(
-        "fonts.fira-code-nerd",
-        "FiraCode Nerd Font",
-        "FiraCode",
-        "FiraCode.zip",
-        "FiraCodeNerdFont",
-        "FiraCode Nerd Font Mono",
-        "FiraCodeNerdFontMono-Regular.ttf",
-    ),
-    NerdFontItem(
-        "fonts.hack-nerd",
-        "Hack Nerd Font",
-        "Hack",
-        "Hack.zip",
-        "HackNerdFont",
-        "Hack Nerd Font Mono",
-        "HackNerdFontMono-Regular.ttf",
-    ),
-    NerdFontItem(
-        "fonts.meslo-nerd",
-        "MesloLGS Nerd Font",
-        "MesloLGS",
-        "Meslo.zip",
-        "MesloNerdFont",
-        "MesloLGS Nerd Font Mono",
-        "MesloLGSNerdFontMono-Regular.ttf",
-    ),
-)
-
-APT_FONT_CATALOG: tuple[dict[str, str], ...] = (
-    {
-        "entry_id": "fonts.apt.noto-color-emoji",
-        "family": "Noto Color Emoji",
-        "package": "fonts-noto-color-emoji",
-        "terminal_face": "Noto Color Emoji",
-    },
-    {
-        "entry_id": "fonts.apt.symbola",
-        "family": "Symbola",
-        "package": "fonts-symbola",
-        "terminal_face": "Symbola",
-    },
-    {
-        "entry_id": "fonts.apt.freefont",
-        "family": "GNU FreeFont",
-        "package": "fonts-freefont-ttf",
-        "terminal_face": "FreeMono",
-    },
-    {
-        "entry_id": "fonts.apt.dejavu-core",
-        "family": "DejaVu Core",
-        "package": "fonts-dejavu-core",
-        "terminal_face": "DejaVu Sans Mono",
-    },
-)
-
-
-class FontError(RuntimeError):
-    """Raised when a font recipe cannot complete."""
-
-
-class CommandRunner:
-    def __init__(self, *, env: Mapping[str, str] | None = None, path: str | None = None) -> None:
-        self.env = dict(os.environ if env is None else env)
-        self.path = path if path is not None else self.env.get("PATH", "")
-
-    def which(self, command: str) -> str | None:
-        return shutil.which(command, path=self.path)
-
-    def run(self, args: list[str], *, capture_output: bool = False, check: bool = True) -> subprocess.CompletedProcess[str]:
-        env = dict(self.env)
-        env["PATH"] = self.path
-        # codacy-disable-next-line
-        return subprocess.run(  # nosec B603  # nosemgrep
-            args,
-            check=check,
-            capture_output=capture_output,
-            text=True,
-            env=env,
-            shell=False,
-        )
-
-    def fetch_json(self, url: str) -> dict[str, Any]:
-        request = urllib.request.Request(
-            url,
-            headers={"Accept": "application/vnd.github+json", "User-Agent": "000-dotfiles-bootstrap"},
-        )
-        with urllib.request.urlopen(request, timeout=20) as response:  # nosec B310
-            return json.loads(response.read().decode("utf-8"))
-
-    def download(self, url: str, target: Path) -> None:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        tmp = target.with_suffix(target.suffix + ".tmp")
-        request = urllib.request.Request(url, headers={"User-Agent": "000-dotfiles-bootstrap"})
-        with urllib.request.urlopen(request, timeout=60) as response:  # nosec B310
-            tmp.write_bytes(response.read())
-        tmp.replace(target)
+from .font_runner import CommandRunner
 
 
 def select_nerd_font_asset(release: Mapping[str, Any], asset_name: str = FONT_ASSET_NAME) -> dict[str, Any]:
@@ -184,56 +58,124 @@ def build_font_plan(
     path: str | None = None,
     runner: CommandRunner | None = None,
 ) -> dict[str, Any]:
+    home_path, effective_env, effective_runner, context, fetch_release = _font_plan_inputs(home, env, path, runner)
+    if context["platform"] == "unsupported":
+        return _build_unsupported_plan(home_path, context)
+    if context["platform"] == "pixel-avf":
+        return _build_pixel_avf_plan(home_path, context)
+    return _build_supported_font_plan(home_path, effective_env, effective_runner, context, fetch_release)
+
+
+def _font_plan_inputs(
+    home: Path | str,
+    env: Mapping[str, str] | None,
+    path: str | None,
+    runner: CommandRunner | None,
+) -> tuple[Path, dict[str, str], CommandRunner, dict[str, Any], bool]:
     home_path = Path(home).expanduser().resolve()
     effective_env = dict(os.environ if env is None else env)
     effective_path = path if path is not None else effective_env.get("PATH", "")
     runner_was_provided = runner is not None
     effective_runner = runner or CommandRunner(env=effective_env, path=effective_path)
     context = _detect_context(home_path, effective_env, effective_path, effective_runner)
+    return home_path, effective_env, effective_runner, context, runner_was_provided
 
-    if context["platform"] == "unsupported":
-        return _build_unsupported_plan(home_path, context)
-    if context["platform"] == "pixel-avf":
-        return _build_pixel_avf_plan(home_path, context)
 
-    release = _release_metadata(home_path, effective_env, effective_runner, fetch=runner_was_provided)
+def _build_supported_font_plan(
+    home: Path,
+    env: Mapping[str, str],
+    runner: CommandRunner,
+    context: dict[str, Any],
+    fetch_release: bool,
+) -> dict[str, Any]:
+    release = _release_metadata(home, env, runner, fetch=fetch_release)
     entries: list[dict[str, Any]] = []
     operations: list[dict[str, Any]] = []
     fonts: list[dict[str, Any]] = []
+    _extend_nerd_font_plan(home, context, release, entries, operations, fonts)
+    _extend_apt_font_plan(context, runner, entries, operations, fonts)
+    _extend_platform_font_plan(home, context, entries, operations, fonts)
+    return {"entries": entries, "operations": operations, "fonts": fonts, "context": context}
 
+
+def _extend_nerd_font_plan(
+    home: Path,
+    context: dict[str, Any],
+    release: Mapping[str, Any],
+    entries: list[dict[str, Any]],
+    operations: list[dict[str, Any]],
+    fonts: list[dict[str, Any]],
+) -> None:
     for item in _nerd_items_for_platform(context["platform"]):
-        summary = _nerd_font_summary(home_path, context, item, release)
+        summary = _nerd_font_summary(home, context, item, release)
         entries.append(_font_entry(summary))
         fonts.append(summary)
         if summary["state"] in {"missing", "needs_update"}:
-            operations.extend(_nerd_font_operations(home_path, item, reason=summary["reason"]))
+            operations.extend(_nerd_font_operations(home, item, reason=summary["reason"]))
 
+
+def _extend_apt_font_plan(
+    context: dict[str, Any],
+    runner: CommandRunner,
+    entries: list[dict[str, Any]],
+    operations: list[dict[str, Any]],
+    fonts: list[dict[str, Any]],
+) -> None:
     for item in _apt_items_for_platform(context["platform"]):
-        summary = _apt_font_summary(context, item, effective_runner)
+        summary = _apt_font_summary(context, item, runner)
         entries.append(_font_entry(summary))
         fonts.append(summary)
         if summary["state"] in {"missing", "needs_update"}:
             operations.append(_apt_package_operation(summary))
 
+
+def _extend_platform_font_plan(
+    home: Path,
+    context: dict[str, Any],
+    entries: list[dict[str, Any]],
+    operations: list[dict[str, Any]],
+    fonts: list[dict[str, Any]],
+) -> None:
     if context["platform"] == "wsl":
-        jetbrains = next(item for item in NERD_FONT_CATALOG if item.entry_id == FONT_ENTRY_ID)
-        jetbrains_summary = next(item for item in fonts if item["entry_id"] == FONT_ENTRY_ID)
-        windows_entry, windows_ops, windows_summary = _windows_host_plan(home_path, context, jetbrains, jetbrains_summary)
-        entries.append(windows_entry)
-        operations.extend(windows_ops)
-        jetbrains_summary["host_action"] = windows_summary["host_action"]
-
+        _extend_wsl_host_plan(home, context, entries, operations, fonts)
     if context["platform"] == "pixel-terminal":
-        jetbrains_summary = next(item for item in fonts if item["entry_id"] == FONT_ENTRY_ID)
-        pixel_entry, pixel_ops, pixel_summary = _pixel_ttyd_plan(home_path, context, jetbrains_summary)
-        entries.append(pixel_entry)
-        operations.extend(pixel_ops)
-        jetbrains_summary["host_action"] = pixel_summary["host_action"]
-        jetbrains_summary["requires_sudo"] = True
-        jetbrains_summary["terminal_impact"] = pixel_summary["terminal_impact"]
-        jetbrains_summary["embedded_alias"] = PIXEL_TTYD_FONT_ALIAS
+        _extend_pixel_terminal_plan(home, context, entries, operations, fonts)
 
-    return {"entries": entries, "operations": operations, "fonts": fonts, "context": context}
+
+def _jetbrains_font_summary(fonts: list[dict[str, Any]]) -> dict[str, Any]:
+    return next(item for item in fonts if item["entry_id"] == FONT_ENTRY_ID)
+
+
+def _extend_wsl_host_plan(
+    home: Path,
+    context: dict[str, Any],
+    entries: list[dict[str, Any]],
+    operations: list[dict[str, Any]],
+    fonts: list[dict[str, Any]],
+) -> None:
+    jetbrains = next(item for item in NERD_FONT_CATALOG if item.entry_id == FONT_ENTRY_ID)
+    jetbrains_summary = _jetbrains_font_summary(fonts)
+    windows_entry, windows_ops, windows_summary = _windows_host_plan(home, context, jetbrains, jetbrains_summary)
+    entries.append(windows_entry)
+    operations.extend(windows_ops)
+    jetbrains_summary["host_action"] = windows_summary["host_action"]
+
+
+def _extend_pixel_terminal_plan(
+    home: Path,
+    context: dict[str, Any],
+    entries: list[dict[str, Any]],
+    operations: list[dict[str, Any]],
+    fonts: list[dict[str, Any]],
+) -> None:
+    jetbrains_summary = _jetbrains_font_summary(fonts)
+    pixel_entry, pixel_ops, pixel_summary = _pixel_ttyd_plan(home, context, jetbrains_summary)
+    entries.append(pixel_entry)
+    operations.extend(pixel_ops)
+    jetbrains_summary["host_action"] = pixel_summary["host_action"]
+    jetbrains_summary["requires_sudo"] = True
+    jetbrains_summary["terminal_impact"] = pixel_summary["terminal_impact"]
+    jetbrains_summary["embedded_alias"] = PIXEL_TTYD_FONT_ALIAS
 
 
 def execute_font_operation(
@@ -247,68 +189,88 @@ def execute_font_operation(
     backup_path = backup_dir or Path.home() / ".dotfiles-backups"
     backup_records = backups if backups is not None else []
     op_type = op["type"]
-    if op_type in {"font_skip", "font_manual"}:
-        return 0
-    if op_type == "font_download":
-        return _execute_download(op, effective_runner)
-    if op_type == "font_extract":
-        return _execute_extract(op)
-    if op_type == "font_install_linux":
-        return _execute_install_linux(op)
-    if op_type == "font_rebuild_cache":
-        return _execute_rebuild_cache(op, effective_runner)
-    if op_type == "font_verify_linux":
-        return _execute_verify_linux(op, effective_runner)
-    if op_type == "font_install_packages":
-        return _execute_install_packages(op, effective_runner)
-    if op_type == "font_install_windows":
-        return _execute_install_windows(op, effective_runner)
-    if op_type == "font_update_windows_terminal":
-        return _execute_update_windows_terminal(op, backup_path, backup_records)
-    if op_type == "font_ttyd_write_html":
-        return _execute_ttyd_html(op, effective_runner, backup_records)
-    if op_type == "font_ttyd_write_service":
-        return _execute_ttyd_service(op, effective_runner, backup_records)
-    if op_type == "font_systemd_daemon_reload":
-        effective_runner.run(["sudo", "systemctl", "daemon-reload"])
-        return 1
-    if op_type == "font_systemd_restart":
-        effective_runner.run(["sudo", "systemctl", "restart", "ttyd.service"])
-        return 1
-    if op_type == "font_pixel_avf_prompt":
-        return _execute_pixel_avf_prompt(op)
+    executor = _font_operation_handlers(effective_runner, backup_path, backup_records).get(op_type)
+    if executor:
+        return executor(op)
     raise FontError(f"unknown font operation: {op_type}")
 
 
-def _detect_context(home: Path, env: Mapping[str, str], path: str, runner: CommandRunner) -> dict[str, Any]:
-    override = (env.get("DOTFILES_PLATFORM") or "").strip().lower()
-    if override in {"linux", "native-linux", "ubuntu"}:
-        platform_id = "linux"
-    elif override in {"pi", "raspberry-pi", "raspberrypi"}:
-        platform_id = "pi"
-    elif override in {"wsl", "wsl-linux", "wsl2"}:
-        platform_id = "wsl"
-    elif override in {"pixel-terminal", "pixel_ttyd", "ttyd"}:
-        platform_id = "pixel-terminal"
-    elif override in {"pixel-avf", "avf"}:
-        platform_id = "pixel-avf"
-    elif _is_wsl(env):
-        platform_id = "wsl"
-    elif _is_raspberry_pi():
-        platform_id = "pi"
-    elif Path("/etc/ttyd").exists() or Path("/etc/systemd/system/ttyd.service").exists():
-        platform_id = "pixel-terminal"
-    else:
-        platform_id = "linux" if platform.system().lower() == "linux" else "unsupported"
-
+def _font_operation_handlers(
+    runner: CommandRunner,
+    backup_path: Path,
+    backups: list[dict[str, Any]],
+) -> dict[str, Any]:
     return {
-        "platform": platform_id,
+        "font_skip": lambda op: 0,
+        "font_manual": lambda op: 0,
+        "font_download": lambda op: _execute_download(op, runner),
+        "font_extract": _execute_extract,
+        "font_install_linux": _execute_install_linux,
+        "font_rebuild_cache": lambda op: _execute_rebuild_cache(op, runner),
+        "font_verify_linux": lambda op: _execute_verify_linux(op, runner),
+        "font_install_packages": lambda op: _execute_install_packages(op, runner),
+        "font_install_windows": lambda op: _execute_install_windows(op, runner),
+        "font_update_windows_terminal": lambda op: _execute_update_windows_terminal(op, backup_path, backups),
+        "font_ttyd_write_html": lambda op: _execute_ttyd_html(op, runner, backups),
+        "font_ttyd_write_service": lambda op: _execute_ttyd_service(op, runner, backups),
+        "font_systemd_daemon_reload": lambda op: _execute_systemd(op, runner, "daemon-reload"),
+        "font_systemd_restart": lambda op: _execute_systemd(op, runner, "restart", "ttyd.service"),
+        "font_pixel_avf_prompt": _execute_pixel_avf_prompt,
+    }
+
+
+def _execute_systemd(op: dict[str, Any], runner: CommandRunner, *args: str) -> int:
+    runner.run(["sudo", "systemctl", *args])
+    return 1
+
+
+def _detect_context(home: Path, env: Mapping[str, str], path: str, runner: CommandRunner) -> dict[str, Any]:
+    return {
+        "platform": _platform_id(env),
         "architecture": platform.machine().lower(),
         "path": path,
         "powershell": runner.which("powershell.exe"),
         "wslpath": runner.which("wslpath"),
         "windows_terminal_settings": _discover_windows_terminal_settings(home, env),
     }
+
+
+def _platform_id(env: Mapping[str, str]) -> str:
+    override = (env.get("DOTFILES_PLATFORM") or "").strip().lower()
+    override_id = _platform_override(override)
+    if override_id:
+        return override_id
+    return _detected_platform(env)
+
+
+def _platform_override(override: str) -> str | None:
+    overrides = {
+        "linux": "linux",
+        "native-linux": "linux",
+        "ubuntu": "linux",
+        "pi": "pi",
+        "raspberry-pi": "pi",
+        "raspberrypi": "pi",
+        "wsl": "wsl",
+        "wsl-linux": "wsl",
+        "wsl2": "wsl",
+        "pixel-terminal": "pixel-terminal",
+        "pixel_ttyd": "pixel-terminal",
+        "ttyd": "pixel-terminal",
+        "pixel-avf": "pixel-avf",
+        "avf": "pixel-avf",
+    }
+    return overrides.get(override)
+
+
+def _detected_platform(env: Mapping[str, str]) -> str:
+    if _is_wsl(env):
+        return "wsl"
+    if _is_raspberry_pi():
+        return "pi"
+    if Path("/etc/ttyd").exists() or Path("/etc/systemd/system/ttyd.service").exists():
+        return "pixel-terminal"
+    return "linux" if platform.system().lower() == "linux" else "unsupported"
 
 
 def _is_wsl(env: Mapping[str, str]) -> bool:
@@ -408,19 +370,47 @@ def _nerd_font_summary(home: Path, context: dict[str, Any], item: NerdFontItem, 
     latest_version = _release_tag_for_asset(release, item.asset_name) or cached_version.get("tag_name")
     installed_tag = installed_version.get("tag_name") if installed_version else None
     cached_tag = cached_version.get("tag_name") if cached_version else None
-    if not installed_files:
-        state = "missing"
-        reason = f"{item.label} is not installed in the user font directory"
-    elif latest_version and installed_tag and installed_tag != latest_version:
-        state = "needs_update"
-        reason = f"installed {installed_tag} but latest is {latest_version}"
-    elif not latest_version and cached_tag and installed_tag and installed_tag != cached_tag:
-        state = "needs_update"
-        reason = f"installed {installed_tag} but cached archive is {cached_tag}"
-    else:
-        state = "installed"
-        reason = f"user-local {item.label} files are present"
+    state, reason = _nerd_font_state(item, installed_files, installed_tag, latest_version, cached_tag)
+    return _nerd_font_summary_record(context, item, paths, state, reason, installed_tag, latest_version, cached_tag)
 
+
+def _nerd_font_state(
+    item: NerdFontItem,
+    installed_files: list[Path],
+    installed_tag: str | None,
+    latest_version: str | None,
+    cached_tag: str | None,
+) -> tuple[str, str]:
+    if not installed_files:
+        return "missing", f"{item.label} is not installed in the user font directory"
+    update_reason = _nerd_font_update_reason(installed_tag, latest_version, cached_tag)
+    if update_reason:
+        return "needs_update", update_reason
+    return "installed", f"user-local {item.label} files are present"
+
+
+def _nerd_font_update_reason(
+    installed_tag: str | None,
+    latest_version: str | None,
+    cached_tag: str | None,
+) -> str | None:
+    if latest_version and installed_tag and installed_tag != latest_version:
+        return f"installed {installed_tag} but latest is {latest_version}"
+    if not latest_version and cached_tag and installed_tag and installed_tag != cached_tag:
+        return f"installed {installed_tag} but cached archive is {cached_tag}"
+    return None
+
+
+def _nerd_font_summary_record(
+    context: dict[str, Any],
+    item: NerdFontItem,
+    paths: dict[str, Path],
+    state: str,
+    reason: str,
+    installed_tag: str | None,
+    latest_version: str | None,
+    cached_tag: str | None,
+) -> dict[str, Any]:
     return {
         "entry_id": item.entry_id,
         "label": item.label,
@@ -638,12 +628,21 @@ def _windows_host_plan(
     item: NerdFontItem,
     font_summary: dict[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
-    operations: list[dict[str, Any]] = []
     powershell = context.get("powershell")
-    settings = context.get("windows_terminal_settings")
     state = "missing" if powershell else "manual"
     reason = "powershell.exe is available for Windows per-user font install" if powershell else "powershell.exe is not visible from WSL"
-    entry = {
+    operations = _windows_host_operations(home, context, item, font_summary)
+    return _windows_host_entry(home, context, item, state, reason), operations, {"host_action": _host_action(context), "requires_sudo": False}
+
+
+def _windows_host_entry(
+    home: Path,
+    context: dict[str, Any],
+    item: NerdFontItem,
+    state: str,
+    reason: str,
+) -> dict[str, Any]:
+    return {
         "entry_id": WINDOWS_ENTRY_ID,
         "source": str(_nerd_paths(home, item)["install_dir"]),
         "source_type": "windows_host",
@@ -658,33 +657,49 @@ def _windows_host_plan(
         "terminal_impact": _terminal_impact("wsl"),
         "host_action": _host_action(context),
     }
-    if powershell:
-        source_dir = _nerd_paths(home, item)["install_dir"] if font_summary["state"] == "installed" else _nerd_paths(home, item)["extract_dir"]
-        operations.append({
-            "entry_id": WINDOWS_ENTRY_ID,
-            "type": "font_install_windows",
-            "source": str(source_dir),
-            "target": "Windows per-user font store",
-            "terminal_face": item.terminal_face,
-            "reason": "install JetBrainsMono Nerd Font Mono into the Windows user font store through PowerShell",
-            "requires_approval": True,
-            "recipe": "fonts",
-        })
-        if settings:
-            operations.append({
-                "entry_id": WINDOWS_ENTRY_ID,
-                "type": "font_update_windows_terminal",
-                "source": item.terminal_face,
-                "target": settings,
-                "reason": "set Windows Terminal profile defaults font.face",
-                "requires_approval": True,
-                "recipe": "fonts",
-            })
-        else:
-            operations.append(_manual_op(WINDOWS_ENTRY_ID, f"Set Windows Terminal font face to {item.terminal_face} manually."))
+
+
+def _windows_host_operations(
+    home: Path,
+    context: dict[str, Any],
+    item: NerdFontItem,
+    font_summary: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if not context.get("powershell"):
+        return [_manual_op(WINDOWS_ENTRY_ID, f"Install {item.terminal_face} on the Windows host manually.")]
+    operations = [_windows_font_install_operation(home, item, font_summary)]
+    settings = context.get("windows_terminal_settings")
+    if settings:
+        operations.append(_windows_terminal_update_operation(item, settings))
     else:
-        operations.append(_manual_op(WINDOWS_ENTRY_ID, f"Install {item.terminal_face} on the Windows host manually."))
-    return entry, operations, {"host_action": _host_action(context), "requires_sudo": False}
+        operations.append(_manual_op(WINDOWS_ENTRY_ID, f"Set Windows Terminal font face to {item.terminal_face} manually."))
+    return operations
+
+
+def _windows_font_install_operation(home: Path, item: NerdFontItem, font_summary: dict[str, Any]) -> dict[str, Any]:
+    source_dir = _nerd_paths(home, item)["install_dir"] if font_summary["state"] == "installed" else _nerd_paths(home, item)["extract_dir"]
+    return {
+        "entry_id": WINDOWS_ENTRY_ID,
+        "type": "font_install_windows",
+        "source": str(source_dir),
+        "target": "Windows per-user font store",
+        "terminal_face": item.terminal_face,
+        "reason": "install JetBrainsMono Nerd Font Mono into the Windows user font store through PowerShell",
+        "requires_approval": True,
+        "recipe": "fonts",
+    }
+
+
+def _windows_terminal_update_operation(item: NerdFontItem, settings: str) -> dict[str, Any]:
+    return {
+        "entry_id": WINDOWS_ENTRY_ID,
+        "type": "font_update_windows_terminal",
+        "source": item.terminal_face,
+        "target": settings,
+        "reason": "set Windows Terminal profile defaults font.face",
+        "requires_approval": True,
+        "recipe": "fonts",
+    }
 
 
 def _pixel_ttyd_plan(home: Path, context: dict[str, Any], font_summary: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
@@ -943,14 +958,22 @@ def _execute_rebuild_cache(op: dict[str, Any], runner: CommandRunner) -> int:
 
 def _execute_verify_linux(op: dict[str, Any], runner: CommandRunner) -> int:
     terminal_face = str(op.get("terminal_face") or "")
-    if "Propo" in terminal_face or "Mono" not in terminal_face:
-        raise FontError(f"refusing terminal font face that is not Mono-safe: {terminal_face}")
+    _validate_mono_face(terminal_face)
     fc_match = runner.which("fc-match")
     if not fc_match:
         op["result"] = "fc-match not found; verify manually"
         return 0
     result = runner.run([fc_match, terminal_face], capture_output=True)
-    stdout = result.stdout or ""
+    _validate_fc_match_output(op, terminal_face, result.stdout or "")
+    return 0
+
+
+def _validate_mono_face(terminal_face: str) -> None:
+    if "Propo" in terminal_face or "Mono" not in terminal_face:
+        raise FontError(f"refusing terminal font face that is not Mono-safe: {terminal_face}")
+
+
+def _validate_fc_match_output(op: dict[str, Any], terminal_face: str, stdout: str) -> None:
     if "Propo" in stdout:
         raise FontError(f"fontconfig resolved {terminal_face} to a Propo face: {stdout.strip()}")
     if "Mono" not in stdout:
@@ -958,7 +981,6 @@ def _execute_verify_linux(op: dict[str, Any], runner: CommandRunner) -> int:
     family = str(op.get("family") or terminal_face.split()[0])
     if _normalize(family) not in _normalize(stdout):
         raise FontError(f"fontconfig did not resolve {terminal_face}: {stdout.strip()}")
-    return 0
 
 
 def _normalize(text: str) -> str:
@@ -1071,13 +1093,18 @@ def _regular_mono_font(source_dir: Path) -> Path:
     if exact.exists():
         return exact
     fonts = _installed_font_files(source_dir)
-    regular = [path for path in fonts if "Mono" in path.name and "Regular" in path.name]
-    if regular:
-        return regular[0]
-    mono = [path for path in fonts if "Mono" in path.name]
-    if mono:
-        return mono[0]
+    regular = _first_mono_font(fonts, require_regular=True)
+    mono = _first_mono_font(fonts, require_regular=False)
+    if regular or mono:
+        return regular or mono
     raise FontError(f"no JetBrainsMono Nerd Font Mono file found in {source_dir}")
+
+
+def _first_mono_font(fonts: list[Path], *, require_regular: bool) -> Path | None:
+    for path in fonts:
+        if "Mono" in path.name and (not require_regular or "Regular" in path.name):
+            return path
+    return None
 
 
 def _ttyd_html(font_path: Path) -> str:

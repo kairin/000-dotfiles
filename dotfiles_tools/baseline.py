@@ -103,28 +103,41 @@ def collect_tool_baseline(path: str | None = None) -> dict[str, list[dict[str, A
 def render_setup_guidance(path: str | None = None) -> str:
     baseline = collect_tool_baseline(path)
     missing_tools = [item for item in baseline["tool_checks"] if item["state"] == "missing"]
-
-    lines = ["Tool status:"]
-    if missing_tools:
-        lines.append("  Missing tools:")
-        for item in missing_tools:
-            lines.append(f"    - {item['command']}: {item['install_hint']}")
-    else:
-        lines.append("  - No missing baseline tools. All expected commands are visible on PATH.")
-
     available_auth = [item for item in baseline["auth_guidance"] if item["state"] == "available"]
     missing_auth_tools = [item for item in baseline["auth_guidance"] if item["state"] != "available"]
-    if available_auth:
-        lines.append("")
-        lines.append("Optional sign-in checks:")
-        for item in available_auth:
-            lines.append(f"  - {item['command']}: {item['guidance']}")
-    if missing_auth_tools:
-        lines.append("")
-        lines.append("Sign-in checks unavailable until the tool is installed:")
-        for item in missing_auth_tools:
-            lines.append(f"  - {item['tool']}")
+
+    lines = ["Tool status:"]
+    _extend_missing_tools(lines, missing_tools)
+    _extend_available_auth(lines, available_auth)
+    _extend_missing_auth_tools(lines, missing_auth_tools)
     return "\n".join(lines) + "\n"
+
+
+def _extend_missing_tools(lines: list[str], missing_tools: list[dict[str, Any]]) -> None:
+    if not missing_tools:
+        lines.append("  - No missing baseline tools. All expected commands are visible on PATH.")
+        return
+    lines.append("  Missing tools:")
+    for item in missing_tools:
+        lines.append(f"    - {item['command']}: {item['install_hint']}")
+
+
+def _extend_available_auth(lines: list[str], available_auth: list[dict[str, Any]]) -> None:
+    if not available_auth:
+        return
+    lines.append("")
+    lines.append("Optional sign-in checks:")
+    for item in available_auth:
+        lines.append(f"  - {item['command']}: {item['guidance']}")
+
+
+def _extend_missing_auth_tools(lines: list[str], missing_auth_tools: list[dict[str, Any]]) -> None:
+    if not missing_auth_tools:
+        return
+    lines.append("")
+    lines.append("Sign-in checks unavailable until the tool is installed:")
+    for item in missing_auth_tools:
+        lines.append(f"  - {item['tool']}")
 
 
 def _tool_check(item: dict[str, Any], search_path: str) -> dict[str, Any]:

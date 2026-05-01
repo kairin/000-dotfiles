@@ -62,7 +62,6 @@ def apply_bootstrap(
     yes: bool = False,
     include_protected: list[str] | None = None,
     env: Mapping[str, str] | None = None,
-    path: str | None = None,
     runner: CommandRunner | None = None,
 ) -> Report:
     repo_path = Path(repo).resolve()
@@ -84,7 +83,6 @@ def apply_bootstrap(
         profile=profile,
         include_protected=include_protected,
         env=env,
-        path=path,
         runner=runner,
     )
     report.command = "bootstrap-apply"

@@ -95,6 +95,26 @@ def write_font_zip(path: Path, expected_regular: str = EXPECTED_TTF) -> None:
         bundle.writestr(expected_regular.replace("Mono", "Propo"), b"fake-propo")
 
 
+def font_values(fonts: list[dict], source_type: str, key: str) -> set:
+    return {item[key] for item in fonts if item["source_type"] == source_type}
+
+
+def operation_values(operations: list[dict], op_type: str, key: str) -> set:
+    return {op[key] for op in operations if op["type"] == op_type}
+
+
+def operation_packages(operations: list[dict]) -> set:
+    return {op["packages"][0] for op in operations if op["type"] == "font_install_packages"}
+
+
+def operation_terminal_faces(operations: list[dict], op_type: str) -> list:
+    return [op.get("terminal_face") for op in operations if op["type"] == op_type]
+
+
+def font_by_entry(fonts: list[dict], entry_id: str) -> dict:
+    return next(item for item in fonts if item["entry_id"] == entry_id)
+
+
 class FontCatalogTests(DotfilesTestCase):
     def apt_runner(self, installed: dict[str, str | None] | None = None, candidate: dict[str, str | None] | None = None) -> FakeRunner:
         return FakeRunner(
@@ -130,12 +150,12 @@ class FontCatalogTests(DotfilesTestCase):
         plan = build_font_plan(home, env={"DOTFILES_PLATFORM": "linux"}, path="", runner=runner)
         fonts = plan["fonts"]
 
-        self.assertEqual({item["asset_name"] for item in fonts if item["source_type"] == "nerd_font_release"}, {item.asset_name for item in NERD_FONT_CATALOG})
-        self.assertEqual({item["package"] for item in fonts if item["source_type"] == "apt_package"}, packages)
-        self.assertTrue(all(item["latest_version"] == "v3.4.0" for item in fonts if item["source_type"] == "nerd_font_release"))
-        self.assertTrue(all(item["candidate_version"] == "1.0" for item in fonts if item["source_type"] == "apt_package"))
-        self.assertEqual({op["asset_name"] for op in plan["operations"] if op["type"] == "font_download"}, {item.asset_name for item in NERD_FONT_CATALOG})
-        self.assertEqual({op["packages"][0] for op in plan["operations"] if op["type"] == "font_install_packages"}, packages)
+        self.assertEqual(font_values(fonts, "nerd_font_release", "asset_name"), {item.asset_name for item in NERD_FONT_CATALOG})
+        self.assertEqual(font_values(fonts, "apt_package", "package"), packages)
+        self.assertEqual(font_values(fonts, "nerd_font_release", "latest_version"), {"v3.4.0"})
+        self.assertEqual(font_values(fonts, "apt_package", "candidate_version"), {"1.0"})
+        self.assertEqual(operation_values(plan["operations"], "font_download", "asset_name"), {item.asset_name for item in NERD_FONT_CATALOG})
+        self.assertEqual(operation_packages(plan["operations"]), packages)
 
     def test_linux_font_install_reuses_cached_archives_extracts_installs_and_verifies_mono_faces(self) -> None:
         home = self.make_home()
@@ -182,7 +202,7 @@ class FontCatalogTests(DotfilesTestCase):
         self.assertEqual(states["fonts-freefont-ttf"], "needs_update")
         self.assertEqual(states["fonts-dejavu-core"], "installed")
         self.assertEqual(
-            {op["packages"][0] for op in plan["operations"] if op["type"] == "font_install_packages"},
+            operation_packages(plan["operations"]),
             {"fonts-symbola", "fonts-freefont-ttf"},
         )
 
@@ -205,7 +225,7 @@ class FontCatalogTests(DotfilesTestCase):
         plan = build_font_plan(home, env=env, path="", runner=runner)
         op_types = [op["type"] for op in plan["operations"]]
 
-        self.assertEqual({item["asset_name"] for item in plan["fonts"] if item["source_type"] == "nerd_font_release"}, {item.asset_name for item in NERD_FONT_CATALOG})
+        self.assertEqual(font_values(plan["fonts"], "nerd_font_release", "asset_name"), {item.asset_name for item in NERD_FONT_CATALOG})
         self.assertIn("font_install_windows", op_types)
         terminal_update = next(op for op in plan["operations"] if op["type"] == "font_update_windows_terminal")
         self.assertEqual(terminal_update["source"], FONT_FACE)
@@ -222,14 +242,14 @@ class FontCatalogTests(DotfilesTestCase):
 
         plan = build_font_plan(home, env={"DOTFILES_PLATFORM": "pi"}, path="", runner=runner)
 
-        self.assertEqual({item["asset_name"] for item in plan["fonts"] if item["source_type"] == "nerd_font_release"}, {item.asset_name for item in NERD_FONT_CATALOG})
+        self.assertEqual(font_values(plan["fonts"], "nerd_font_release", "asset_name"), {item.asset_name for item in NERD_FONT_CATALOG})
         self.assertEqual(
-            {item["package"] for item in plan["fonts"] if item["source_type"] == "apt_package"},
+            font_values(plan["fonts"], "apt_package", "package"),
             {"fonts-noto-color-emoji", "fonts-symbola", "fonts-freefont-ttf"},
         )
         self.assertIn(
             "MesloLGS Nerd Font Mono",
-            [op.get("terminal_face") for op in plan["operations"] if op["type"] == "font_verify_linux"],
+            operation_terminal_faces(plan["operations"], "font_verify_linux"),
         )
 
     def test_pixel_terminal_embeds_jetbrains_mono_subset_and_only_noto_emoji_package(self) -> None:
@@ -239,12 +259,12 @@ class FontCatalogTests(DotfilesTestCase):
         plan = build_font_plan(home, env={"DOTFILES_PLATFORM": "pixel-terminal"}, path="", runner=runner)
         op_types = [op["type"] for op in plan["operations"]]
 
-        self.assertEqual({item["asset_name"] for item in plan["fonts"] if item["source_type"] == "nerd_font_release"}, {"JetBrainsMono.zip"})
-        self.assertEqual({item["package"] for item in plan["fonts"] if item["source_type"] == "apt_package"}, {"fonts-noto-color-emoji"})
+        self.assertEqual(font_values(plan["fonts"], "nerd_font_release", "asset_name"), {"JetBrainsMono.zip"})
+        self.assertEqual(font_values(plan["fonts"], "apt_package", "package"), {"fonts-noto-color-emoji"})
         self.assertLess(op_types.index("font_ttyd_write_html"), op_types.index("font_ttyd_write_service"))
         self.assertLess(op_types.index("font_ttyd_write_service"), op_types.index("font_systemd_daemon_reload"))
         self.assertLess(op_types.index("font_systemd_daemon_reload"), op_types.index("font_systemd_restart"))
-        self.assertEqual(next(item for item in plan["fonts"] if item["entry_id"] == "fonts.jetbrains-mono-nerd")["embedded_alias"], "JBMono NF")
+        self.assertEqual(font_by_entry(plan["fonts"], "fonts.jetbrains-mono-nerd")["embedded_alias"], "JBMono NF")
 
     def test_pixel_avf_skips_nerd_font_install_and_plans_prompt_fallback(self) -> None:
         home = self.make_home()
