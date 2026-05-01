@@ -8,3 +8,4 @@ class DocsTests(DotfilesTestCase):
             self.assertIn(f"dotfiles_tools {command}", readme)
         self.assertIn("uv run python -m unittest discover -s tests", readme)
         self.assertIn("coverage xml", readme)
+        self.assertIn("docs/codacy-coverage-rollout.md", readme)
