@@ -65,11 +65,31 @@ def _early_entry_state(
     entry: ManifestEntry,
     include_protected: set[str],
 ) -> dict[str, Any] | None:
+    source_state = _source_entry_state(result, source_path, entry)
+    if source_state:
+        return source_state
+
+    protected_state = _protected_entry_state(result, entry, include_protected)
+    if protected_state:
+        return protected_state
+
+    return _target_preflight_state(result, target_path, entry)
+
+
+def _source_entry_state(result: dict[str, Any], source_path: Path, entry: ManifestEntry) -> dict[str, Any] | None:
     source_error = _source_error(source_path, entry)
     if source_error:
         return _state(result, "invalid", source_error)
+    return None
+
+
+def _protected_entry_state(result: dict[str, Any], entry: ManifestEntry, include_protected: set[str]) -> dict[str, Any] | None:
     if entry.protected and entry.id not in include_protected:
         return _state(result, "protected", entry.manual_reason or "protected/manual entry")
+    return None
+
+
+def _target_preflight_state(result: dict[str, Any], target_path: Path, entry: ManifestEntry) -> dict[str, Any] | None:
     if target_path.exists() and target_path.is_dir() and entry.kind != "symlink":
         return _state(result, "blocked", "target is a directory")
     if entry.kind == "symlink":
