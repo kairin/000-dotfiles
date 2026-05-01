@@ -85,4 +85,5 @@ test -f coverage.xml
 ```
 
 CI runs the same validation suite and generates `coverage.xml`. Codacy upload is
-attempted only when `CODACY_API_TOKEN` is configured.
+attempted only when the `CODACY_COVERAGE_API_TOKEN` GitHub Actions secret is
+configured.
