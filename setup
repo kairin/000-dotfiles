@@ -358,6 +358,63 @@ check_api_credentials() {
   fi
 }
 
+check_mcp_servers() {
+  echo
+  echo "MCP server configuration:"
+  echo "  Server               Status"
+  echo "  ---                  ---"
+
+  local mcp_json="$HOME/.claude/.mcp.json"
+  local status="✗ Not configured"
+
+  # Check if .mcp.json exists
+  if [[ ! -f "$mcp_json" ]]; then
+    echo "  Codacy MCP           $status (file missing)"
+    return
+  fi
+
+  # Validate JSON
+  if ! command -v jq >/dev/null 2>&1; then
+    # Fallback: try to parse with Python
+    if ! python3 -c "import json; json.load(open('$mcp_json'))" 2>/dev/null; then
+      echo "  Codacy MCP           ✗ Invalid JSON in .mcp.json"
+      return
+    fi
+  else
+    if ! jq empty "$mcp_json" 2>/dev/null; then
+      echo "  Codacy MCP           ✗ Invalid JSON in .mcp.json"
+      return
+    fi
+  fi
+
+  # Check environment variable
+  if [[ -z "${CODACY_ACCOUNT_TOKEN:-}" ]]; then
+    # Try to source from .envrc.local if available
+    if [[ -f "$HOME/.envrc.local" ]] && grep -q "CODACY_ACCOUNT_TOKEN" "$HOME/.envrc.local"; then
+      echo "  Codacy MCP           ⚠ Token found but not in current shell (source .envrc.local)"
+    else
+      echo "  Codacy MCP           ✗ CODACY_ACCOUNT_TOKEN not set"
+      return
+    fi
+  fi
+
+  # Try to invoke the MCP server
+  if command -v npx >/dev/null 2>&1; then
+    if npx -y @codacy/codacy-mcp --help >/dev/null 2>&1; then
+      echo "  Codacy MCP           ✓ Configured and accessible"
+    else
+      echo "  Codacy MCP           ⚠ Config valid but server test failed"
+    fi
+  else
+    # npx not available, but config looks good
+    if [[ -n "${CODACY_ACCOUNT_TOKEN:-}" ]]; then
+      echo "  Codacy MCP           ✓ Configured (npx not available to test)"
+    else
+      echo "  Codacy MCP           ✗ npx not available"
+    fi
+  fi
+}
+
 cmd_verify() {
   local project="" copilot=0
   while [[ $# -gt 0 ]]; do
@@ -425,6 +482,7 @@ cmd_verify() {
   fi
   echo "Verification passed."
   check_api_credentials
+  check_mcp_servers
   return 0
 }
 
