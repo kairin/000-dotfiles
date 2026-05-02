@@ -158,6 +158,43 @@ TOOL_BASELINE = (
             },
         ),
     },
+    {
+        "id": "copilot",
+        "label": "GitHub Copilot CLI",
+        "command": "copilot",
+        "bootstrap": True,
+        "install_method": "npm",
+        "install_args": {"package": "@github/copilot"},
+        "requires_sudo": True,
+        "install_hint": "Installed by the setup tool-install menu option (npm install -g @github/copilot).",
+        "post_install": (
+            {
+                "kind": "guidance",
+                "label": "Sign in to GitHub Copilot CLI",
+                "command_template": ("copilot", "/login"),
+            },
+        ),
+    },
+    {
+        "id": "specify",
+        "label": "SpecKit CLI",
+        "command": "specify",
+        "bootstrap": True,
+        "install_method": "uv_tool",
+        "install_args": {
+            "package": "specify-cli",
+            "from_url": "git+https://github.com/github/spec-kit.git",
+        },
+        "requires_sudo": False,
+        "install_hint": "Installed by the setup tool-install menu option (uv tool install specify-cli).",
+        "post_install": (
+            {
+                "kind": "guidance",
+                "label": "Initialise SpecKit in a project",
+                "command_template": ("specify", "init", "--here"),
+            },
+        ),
+    },
 )
 
 
@@ -175,7 +212,7 @@ DEV_BASE_GROUPS = (
     ("editors",   ("vim", "nano")),
     ("shell",     ("tmux", "less", "man-db")),
     ("system",    ("htop", "tree", "file")),
-    ("network",   ("openssh-client", "dnsutils", "iputils-ping", "net-tools")),
+    ("network",   ("openssh-client", "bind9-dnsutils", "iputils-ping", "net-tools")),
 )
 DEV_BASE_PACKAGES = tuple(pkg for _, group in DEV_BASE_GROUPS for pkg in group)
 
@@ -204,6 +241,12 @@ AUTH_GUIDANCE = (
         "tool": "gemini",
         "command": "gemini",
         "guidance": "Start Gemini CLI and complete its login/setup prompt if needed.",
+    },
+    {
+        "id": "copilot",
+        "tool": "copilot",
+        "command": "copilot auth",
+        "guidance": "Run when GitHub Copilot CLI is installed and needs user authentication.",
     },
 )
 

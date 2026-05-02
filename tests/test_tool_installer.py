@@ -158,15 +158,27 @@ class ToolInstallPlanTests(DotfilesTestCase):
         self.assertEqual(claude_ops[0]["type"], "tool_install_curl")
         self.assertEqual(claude_ops[0]["mode"], "upgrade")
 
-    def test_npm_install_for_codex_and_gemini(self) -> None:
+    def test_npm_install_for_codex_gemini_and_copilot(self) -> None:
         home = self.make_home()
         runner = FakeRunner(which={"dpkg-query": "/usr/bin/dpkg-query"})
         plan = build_tool_install_plan(home, runner=runner)
         codex_ops = [op for op in plan["operations"] if op.get("entry_id") == "tools.codex"]
         gemini_ops = [op for op in plan["operations"] if op.get("entry_id") == "tools.gemini"]
+        copilot_ops = [op for op in plan["operations"] if op.get("entry_id") == "tools.copilot"]
         self.assertEqual(codex_ops[0]["type"], "tool_install_npm")
         self.assertEqual(codex_ops[0]["package"], "@openai/codex")
         self.assertEqual(gemini_ops[0]["package"], "@google/gemini-cli")
+        self.assertEqual(copilot_ops[0]["type"], "tool_install_npm")
+        self.assertEqual(copilot_ops[0]["package"], "@github/copilot")
+
+    def test_uv_tool_install_for_specify(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"dpkg-query": "/usr/bin/dpkg-query"})
+        plan = build_tool_install_plan(home, runner=runner)
+        specify_ops = [op for op in plan["operations"] if op.get("entry_id") == "tools.specify"]
+        self.assertEqual(specify_ops[0]["type"], "tool_install_uv_tool")
+        self.assertEqual(specify_ops[0]["package"], "specify-cli")
+        self.assertEqual(specify_ops[0]["from_url"], "git+https://github.com/github/spec-kit.git")
 
     def test_npm_upgrade_when_present(self) -> None:
         home = self.make_home()

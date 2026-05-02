@@ -61,14 +61,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     install_tools_plan = subparsers.add_parser(
         "bootstrap-install-tools-plan",
-        help="Preview tool install/update actions for option 5",
+        help="Preview tool install/update actions for option 1",
     )
     _common(install_tools_plan)
     install_tools_plan.add_argument("--home", required=True)
 
     install_tools_apply = subparsers.add_parser(
         "bootstrap-install-tools",
-        help="Apply tool install/update actions (option 5)",
+        help="Apply tool install/update actions (option 1)",
     )
     _common(install_tools_apply)
     install_tools_apply.add_argument("--home", required=True)

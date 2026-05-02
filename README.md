@@ -33,20 +33,21 @@ git clone https://github.com/kairin/000-dotfiles.git ~/000-dotfiles
 ~/000-dotfiles/setup
 # 1. Install / update developer tools (preview, then apply)  → choose 1, then y
 #    Installs the dev-base apt bundle, git, gh, fish, direnv, claude, codex,
-#    gemini. Auto-runs fish chsh + fisher bootstrap + plugin apply.
-#    Prints sign-in commands for gh/claude/codex/gemini.
+#    gemini, copilot, specify. Auto-runs fish chsh + fisher bootstrap + plugin apply.
+#    Prints sign-in commands for gh/claude/codex/gemini/copilot.
 # 2. Apply safe changes  → choose 2, then y
 #    Copies all non-protected config templates and installs Nerd Fonts.
 # Run the printed sign-in commands when ready (gh auth login, claude /login,
-# codex auth login, gemini).
+# codex auth login, gemini, copilot /login).
+# Run `specify init --here` in each project to set up SpecKit.
 ```
 
 ### Re-running on a configured machine
 
 ```bash
 ~/000-dotfiles/setup
-# Option 1 applies any config drift (safe, backups files it overwrites).
-# Option 5 upgrades installed tools (apt --only-upgrade, npm update -g,
+# Option 2 applies any config drift (safe, backups files it overwrites).
+# Option 1 upgrades installed tools (apt --only-upgrade, npm update -g,
 # re-run self-updating curl installers).
 ```
 

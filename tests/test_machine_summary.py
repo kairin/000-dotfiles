@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest import mock
 
 from dotfiles_tools.machine_summary import (
-    render_menu_label,
     render_menu_mode,
     render_missing_tool_count,
     render_reports,
@@ -120,7 +119,7 @@ class MachineSummaryTests(DotfilesTestCase):
         text = self.render(plan_report)
 
         self.assertIn("Machine setup summary", text)
-        self.assertIn("Option 1 will:", text)
+        self.assertIn("Option 2 will:", text)
         self.assertIn("Update existing files with backups:", text)
         self.assertIn("~/.claude/settings.json", text)
         self.assertIn("Create missing files:", text)
@@ -133,7 +132,7 @@ class MachineSummaryTests(DotfilesTestCase):
         self.assertIn("Apt fallback fonts:", text)
         self.assertIn("Noto Color Emoji [fonts-noto-color-emoji]: missing", text)
         self.assertIn("Terminal configuration uses `Nerd Font Mono` faces, never Propo.", text)
-        self.assertIn("Full details: choose option 2", text)
+        self.assertIn("Full details: choose option 3", text)
         self.assertNotIn("<- repo/", text)
         self.assertNotIn("entries:", text)
         self.assertNotIn("operations:", text)
@@ -219,17 +218,6 @@ class MachineSummaryTests(DotfilesTestCase):
         self.assertIn("manifest parse failed", text)
         self.assertIn("Manual/skipped:", text)
         self.assertIn("JetBrainsMono Nerd Font: manual check needed", text)
-
-    def test_menu_label_is_dynamic_and_specific(self) -> None:
-        home = self.make_home()
-        drifted = home / ".claude" / "settings.json"
-        drifted.parent.mkdir(parents=True)
-        drifted.write_text('{"drift": true}')
-
-        label = render_menu_label(REPO_ROOT, home)
-
-        self.assertRegex(label, r"^Apply [0-9]+ file changes?( \+ [0-9]+ font actions?)?")
-        self.assertIn("backs up 1 file", label)
 
     def test_menu_mode_returns_tools_missing_when_any_bootstrap_tool_absent(self) -> None:
         home = self.make_home()

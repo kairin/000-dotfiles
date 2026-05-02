@@ -19,14 +19,6 @@ def render_machine_summary(repo: Path | str, home: Path | str, *, profile: str =
     return render_reports(doctor, plan, repo_path, home_path, profile=profile)
 
 
-def render_menu_label(repo: Path | str, home: Path | str, *, profile: str = "machine") -> str:
-    repo_path = Path(repo).resolve()
-    home_path = Path(home).resolve()
-    plan = build_bootstrap_plan(repo_path, home_path, profile=profile)
-    groups = _group_entries(plan.entries)
-    return _option_one_label(plan, groups)
-
-
 def render_menu_mode(repo: Path | str, home: Path | str) -> str:
     """Return 'tools_missing' if any non-dev-base bootstrap tool is absent;
     otherwise 'tools_present'. The bash menu reads this token to choose the
@@ -58,7 +50,7 @@ def render_reports(doctor: Report, plan: Report, repo: Path, home: Path, *, prof
     _extend_report_sections(lines, doctor, plan, groups, manifest_entries)
     lines.extend([
         "",
-        "Full details: choose option 2 for cache paths, versions, package candidates, terminal faces, host actions, and raw operations.",
+        "Full details: choose option 3 for cache paths, versions, package candidates, terminal faces, host actions, and raw operations.",
     ])
     return "\n".join(lines) + "\n"
 
@@ -77,7 +69,7 @@ def _summary_header(repo: Path, home: Path, profile: str) -> list[str]:
         f"Home: {home}",
         f"Profile: {profile}",
         "",
-        "Option 1 will:",
+        "Option 2 will:",
     ]
 
 
@@ -90,7 +82,7 @@ def _extend_option_decision(
     _extend_font_decision(lines, action_summary)
     _extend_requirement_decisions(lines, action_summary)
     _extend_skip_decisions(lines, action_summary, groups)
-    lines.append("  - Nothing changes until you choose option 1.")
+    lines.append("  - Nothing changes until you choose option 2.")
 
 
 def _extend_file_decision(
@@ -407,49 +399,6 @@ def _has_apt_sudo_operation(operations: list[dict[str, Any]]) -> bool:
     return any(_is_actionable_operation(op) and op.get("type") == "font_install_packages" and op.get("requires_sudo") for op in operations)
 
 
-def _option_one_label(plan: Report, groups: dict[str, list[dict[str, Any]]]) -> str:
-    action_summary = _action_summary(
-        Report("doctor", "ok", plan.repo, home=plan.home, profile=plan.profile),
-        plan,
-        groups,
-    )
-    file_changes = int(action_summary["file_changes"])
-    font_actions = int(action_summary["font_actions"])
-    label = _option_base_label(file_changes, font_actions)
-    details = _option_label_details(action_summary)
-    if details:
-        label += f" ({'; '.join(details)})"
-    return label
-
-
-def _option_base_label(file_changes: int, font_actions: int) -> str:
-    if file_changes and font_actions:
-        return f"Apply {_plural(file_changes, 'file change')} + {_plural(font_actions, 'font action')}"
-    if file_changes:
-        return f"Apply {_plural(file_changes, 'file change')}"
-    if font_actions:
-        return f"Apply {_plural(font_actions, 'font action')}"
-    return "Apply safe changes"
-
-
-def _option_label_details(action_summary: dict[str, int | bool]) -> list[str]:
-    details: list[str] = []
-    backups = int(action_summary["backups"])
-    if backups:
-        details.append(f"backs up {_plural(backups, 'file')}")
-    _extend_sudo_label_details(details, action_summary)
-    if action_summary["requires_network"]:
-        details.append("network may be used for Nerd Fonts")
-    return details
-
-
-def _extend_sudo_label_details(details: list[str], action_summary: dict[str, int | bool]) -> None:
-    if action_summary["requires_apt_sudo"]:
-        details.append("sudo needed for apt fonts")
-    elif action_summary["requires_sudo"]:
-        details.append("sudo needed")
-
-
 def _file_change_sentence(updates: int, creates: int, backups: int) -> str:
     parts: list[str] = []
     if updates:
@@ -543,13 +492,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--repo", required=True)
     parser.add_argument("--home", required=True)
     parser.add_argument("--profile", default="machine")
-    parser.add_argument("--menu-label", action="store_true")
     parser.add_argument("--menu-mode", action="store_true")
     parser.add_argument("--missing-tool-count", action="store_true")
     args = parser.parse_args(argv)
-    if args.menu_label:
-        print(render_menu_label(args.repo, args.home, profile=args.profile))
-    elif args.menu_mode:
+    if args.menu_mode:
         print(render_menu_mode(args.repo, args.home))
     elif args.missing_tool_count:
         print(render_missing_tool_count(args.repo, args.home))

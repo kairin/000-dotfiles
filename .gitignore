@@ -3,3 +3,10 @@
 *.key
 *.token
 .DS_Store
+.specify/
+.agents/
+__pycache__/
+*.pyc
+.claude/
+.vscode/
+skills-lock.json

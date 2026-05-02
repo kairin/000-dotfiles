@@ -91,7 +91,6 @@ Kit plan explains why they are needed. Coverage is only meaningful for real
 validation/setup code and must generate `coverage.xml` before Codacy upload.
 
 <!-- SPECKIT START -->
-Current Spec Kit plan: `specs/001-dotfiles-bootstrap-validation/plan.md`.
-Use it for feature-specific technology choices, project structure, validation
-commands, and constitution gates.
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
 <!-- SPECKIT END -->
