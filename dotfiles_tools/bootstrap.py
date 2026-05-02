@@ -186,8 +186,6 @@ def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[st
     for action in actions:
         collected.extend(action.get("backups") or [])
     return collected
-    if any(item.get("status") == "failed" for item in actions):
-        report.status = "warning"
 
 
 def _execute_bootstrap_operations(
