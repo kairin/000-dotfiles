@@ -93,43 +93,27 @@ def _common(parser: argparse.ArgumentParser) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    repo = Path(args.repo)
-    if args.command == "doctor":
-        report = run_doctor(repo, args.home, profile=args.profile)
-    elif args.command == "plan":
-        report = build_plan(repo, args.home, profile=args.profile, include_protected=args.include_protected)
-    elif args.command == "apply":
-        report = apply_plan(
-            repo,
-            args.home,
-            profile=args.profile,
-            backup_dir=args.backup_dir,
-            yes=args.yes,
-            include_protected=args.include_protected,
-        )
-    elif args.command == "bootstrap-plan":
-        report = build_bootstrap_plan(repo, args.home, profile=args.profile, include_protected=args.include_protected)
-    elif args.command == "bootstrap-apply":
-        report = apply_bootstrap(
-            repo,
-            args.home,
-            profile=args.profile,
-            backup_dir=args.backup_dir,
-            yes=args.yes,
-            include_protected=args.include_protected,
-        )
-    elif args.command == "bootstrap-install-tools-plan":
-        report = build_tool_install_subplan(repo, args.home)
-    elif args.command == "bootstrap-install-tools":
-        report = apply_tool_installs(
-            repo,
-            args.home,
-            backup_dir=args.backup_dir,
-            yes=args.yes,
-        )
-    elif args.command == "init-project":
-        report = init_project(repo, args.project, args.vars, backup_dir=args.backup_dir, yes=args.yes, copilot=args.copilot)
-    else:
-        parser.error(f"unknown command: {args.command}")
+    report = _dispatch_command(args, Path(args.repo))
     print(render(report, args.as_json), end="")
     return 1 if report.status in {"failed", "partial"} else 0
+
+
+def _dispatch_command(args: argparse.Namespace, repo: Path):  # type: ignore[return]
+    cmd = args.command
+    if cmd == "doctor":
+        return run_doctor(repo, args.home, profile=args.profile)
+    if cmd == "plan":
+        return build_plan(repo, args.home, profile=args.profile, include_protected=args.include_protected)
+    if cmd == "apply":
+        return apply_plan(repo, args.home, profile=args.profile, backup_dir=args.backup_dir, yes=args.yes, include_protected=args.include_protected)
+    if cmd == "bootstrap-plan":
+        return build_bootstrap_plan(repo, args.home, profile=args.profile, include_protected=args.include_protected)
+    if cmd == "bootstrap-apply":
+        return apply_bootstrap(repo, args.home, profile=args.profile, backup_dir=args.backup_dir, yes=args.yes, include_protected=args.include_protected)
+    if cmd == "bootstrap-install-tools-plan":
+        return build_tool_install_subplan(repo, args.home)
+    if cmd == "bootstrap-install-tools":
+        return apply_tool_installs(repo, args.home, backup_dir=args.backup_dir, yes=args.yes)
+    if cmd == "init-project":
+        return init_project(repo, args.project, args.vars, backup_dir=args.backup_dir, yes=args.yes, copilot=args.copilot)
+    raise SystemExit(f"unknown command: {cmd}")

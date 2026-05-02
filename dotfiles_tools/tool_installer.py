@@ -256,59 +256,35 @@ def _plan_tool_entry(
                 "action": "upgrade",
             }
         )
-        ops = _upgrade_operations(item, cache_dir)
     else:
         base_entry.update({"state": "missing", "action": "install"})
-        ops = _install_operations(item, cache_dir)
+    ops = _tool_operations(item, cache_dir, mode="upgrade" if found_path else "install")
     return base_entry, ops
 
 
-def _install_operations(item: Mapping[str, Any], cache_dir: Path) -> list[dict[str, Any]]:
+def _tool_operations(item: Mapping[str, Any], cache_dir: Path, *, mode: str) -> list[dict[str, Any]]:
     method = item["install_method"]
     args = dict(item.get("install_args") or {})
     entry_id = f"tools.{item['id']}"
     if method == "apt":
+        op_type = "tool_install_apt_upgrade" if mode == "upgrade" else "tool_install_apt"
+        action_label = "apt --only-upgrade" if mode == "upgrade" else "apt"
         return [
             _apt_op(
                 entry_id=entry_id,
-                op_type="tool_install_apt",
+                op_type=op_type,
                 packages=list(args.get("packages") or ()),
                 requires_sudo=item.get("requires_sudo", True),
                 cache_dir=cache_dir,
-                reason=f"install {item['label']} via apt",
+                reason=f"{mode} {item['label']} via {action_label}",
             )
         ]
     if method == "apt_keyring":
-        return [_apt_keyring_op(entry_id, item, args, cache_dir, mode="install")]
+        return [_apt_keyring_op(entry_id, item, args, cache_dir, mode=mode)]
     if method == "curl_installer":
-        return [_curl_op(entry_id, item, args, cache_dir, mode="install")]
+        return [_curl_op(entry_id, item, args, cache_dir, mode=mode)]
     if method == "npm":
-        return [_npm_op(entry_id, item, args, cache_dir, mode="install")]
-    return []
-
-
-def _upgrade_operations(item: Mapping[str, Any], cache_dir: Path) -> list[dict[str, Any]]:
-    method = item["install_method"]
-    args = dict(item.get("install_args") or {})
-    entry_id = f"tools.{item['id']}"
-    if method == "apt":
-        return [
-            _apt_op(
-                entry_id=entry_id,
-                op_type="tool_install_apt_upgrade",
-                packages=list(args.get("packages") or ()),
-                requires_sudo=item.get("requires_sudo", True),
-                cache_dir=cache_dir,
-                reason=f"upgrade {item['label']} via apt --only-upgrade",
-            )
-        ]
-    if method == "apt_keyring":
-        return [_apt_keyring_op(entry_id, item, args, cache_dir, mode="upgrade")]
-    if method == "curl_installer":
-        # Re-running self-updating installers (claude.ai/install.sh) refreshes the install.
-        return [_curl_op(entry_id, item, args, cache_dir, mode="upgrade")]
-    if method == "npm":
-        return [_npm_op(entry_id, item, args, cache_dir, mode="upgrade")]
+        return [_npm_op(entry_id, item, args, cache_dir, mode=mode)]
     return []
 
 

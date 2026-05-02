@@ -8,3 +8,4 @@ engines:
   metric:
     exclude_paths:
       - "dotfiles_tools/**"
+      - "tests/**"
