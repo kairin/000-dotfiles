@@ -969,27 +969,98 @@ EOF
   echo "Run your shell reload step, such as: direnv allow \"$project\""
 }
 
+configure_gh_auth() {
+  echo
+  echo "Setting up GitHub (gh) authentication..."
+  if command -v gh >/dev/null 2>&1; then
+    gh auth login
+    if gh auth status >/dev/null 2>&1; then
+      echo "✓ GitHub authentication configured"
+    fi
+  else
+    echo "gh CLI not found. Install it first: https://github.com/cli/cli#installation"
+  fi
+}
+
+configure_huggingface_token() {
+  echo
+  echo "Setting up HuggingFace token..."
+  if command -v huggingface-cli >/dev/null 2>&1; then
+    huggingface-cli login
+    echo "✓ HuggingFace token configured"
+  else
+    echo "HuggingFace CLI not found. Install it first: pip install huggingface-hub"
+  fi
+}
+
 optional_integrations_menu() {
   local project="$1"
   while true; do
-    cat <<EOF
+    local menu_items="" choice_count=1 gh_opt="" hf_opt="" codacy_opt="" back_opt=""
 
-Optional integrations and APIs:
-  1. Manage Codacy API access.
-  2. Back to project setup.
-EOF
-    printf 'Choose [1-2]: '
+    # Check which services need configuration
+    if ! (command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1); then
+      gh_opt="$choice_count. Manage GitHub (gh) API access."
+      ((choice_count++))
+    fi
+
+    if [[ -z "${HF_TOKEN:-}" ]] && [[ ! -f "$HOME/.cache/huggingface/token" ]]; then
+      hf_opt="$choice_count. Configure HuggingFace API token."
+      ((choice_count++))
+    fi
+
+    codacy_opt="$choice_count. Manage Codacy API access."
+    ((choice_count++))
+    back_opt="$choice_count. Back to project setup."
+
+    echo
+    echo "Optional integrations and APIs:"
+    [[ -n "$gh_opt" ]] && echo "  $gh_opt"
+    [[ -n "$hf_opt" ]] && echo "  $hf_opt"
+    echo "  $codacy_opt"
+    echo "  $back_opt"
+
+    printf "Choose [1-$((choice_count-1))]: "
     local choice
     if ! read -r choice; then
       echo
       echo "No optional integration selection received; project files were not changed."
       return 10
     fi
+
     case "$choice" in
-      1) configure_codacy_env "$project" ;;
-      2) return 0 ;;
-      "") echo "No optional integration selection received; project files were not changed."; return 10 ;;
-      *) echo "Unknown choice: $choice" >&2 ;;
+      1)
+        if [[ -n "$gh_opt" ]]; then
+          configure_gh_auth
+        elif [[ -n "$hf_opt" ]]; then
+          configure_huggingface_token
+        else
+          configure_codacy_env "$project"
+        fi
+        ;;
+      2)
+        if [[ -n "$gh_opt" && -n "$hf_opt" ]]; then
+          configure_huggingface_token
+        elif [[ -n "$gh_opt" ]] || [[ -n "$hf_opt" ]]; then
+          configure_codacy_env "$project"
+        else
+          return 0
+        fi
+        ;;
+      3)
+        if [[ $choice_count -gt 4 ]]; then
+          configure_codacy_env "$project"
+        else
+          return 0
+        fi
+        ;;
+      $((choice_count-1))|"")
+        echo "No optional integration selection received; project files were not changed."
+        return 10
+        ;;
+      *)
+        echo "Unknown choice: $choice" >&2
+        ;;
     esac
   done
 }
