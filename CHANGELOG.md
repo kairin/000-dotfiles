@@ -33,7 +33,7 @@ All notable changes to this project are documented here.
 
 Initial release. Core functionality:
 
-### Added
+### Features
 
 - **Machine doctor** (`dotfiles_tools doctor`): non-destructive audit of current vs desired state
 - **Setup plan** (`dotfiles_tools plan`): preview of all planned operations without writing
