@@ -245,7 +245,7 @@ AUTH_GUIDANCE = (
     {
         "id": "copilot",
         "tool": "copilot",
-        "command": "copilot auth",
+        "command": "copilot /login",
         "guidance": "Run when GitHub Copilot CLI is installed and needs user authentication.",
     },
 )

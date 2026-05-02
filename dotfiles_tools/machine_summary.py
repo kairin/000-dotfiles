@@ -21,8 +21,8 @@ def render_machine_summary(repo: Path | str, home: Path | str, *, profile: str =
 
 def render_menu_mode(repo: Path | str, home: Path | str) -> str:
     """Return 'tools_missing' if any non-dev-base bootstrap tool is absent;
-    otherwise 'tools_present'. The bash menu reads this token to choose the
-    fresh-box vs. configured-machine option ordering."""
+    otherwise 'tools_present'. The bash menu reads this token to decide
+    which option is tagged [recommended]."""
     plan = build_tool_install_subplan(Path(repo).resolve(), Path(home).resolve())
     has_missing = any(
         entry.get("state") == "missing"

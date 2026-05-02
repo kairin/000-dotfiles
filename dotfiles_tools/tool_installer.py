@@ -555,10 +555,15 @@ def _execute_uv_tool(op: dict[str, Any], runner: CommandRunner) -> int:
     if not uv:
         op["result"] = "uv not found; install uv first"
         return 0
-    cmd = [uv, "tool", "install", package]
-    from_url = op.get("from_url")
-    if from_url:
-        cmd += ["--from", from_url]
+    prefix = _sudo_prefix() if op.get("requires_sudo", False) else []
+    mode = op.get("mode", "install")
+    if mode == "upgrade":
+        cmd = [*prefix, uv, "tool", "upgrade", package]
+    else:
+        cmd = [*prefix, uv, "tool", "install", package]
+        from_url = op.get("from_url")
+        if from_url:
+            cmd += ["--from", from_url]
     runner.run(cmd)
     return 1
 

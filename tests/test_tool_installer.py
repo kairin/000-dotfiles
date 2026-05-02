@@ -354,6 +354,59 @@ class ToolInstallExecuteTests(DotfilesTestCase):
             ["sudo", "/usr/bin/npm", "install", "-g", "@openai/codex"],
         )
 
+    def test_uv_tool_missing_skips(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={})
+        op = {
+            "entry_id": "tools.specify",
+            "recipe": "tool_installs",
+            "type": "tool_install_uv_tool",
+            "package": "specify-cli",
+            "mode": "install",
+            "cache_dir": str(home / ".cache"),
+            "requires_sudo": False,
+        }
+        result = execute_tool_install_operation(op, runner=runner, cache_dir=Path(op["cache_dir"]))
+        self.assertEqual(result, 0)
+        self.assertIn("uv not found", op["result"])
+
+    def test_uv_tool_install_runs_correct_command(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"uv": "/usr/bin/uv"})
+        op = {
+            "entry_id": "tools.specify",
+            "recipe": "tool_installs",
+            "type": "tool_install_uv_tool",
+            "package": "specify-cli",
+            "from_url": "git+https://github.com/github/spec-kit.git",
+            "mode": "install",
+            "cache_dir": str(home / ".cache"),
+            "requires_sudo": False,
+        }
+        execute_tool_install_operation(op, runner=runner, cache_dir=Path(op["cache_dir"]))
+        self.assertEqual(
+            runner.commands[0],
+            ["/usr/bin/uv", "tool", "install", "specify-cli", "--from", "git+https://github.com/github/spec-kit.git"],
+        )
+
+    def test_uv_tool_upgrade_runs_upgrade_command(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"uv": "/usr/bin/uv"})
+        op = {
+            "entry_id": "tools.specify",
+            "recipe": "tool_installs",
+            "type": "tool_install_uv_tool",
+            "package": "specify-cli",
+            "mode": "upgrade",
+            "cache_dir": str(home / ".cache"),
+            "requires_sudo": False,
+        }
+        execute_tool_install_operation(op, runner=runner, cache_dir=Path(op["cache_dir"]))
+        self.assertEqual(
+            runner.commands[0],
+            ["/usr/bin/uv", "tool", "upgrade", "specify-cli"],
+        )
+
     def test_apt_keyring_downloads_keyring_and_writes_source(self) -> None:
         home = self.make_home()
         cache_dir = home / ".cache" / "tool-installers"
