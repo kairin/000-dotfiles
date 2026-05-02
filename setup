@@ -513,8 +513,10 @@ run_machine_install_tools_with_confirm() {
   if read -r confirm && [[ "$confirm" =~ ^[Yy]$ ]]; then
     echo
     run_machine_install_tools_apply || return $?
+    return 2
   else
     echo "No tool changes applied."
+    return 2
   fi
 }
 
@@ -531,18 +533,14 @@ run_machine_summary() {
     --profile machine)
 }
 
-run_machine_menu_mode() {
-  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools.machine_summary \
-    --repo "$DOTFILES_REPO" \
-    --home "$HOME" \
-    --menu-mode)
-}
-
-run_machine_missing_tool_count() {
-  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools.machine_summary \
-    --repo "$DOTFILES_REPO" \
-    --home "$HOME" \
-    --missing-tool-count)
+extract_machine_recommendation() {
+  local summary_text="$1"
+  local recommendation_body
+  recommendation_body="$(printf '%s\n' "$summary_text" | sed -n 's/^Recommended next step: //p' | head -n1)"
+  if [[ -z "$recommendation_body" ]]; then
+    recommendation_body="5. Exit without writing - Setup is current and no write action is needed."
+  fi
+  printf '%s\n' "$recommendation_body"
 }
 
 run_machine_details() {
@@ -558,21 +556,27 @@ show_tool_auth_commands() {
 }
 
 machine_menu_loop() {
-  local header_line="$1"
+  local recommendation_body="$1"
   local rec_opt="$2"
   while true; do
     local opt1="  1. Install / update developer tools (preview, then apply)."
     local opt2="  2. Apply safe non-protected dotfiles and approved install/update recipes."
+    local opt3="  3. Show full technical details."
+    local opt4="  4. Show tool and sign-in guidance."
+    local opt5="  5. Exit without writing."
     [[ "$rec_opt" == "1" ]] && opt1+=" [recommended]"
     [[ "$rec_opt" == "2" ]] && opt2+=" [recommended]"
+    [[ "$rec_opt" == "3" ]] && opt3+=" [recommended]"
+    [[ "$rec_opt" == "4" ]] && opt4+=" [recommended]"
+    [[ "$rec_opt" == "5" ]] && opt5+=" [recommended]"
     cat <<EOF
 
-${header_line}
+Recommended next step: ${recommendation_body}
 ${opt1}
 ${opt2}
-  3. Show full technical details.
-  4. Show tool and sign-in guidance.
-  5. Exit without writing.
+${opt3}
+${opt4}
+${opt5}
 EOF
     printf 'Choose [1-5]: '
     local choice
@@ -593,27 +597,33 @@ EOF
 }
 
 machine_menu() {
-  local mode="${1:-tools_present}"
-  if [[ "$mode" == "tools_missing" ]]; then
-    local missing_count
-    missing_count="$(run_machine_missing_tool_count 2>/dev/null)" || missing_count="?"
-    [[ -z "$missing_count" ]] && missing_count="?"
-    machine_menu_loop "Next steps (${missing_count} developer tools missing):" "1"
-  else
-    machine_menu_loop "Next steps:" "2"
-  fi
+  local recommendation_body="${1:-5. Exit without writing - Setup is current and no write action is needed.}"
+  local rec_opt="${2:-5}"
+  machine_menu_loop "$recommendation_body" "$rec_opt"
 }
 
 cmd_machine_setup() {
   preflight_common
   echo "Preparing/checking this computer with profile: machine"
   echo
-  run_machine_summary
-  local mode
-  if ! mode="$(run_machine_menu_mode)" || [[ -z "$mode" ]]; then
-    mode="tools_present"
-  fi
-  machine_menu "$mode"
+  while true; do
+    local summary_output recommendation_body rec_opt menu_status
+    summary_output="$(run_machine_summary)"
+    printf '%s\n' "$summary_output"
+    recommendation_body="$(extract_machine_recommendation "$summary_output")"
+    rec_opt="${recommendation_body%%.*}"
+    [[ "$rec_opt" =~ ^[1-5]$ ]] || rec_opt="5"
+    if machine_menu "$recommendation_body" "$rec_opt"; then
+      menu_status=0
+    else
+      menu_status=$?
+    fi
+    if [[ "$menu_status" -eq 2 ]]; then
+      echo
+      continue
+    fi
+    return "$menu_status"
+  done
 }
 
 project_is_empty() {

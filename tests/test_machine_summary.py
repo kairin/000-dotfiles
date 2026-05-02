@@ -4,17 +4,30 @@ from pathlib import Path
 
 from unittest import mock
 
-from dotfiles_tools.machine_summary import (
-    render_menu_mode,
-    render_missing_tool_count,
-    render_reports,
-)
+from dotfiles_tools.machine_summary import render_menu_mode, render_missing_tool_count, render_reports
 from dotfiles_tools.reports import Report
 from tests.helpers import DotfilesTestCase, REPO_ROOT
 
 
-def doctor(home: Path, *, errors: list[dict[str, str] | str] | None = None) -> Report:
-    return Report("doctor", "warning", str(REPO_ROOT), home=str(home), profile="machine", errors=errors or [])
+def doctor(
+    home: Path,
+    *,
+    errors: list[dict[str, str] | str] | None = None,
+    tool_checks: list[dict[str, str]] | None = None,
+    auth_guidance: list[dict[str, str]] | None = None,
+) -> Report:
+    return Report(
+        "doctor",
+        "warning",
+        str(REPO_ROOT),
+        home=str(home),
+        profile="machine",
+        errors=errors or [],
+        extra={
+            "tool_checks": tool_checks or [],
+            "auth_guidance": auth_guidance or [],
+        },
+    )
 
 
 def plan(
@@ -119,7 +132,7 @@ class MachineSummaryTests(DotfilesTestCase):
         text = self.render(plan_report)
 
         self.assertIn("Machine setup summary", text)
-        self.assertIn("Option 2 will:", text)
+        self.assertIn("Recommended next step: 2. Apply safe non-protected dotfiles - Safe non-protected setup changes are pending.", text)
         self.assertIn("Update existing files with backups:", text)
         self.assertIn("~/.claude/settings.json", text)
         self.assertIn("Create missing files:", text)
@@ -141,6 +154,58 @@ class MachineSummaryTests(DotfilesTestCase):
         self.assertNotIn("terminal face:", text)
         self.assertNotIn("terminal impact:", text)
 
+    def test_incomplete_audit_recommends_details(self) -> None:
+        home = self.make_home()
+        plan_report = plan(home, errors=[{"message": "manifest parse failed"}])
+
+        text = self.render(plan_report, doctor_report=doctor(home))
+
+        self.assertIn("Recommended next step: 3. Show full technical details - The audit is incomplete.", text)
+        self.assertIn("The audit is incomplete; inspect the full technical details.", text)
+        self.assertIn("Plan errors:", text)
+        self.assertIn("manifest parse failed", text)
+
+    def test_missing_tools_recommend_install_first(self) -> None:
+        home = self.make_home()
+        plan_report = plan(home)
+        doctor_report = doctor(
+            home,
+            tool_checks=[
+                {"command": "gh", "state": "missing", "install_hint": "install gh"},
+                {"command": "uv", "state": "available", "install_hint": ""},
+            ],
+        )
+
+        text = self.render(plan_report, doctor_report=doctor_report)
+
+        self.assertIn("Recommended next step: 1. Install / update developer tools - Developer tools should be installed or updated first.", text)
+        self.assertIn("1 developer tools are missing or unverified.", text)
+        self.assertIn("gh: install gh", text)
+
+    def test_auth_guidance_recommends_sign_in_help(self) -> None:
+        home = self.make_home()
+        plan_report = plan(home)
+        doctor_report = doctor(
+            home,
+            auth_guidance=[
+                {"command": "gh auth status", "state": "available", "guidance": "gh auth status"},
+            ],
+        )
+
+        text = self.render(plan_report, doctor_report=doctor_report)
+
+        self.assertIn("Recommended next step: 4. Show tool and sign-in guidance - Sign-in guidance is the useful next step.", text)
+        self.assertIn("Tool and sign-in guidance: gh auth status.", text)
+
+    def test_current_setup_recommends_exit(self) -> None:
+        home = self.make_home()
+        plan_report = plan(home)
+
+        text = self.render(plan_report)
+
+        self.assertIn("Recommended next step: 5. Exit without writing - Setup is current and no write action is needed.", text)
+        self.assertIn("Setup is current and no write action is needed.", text)
+
     def test_all_fonts_ok_collapses_to_already_ok(self) -> None:
         home = self.make_home()
         fonts = [nerd_font("installed"), apt_font("installed")]
@@ -148,7 +213,7 @@ class MachineSummaryTests(DotfilesTestCase):
 
         text = self.render(plan_report)
 
-        self.assertIn("Run no font install/update actions.", text)
+        self.assertIn("Recommended next step: 5. Exit without writing - Setup is current and no write action is needed.", text)
         self.assertIn("Nerd Fonts:", text)
         self.assertIn("Apt fallback fonts:", text)
         self.assertIn("none to install/update", text)
@@ -208,8 +273,10 @@ class MachineSummaryTests(DotfilesTestCase):
 
         text = self.render(plan_report, doctor_report=doctor(home, errors=[{"message": "doctor failed"}]))
 
-        self.assertIn("Stop on 3 blocking issues; fix before applying.", text)
-        self.assertIn("Skip 1 manual/unsupported font item; see Fonts below.", text)
+        self.assertIn("Recommended next step: 3. Show full technical details - The audit is incomplete.", text)
+        self.assertIn("The audit is incomplete; inspect the full technical details.", text)
+        self.assertIn("Manual/skipped:", text)
+        self.assertIn("JetBrainsMono Nerd Font: manual check needed", text)
         self.assertIn("Needs attention before apply:", text)
         self.assertIn("~/.claude/settings.json: target is a directory", text)
         self.assertIn("Doctor errors:", text)
