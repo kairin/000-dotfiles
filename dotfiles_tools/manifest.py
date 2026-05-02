@@ -31,6 +31,7 @@ class ManifestEntry:
     link_target: str | None = None
     mode: str | None = None
     scope: str = "home"
+    user_customizable: bool = False
 
     @property
     def source_path(self) -> Path:
@@ -211,6 +212,7 @@ def _parse_entry(raw: Any) -> ManifestEntry:
         link_target=raw.get("link_target"),
         mode=raw.get("mode"),
         scope=str(raw.get("scope", "home")),
+        user_customizable=bool(raw.get("user_customizable", False)),
     )
 
 

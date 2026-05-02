@@ -35,6 +35,7 @@
       "kind": "template",
       "profiles": ["machine"],
       "protected": false,
+      "user_customizable": true,
       "parse": "json",
       "placeholders": "none"
     },
@@ -45,6 +46,7 @@
       "kind": "template",
       "profiles": ["machine"],
       "protected": false,
+      "user_customizable": true,
       "parse": "json",
       "placeholders": "none"
     },
@@ -55,6 +57,7 @@
       "kind": "template",
       "profiles": ["machine"],
       "protected": false,
+      "user_customizable": true,
       "placeholders": "none"
     },
     {
@@ -64,6 +67,7 @@
       "kind": "template",
       "profiles": ["machine"],
       "protected": false,
+      "user_customizable": true,
       "parse": "toml",
       "placeholders": "allowed_examples"
     },
@@ -74,6 +78,7 @@
       "kind": "template",
       "profiles": ["machine"],
       "protected": false,
+      "user_customizable": true,
       "placeholders": "none"
     },
     {
@@ -83,6 +88,7 @@
       "kind": "template",
       "profiles": ["machine"],
       "protected": false,
+      "user_customizable": true,
       "parse": "json",
       "placeholders": "none"
     },
@@ -93,6 +99,7 @@
       "kind": "template",
       "profiles": ["machine"],
       "protected": false,
+      "user_customizable": true,
       "placeholders": "none"
     },
     {
@@ -102,6 +109,7 @@
       "kind": "template",
       "profiles": ["machine"],
       "protected": false,
+      "user_customizable": true,
       "placeholders": "none"
     },
     {
@@ -111,6 +119,7 @@
       "kind": "template",
       "profiles": ["machine"],
       "protected": false,
+      "user_customizable": true,
       "placeholders": "allowed_examples"
     },
     {

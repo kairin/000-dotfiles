@@ -108,6 +108,8 @@ def _file_target_state(result: dict[str, Any], source_path: Path, target_path: P
         return _state(result, "blocked", str(exc))
     if target_text == source_text:
         return _state(result, "current", "target matches source")
+    if getattr(entry, 'user_customizable', False):
+        return _state(result, "current", "user customizations are preserved")
     return _state(result, "drifted", "target differs from source")
 
 
