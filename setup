@@ -539,7 +539,7 @@ run_machine_install_tools_with_confirm() {
   echo
   printf 'Apply tool install/update actions? [y/N]: '
   local confirm
-  if read -r confirm && [[ "$confirm" =~ ^[Yy]$ ]]; then
+  if read -r -e confirm && [[ "$confirm" =~ ^[Yy]$ ]]; then
     echo
     run_machine_install_tools_apply || return $?
     return 2
@@ -610,7 +610,7 @@ ${opt5}
 EOF
     printf 'Choose [1-5]: '
     local choice
-    if ! read -r choice; then
+    if ! read -r -e choice; then
       echo
       echo "No interactive selection received; no changes applied."
       return 0
@@ -947,7 +947,7 @@ EOF
   fi
   printf 'Apply Codacy environment changes? [y/N]: '
   local confirm
-  if ! read -r confirm || [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+  if ! read -r -e confirm || [[ ! "$confirm" =~ ^[Yy]$ ]]; then
     echo "No Codacy environment changes applied."
     return 0
   fi
@@ -976,7 +976,7 @@ configure_gh_auth() {
     echo "gh CLI not found."
     printf "Install gh with uv? [Y/n]: "
     local install_choice
-    if read -r install_choice && [[ "$install_choice" =~ ^[Yy]?$ ]]; then
+    if read -r -e install_choice && [[ "$install_choice" =~ ^[Yy]?$ ]]; then
       echo "Installing gh via apt..."
       if sudo apt install -y gh; then
         echo "✓ gh installed"
@@ -1005,7 +1005,7 @@ configure_huggingface_token() {
     echo "HuggingFace CLI not found."
     printf "Install huggingface-hub with uv? [Y/n]: "
     local install_choice
-    if read -r install_choice && [[ "$install_choice" =~ ^[Yy]?$ ]]; then
+    if read -r -e install_choice && [[ "$install_choice" =~ ^[Yy]?$ ]]; then
       echo "Installing huggingface-hub..."
       if uv tool install huggingface-hub; then
         echo "✓ huggingface-hub installed"
@@ -1057,7 +1057,7 @@ optional_integrations_menu() {
 
     printf "Choose [1-$((choice_count-1))]: "
     local choice
-    if ! read -r choice; then
+    if ! read -r -e choice; then
       echo
       echo "No optional integration selection received; project files were not changed."
       return 10
@@ -1114,7 +1114,7 @@ Project setup options:
 EOF
     printf 'Choose [1-5]: '
     local choice
-    if ! read -r choice; then
+    if ! read -r -e choice; then
       echo
       echo "No interactive selection received; project files were not changed."
       return 0
@@ -1145,7 +1145,7 @@ Project setup options:
 EOF
     printf 'Choose [1-6]: '
     local choice
-    if ! read -r choice; then
+    if ! read -r -e choice; then
       echo
       echo "No interactive selection received; project files were not changed."
       return 0
