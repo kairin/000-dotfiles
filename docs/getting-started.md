@@ -1,12 +1,17 @@
 # Getting Started
 
-A complete guide to using this dotfiles repo, from first-time setup to ongoing maintenance and AI agent doc scaffolding.
+A complete guide to using this dotfiles repo, from first-time setup to ongoing maintenance
+and AI agent doc scaffolding.
 
 ## What are dotfiles?
 
-Dotfiles are the hidden configuration files (names starting with `.`) that configure your shell, editor, git, and other tools. Most developers manually copy these across machines, losing customizations and consistency. A **dotfiles repo** version-controls these files and provides an automated way to deploy them on a fresh machine.
+Dotfiles are the hidden configuration files (names starting with `.`) that configure your
+shell, editor, git, and other tools. Most developers manually copy these across machines,
+losing customizations and consistency. A **dotfiles repo** version-controls these files and
+provides an automated way to deploy them on a fresh machine.
 
-This repo does that—and adds two unique features: it manages AI coding tool configs (Claude Code, Codex, Gemini, Copilot) and scaffolds AI agent guidelines for your projects.
+This repo does that—and adds two unique features: it manages AI coding tool configs (Claude
+Code, Codex, Gemini, Copilot) and scaffolds AI agent guidelines for your projects.
 
 ## What does this repo manage?
 
@@ -16,13 +21,13 @@ This repo does that—and adds two unique features: it manages AI coding tool co
 | **direnv** | Environment isolation | `~/.config/direnv/direnvrc` |
 | **git** | Version control (manual) | `~/.config/git/config` |
 | **gh** | GitHub CLI | `~/.config/gh/config.yml` |
-| **Claude Code** | AI coding assistant | `~/.claude/settings.json`, `keybindings.json`, `CLAUDE.md` |
+| **Claude Code** | AI coding assistant | `~/.claude/settings.json`, `keybindings.json` |
 | **Codex** | Codex CLI | `~/.codex/config.toml`, `rules/default.rules` |
 | **Gemini** | Gemini CLI | `~/.gemini/settings.json`, `GEMINI.md` |
 | **Copilot** | GitHub Copilot CLI | (no config; auth via sign-in) |
 | **SpecKit** | SpecKit agent framework | (per-project scaffold) |
 | **Fonts** | Terminal UI | JetBrainsMono, FiraCode, Hack, MesloLGS Nerd Fonts + apt fallbacks |
-| **AI agent docs** | Your project | `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `copilot-instructions.md` |
+| **AI agent docs** | Your project | `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` |
 
 ---
 

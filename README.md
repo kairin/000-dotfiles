@@ -1,12 +1,21 @@
 # dotfiles
 
-Config templates and tools to bootstrap a developer machine and scaffold AI agent docs in any project. Status: **0.1.x beta** — feature-complete, single-maintainer, suitable for personal and team use.
+Config templates and tools to bootstrap a developer machine and scaffold AI agent docs in any
+project. Status: **0.1.x beta** — feature-complete, single-maintainer, suitable for personal
+and team use.
 
 ## What is this?
 
-You've just bought a new laptop (or your hard drive died, or you're setting up CI). On a fresh machine, you normally spend hours manually installing tools, copying config files, and signing in to each one. This repo automates that: **one command installs your full tool stack and applies your configs.** Repeated runs apply any config drift—changes you've made that differ from the repo's templates.
+You've just bought a new laptop (or your hard drive died, or you're setting up CI). On a
+fresh machine, you normally spend hours manually installing tools, copying config files, and
+signing in to each one. This repo automates that: **one command installs your full tool stack
+and applies your configs.** Repeated runs apply any config drift—changes you've made that
+differ from the repo's templates.
 
-This particular repo manages configs for AI coding tools (Claude Code, Codex, Gemini, Copilot), shell customization (fish, direnv), version control (git, gh), and terminal fonts (Nerd Fonts). It also scaffolds AI agent guidelines for your projects so Claude Code and other tools know your codebase conventions.
+This particular repo manages configs for AI coding tools (Claude Code, Codex, Gemini,
+Copilot), shell customization (fish, direnv), version control (git, gh), and terminal fonts
+(Nerd Fonts). It also scaffolds AI agent guidelines for your projects so Claude Code and
+other tools know your codebase conventions.
 
 ## What gets installed
 
@@ -15,7 +24,7 @@ This particular repo manages configs for AI coding tools (Claude Code, Codex, Ge
 | **Shell & environment** | fish, direnv | Shell and per-project env vars |
 | **Version control** | git, GitHub CLI | Git + GitHub; auth is manual |
 | **Python toolchain** | uv | Fast Python installer & package manager |
-| **AI coding assistants** | Claude Code, Codex, Gemini, Copilot, SpecKit | Latest CLI versions; sign-in on first run |
+| **AI coding assistants** | Claude Code, Codex, Gemini, Copilot, SpecKit | Latest versions; sign-in on first run |
 | **Fonts** | JetBrainsMono, FiraCode, Hack, MesloLGS Nerd Fonts | Auto-downloaded and installed |
 | **Project scaffolding** | AI agent docs | `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` per project |
 
@@ -48,7 +57,9 @@ cd ~/Apps/my-project
 
 ## How it works — setup flow
 
-When you run `./setup`, the script audits your machine and shows a **5-option menu**. The option numbers **never change**, but the `[recommended]` tag highlights which action fits your current state.
+When you run `./setup`, the script audits your machine and shows a **5-option menu**. The
+option numbers **never change**, but the `[recommended]` tag highlights which action fits
+your current state.
 
 ### Fresh machine (tools missing)
 

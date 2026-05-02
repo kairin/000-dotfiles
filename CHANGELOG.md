@@ -6,17 +6,20 @@ All notable changes to this project are documented here.
 
 ### Added
 
-- **Copilot CLI** (GitHub Copilot) added to baseline tool list with npm installer and authentication guidance
-- **SpecKit CLI** (`specify`) added to baseline with new `uv_tool` install method for uv-managed tools
-- **Stable menu numbering**: setup menu now uses fixed option numbers 1–5 regardless of machine state; `[recommended]` tag moves to highlight the best action for the current state instead of reordering options
-- **Exit code propagation** in bash menu loop: tool install failures now properly signal errors up the stack
+- **Copilot CLI** (GitHub Copilot) added to baseline with npm installer and auth guidance
+- **SpecKit CLI** (`specify`) added to baseline with new `uv_tool` install method
+- **Stable menu numbering**: fixed option numbers 1–5 regardless of state; `[recommended]`
+  tag moves to highlight the best action instead of reordering options
+- **Exit code propagation** in bash menu: tool install failures properly signal errors
 - **103 unit tests** across all modules; Codacy coverage integration configured
-- Comprehensive documentation: specs folder with full implementation design, contract definitions, data model, and all task tracking
+- Comprehensive documentation: specs folder with implementation design, contracts, data model,
+  task tracking
 
 ### Fixed
 
-- **dnsutils virtual package resolution** (Ubuntu 22.04+): baseline now checks for `bind9-dnsutils` (the concrete package) instead of the virtual `dnsutils`, eliminating false "missing" reports on fully configured machines
-- **Claude keybindings.json template**: corrected from `[]` to `{ "bindings": [] }` to pass Claude Code's `/doctor` validation
+- **dnsutils virtual package resolution** (Ubuntu 22.04+): baseline now checks for
+  `bind9-dnsutils` (concrete package) instead of virtual `dnsutils`
+- **Claude keybindings.json template**: corrected from `[]` to `{ "bindings": [] }`
 
 ### Technical
 

@@ -7,13 +7,16 @@ task tracking for the initial **dotfiles-bootstrap-validation** project.
 
 The folder `001-dotfiles-bootstrap-validation/` contains:
 
-- **spec.md** — Full feature specification with user stories (US1–US5), acceptance scenarios, functional requirements (FR-001–FR-024), and success criteria
-- **plan.md** — Implementation plan with architectural decisions, module inventory, and phase summaries
+- **spec.md** — Full specification with user stories, acceptance scenarios, functional
+  requirements, and success criteria
+- **plan.md** — Implementation plan with architectural decisions, module inventory, phase
+  summaries
 - **tasks.md** — Complete task list (63 tasks across 8 phases) with dependency tracking
-- **data-model.md** — Formal definitions of Manifest, Entry, Operation, Report, and other core data structures
+- **data-model.md** — Formal definitions of Manifest, Entry, Operation, Report, and other
+  core data structures
 - **research.md** — Key architectural decisions with rationale and alternatives considered
-- **quickstart.md** — Local validation guide covering unit tests, doctor, plan, apply, and end-to-end flows
-- **contracts/** — Formal contracts for the CLI and manifest format (JSON Schema, command reference)
+- **quickstart.md** — Validation guide covering unit tests, doctor, plan, apply, flows
+- **contracts/** — Formal contracts for the CLI and manifest format (JSON Schema)
 - **checklists/** — Specification quality gates (completed ✓)
 
 ## Status
