@@ -11,6 +11,8 @@ from .tool_installer import (
     TOOL_CACHE_REL,
     build_tool_install_plan,
     execute_tool_install_operation,
+    run_post_install_actions,
+    verify_installed_tools,
 )
 
 
@@ -151,7 +153,31 @@ def apply_tool_installs(
     if plan.errors or any(entry.get("state") in FAILED_STATES for entry in plan.entries):
         plan.status = "failed"
         return plan
-    return _execute_bootstrap_operations(plan, repo_path, backup_path, runner)
+    report = _execute_bootstrap_operations(plan, repo_path, backup_path, runner)
+    _attach_verification_and_post_install(report, repo_path, home_path, yes, env, runner)
+    return report
+
+
+def _attach_verification_and_post_install(
+    report: Report,
+    repo_path: Path,
+    home_path: Path,
+    yes: bool,
+    env: Mapping[str, str] | None,
+    runner: CommandRunner | None,
+) -> None:
+    if report.status == "failed":
+        return
+    verification = verify_installed_tools(home_path, runner=runner, env=env)
+    actions = run_post_install_actions(
+        home_path, yes=yes, runner=runner, env=env, repo_path=repo_path
+    )
+    report.extra["verification"] = verification
+    report.extra["post_install_actions"] = actions
+    if any(not item["verified"] for item in verification):
+        report.status = "warning"
+    if any(item.get("status") == "failed" for item in actions):
+        report.status = "warning"
 
 
 def _execute_bootstrap_operations(

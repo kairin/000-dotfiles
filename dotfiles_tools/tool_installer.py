@@ -19,6 +19,8 @@ _APT_REASON_SUFFIX = {"install": "apt", "upgrade": "apt --only-upgrade"}
 __all__ = (
     "build_tool_install_plan",
     "execute_tool_install_operation",
+    "verify_installed_tools",
+    "run_post_install_actions",
     "TOOL_CACHE_REL",
     "DEV_BASE_ENTRY_ID",
 )
@@ -357,6 +359,7 @@ def _curl_op(
         "mode": mode,
         "url": args["url"],
         "script_name": args.get("script_name", "installer.sh"),
+        "interpreter": args.get("interpreter", "bash"),
         "requires_sudo": item.get("requires_sudo", False),
         "requires_network": True,
         "requires_approval": True,
@@ -468,7 +471,8 @@ def _execute_apt_keyring(op: dict[str, Any], runner: CommandRunner, cache_dir: P
 
 
 def _execute_curl(op: dict[str, Any], runner: CommandRunner, cache_dir: Path) -> int:
-    sh = runner.which("sh") or "/bin/sh"
+    interpreter_name = op.get("interpreter", "bash")
+    interpreter = runner.which(interpreter_name) or f"/bin/{interpreter_name}"
     cache_dir.mkdir(parents=True, exist_ok=True)
     script = cache_dir / op["script_name"]
     runner.download(op["url"], script)
@@ -477,7 +481,7 @@ def _execute_curl(op: dict[str, Any], runner: CommandRunner, cache_dir: Path) ->
         return 0
     script.chmod(0o755)
     prefix = _sudo_prefix() if op.get("requires_sudo") else []
-    runner.run([*prefix, sh, str(script)])
+    runner.run([*prefix, interpreter, str(script)])
     return 1
 
 
@@ -521,3 +525,157 @@ def _detect_dpkg_arch(runner: CommandRunner) -> str:
     except (OSError, RuntimeError):
         return "amd64"
     return (result.stdout or "amd64").strip() or "amd64"
+
+
+# ---------------------------------------------------------------------------
+# Verification + post-install actions
+# ---------------------------------------------------------------------------
+
+
+def verify_installed_tools(
+    home: Path | str,
+    *,
+    runner: CommandRunner | None = None,
+    env: Mapping[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Re-probe each bootstrap tool. Returns one result per tool with
+    keys: entry_id, label, command, path, verified (bool), version."""
+    effective_env = dict(os.environ if env is None else env)
+    effective_runner = runner or CommandRunner(env=effective_env, path=effective_env.get("PATH", ""))
+    results: list[dict[str, Any]] = []
+    for item in TOOL_BASELINE:
+        if not item.get("bootstrap"):
+            continue
+        path = effective_runner.which(item["command"])
+        version = _detect_version(item["command"], path, effective_runner) if path else ""
+        results.append({
+            "entry_id": f"tools.{item['id']}",
+            "label": item["label"],
+            "command": item["command"],
+            "path": path,
+            "verified": bool(path),
+            "version": version,
+        })
+    return results
+
+
+def run_post_install_actions(
+    home: Path | str,
+    *,
+    yes: bool = False,
+    runner: CommandRunner | None = None,
+    env: Mapping[str, str] | None = None,
+    repo_path: Path | str | None = None,
+) -> list[dict[str, Any]]:
+    """For each verified tool, walk its `post_install` list:
+      - kind='auto' AND yes=True → execute via runner.run; record outcome.
+      - kind='auto' AND yes=False → downgrade to guidance, record command.
+      - kind='guidance' → record command for printing.
+    Templates with `{which:<name>}` or `{user}` placeholders are substituted
+    before execution; an unresolved placeholder downgrades the action to
+    guidance. `requires_protected_apply` copies the listed protected files
+    from the repo before exec (only when yes=True and repo_path is set)."""
+    effective_env = dict(os.environ if env is None else env)
+    effective_runner = runner or CommandRunner(env=effective_env, path=effective_env.get("PATH", ""))
+    repo = Path(repo_path).resolve() if repo_path else None
+    home_path = Path(home).expanduser().resolve()
+    results: list[dict[str, Any]] = []
+    for item in TOOL_BASELINE:
+        if not item.get("bootstrap"):
+            continue
+        if not effective_runner.which(item["command"]):
+            continue  # only run post-install for tools we can actually verify
+        for action in item.get("post_install", ()):
+            results.append(_run_one_post_install(
+                item, action, effective_runner, effective_env, yes=yes,
+                repo=repo, home=home_path,
+            ))
+    return results
+
+
+def _run_one_post_install(
+    item: Mapping[str, Any],
+    action: Mapping[str, Any],
+    runner: CommandRunner,
+    env: Mapping[str, str],
+    *,
+    yes: bool,
+    repo: Path | None,
+    home: Path,
+) -> dict[str, Any]:
+    label = action.get("label", "")
+    kind = action.get("kind", "guidance")
+    template = list(action.get("command_template", ()))
+    rendered, unresolved = _render_post_install_template(template, runner, env)
+    base = {
+        "tool": item["id"],
+        "label": label,
+        "kind": kind,
+        "command": rendered,
+        "raw_template": template,
+    }
+    if unresolved:
+        return {**base, "kind": "guidance", "status": "skipped",
+                "reason": f"unresolved placeholder: {unresolved}"}
+    if kind != "auto" or not yes:
+        return {**base, "status": "guidance"}
+    protected = list(action.get("requires_protected_apply", ()))
+    overrides = _apply_protected_files(protected, repo, home) if protected else []
+    try:
+        runner.run(rendered)
+    except (OSError, RuntimeError) as exc:
+        return {**base, "status": "failed", "result": str(exc), "protected_overrides": overrides}
+    return {**base, "status": "ran", "protected_overrides": overrides}
+
+
+def _render_post_install_template(
+    template: list[str],
+    runner: CommandRunner,
+    env: Mapping[str, str],
+) -> tuple[list[str], str | None]:
+    rendered: list[str] = []
+    for token in template:
+        substituted, missing = _substitute_token(token, runner, env)
+        if missing:
+            return rendered, missing
+        rendered.append(substituted)
+    return rendered, None
+
+
+def _substitute_token(
+    token: str,
+    runner: CommandRunner,
+    env: Mapping[str, str],
+) -> tuple[str, str | None]:
+    if not (token.startswith("{") and token.endswith("}")):
+        return token, None
+    expr = token[1:-1]
+    if expr == "user":
+        user = env.get("USER") or env.get("LOGNAME")
+        return (user, None) if user else (token, "user")
+    if expr.startswith("which:"):
+        name = expr[len("which:"):]
+        path = runner.which(name)
+        return (path, None) if path else (token, expr)
+    return token, expr
+
+
+def _apply_protected_files(
+    protected: list[str],
+    repo: Path | None,
+    home: Path,
+) -> list[dict[str, str]]:
+    if not repo:
+        return []
+    overrides: list[dict[str, str]] = []
+    for rel in protected:
+        # rel is repo-relative like "fish/fish_plugins" → target is
+        # ~/.config/fish/fish_plugins (mirror the manifest mapping).
+        source = repo / rel
+        target = home / ".config" / rel
+        if not source.exists():
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source.read_text())
+        overrides.append({"source": str(source), "target": str(target)})
+    return overrides

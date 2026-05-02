@@ -74,6 +74,10 @@ class SetupScriptTests(DotfilesTestCase):
         env["PATH"] = str(bin_dir)
         env["HOME"] = str(home)
         env["PYTHONPATH"] = str(REPO_ROOT)
+        # Default tests to the configured-machine ("tools_present") menu mode
+        # so option numbers stay stable. Tests that need the fresh-box flow
+        # explicitly override this.
+        env["DOTFILES_TOOL_PLATFORM"] = "darwin"
         return env
 
     def write_executable(self, path: Path, text: str) -> None:

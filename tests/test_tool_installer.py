@@ -9,6 +9,8 @@ from dotfiles_tools.tool_installer import (
     DEV_BASE_ENTRY_ID,
     build_tool_install_plan,
     execute_tool_install_operation,
+    run_post_install_actions,
+    verify_installed_tools,
 )
 from tests.helpers import DotfilesTestCase
 
@@ -142,6 +144,9 @@ class ToolInstallPlanTests(DotfilesTestCase):
         self.assertEqual(claude_ops[0]["type"], "tool_install_curl")
         self.assertEqual(claude_ops[0]["mode"], "install")
         self.assertIn("install.sh", claude_ops[0]["url"])
+        # Phase 1: curl ops carry an explicit interpreter so dash-only systems
+        # don't run bash scripts under /bin/sh.
+        self.assertEqual(claude_ops[0]["interpreter"], "bash")
 
     def test_curl_installer_for_claude_upgrade_reruns_installer(self) -> None:
         home = self.make_home()
@@ -252,7 +257,7 @@ class ToolInstallExecuteTests(DotfilesTestCase):
 
     def test_curl_installer_downloads_and_runs(self) -> None:
         home = self.make_home()
-        runner = FakeRunner(which={"sh": "/bin/sh"})
+        runner = FakeRunner(which={"bash": "/bin/bash"})
         cache_dir = home / ".cache" / "tool-installers"
         op = {
             "entry_id": "tools.claude",
@@ -260,6 +265,7 @@ class ToolInstallExecuteTests(DotfilesTestCase):
             "type": "tool_install_curl",
             "url": "https://claude.ai/install.sh",
             "script_name": "claude-install.sh",
+            "interpreter": "bash",
             "requires_sudo": False,
             "cache_dir": str(cache_dir),
         }
@@ -267,9 +273,42 @@ class ToolInstallExecuteTests(DotfilesTestCase):
         self.assertEqual(len(runner.downloads), 1)
         self.assertEqual(runner.downloads[0][0], "https://claude.ai/install.sh")
         self.assertTrue(runner.commands)
-        self.assertEqual(runner.commands[-1][0], "/bin/sh")
+        self.assertEqual(runner.commands[-1][0], "/bin/bash")
         # No sudo for the curl installer.
         self.assertNotIn("sudo", runner.commands[-1])
+
+    def test_curl_installer_uses_bash_by_default_when_no_interpreter_set(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"bash": "/usr/bin/bash"})
+        cache_dir = home / ".cache" / "tool-installers"
+        op = {
+            "entry_id": "tools.claude",
+            "recipe": "tool_installs",
+            "type": "tool_install_curl",
+            "url": "https://example.test/install.sh",
+            "script_name": "x.sh",
+            "requires_sudo": False,
+            "cache_dir": str(cache_dir),
+        }
+        execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
+        self.assertEqual(runner.commands[-1][0], "/usr/bin/bash")
+
+    def test_curl_installer_honors_interpreter_override(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"python3": "/usr/bin/python3"})
+        cache_dir = home / ".cache" / "tool-installers"
+        op = {
+            "entry_id": "tools.thing",
+            "recipe": "tool_installs",
+            "type": "tool_install_curl",
+            "url": "https://example.test/install.py",
+            "script_name": "x.py",
+            "interpreter": "python3",
+            "requires_sudo": False,
+            "cache_dir": str(cache_dir),
+        }
+        execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
+        self.assertEqual(runner.commands[-1][0], "/usr/bin/python3")
 
     def test_npm_missing_skips(self) -> None:
         home = self.make_home()
@@ -347,3 +386,84 @@ class ToolInstallExecuteTests(DotfilesTestCase):
         with mock.patch("dotfiles_tools.tool_installer.os.geteuid", return_value=0, create=True):
             execute_tool_install_operation(op, runner=runner, cache_dir=Path(op["cache_dir"]))
         self.assertNotIn("sudo", runner.commands[0])
+
+
+class VerifyAndPostInstallTests(DotfilesTestCase):
+    def test_verify_marks_each_bootstrap_tool_with_path_and_version(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"git": "/usr/bin/git", "fish": "/usr/bin/fish"})
+        results = verify_installed_tools(home, runner=runner, env={"PATH": ""})
+        by_command = {item["command"]: item for item in results}
+        self.assertTrue(by_command["git"]["verified"])
+        self.assertEqual(by_command["git"]["path"], "/usr/bin/git")
+        self.assertTrue(by_command["fish"]["verified"])
+        self.assertFalse(by_command["claude"]["verified"])
+        self.assertEqual(by_command["claude"]["path"], None)
+
+    def test_post_install_auto_executes_when_yes_true_and_template_resolves(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"fish": "/usr/bin/fish"})
+        env = {"PATH": "/usr/bin", "USER": "alice"}
+        results = run_post_install_actions(home, yes=True, runner=runner, env=env)
+        ran = [r for r in results if r["status"] == "ran"]
+        labels = [r["label"] for r in ran]
+        self.assertIn("Set fish as default shell", labels)
+        # The chsh template uses {which:fish} and {user} — both substituted.
+        chsh = next(r for r in ran if r["label"] == "Set fish as default shell")
+        self.assertEqual(chsh["command"], ["sudo", "chsh", "-s", "/usr/bin/fish", "alice"])
+
+    def test_post_install_auto_downgrades_to_guidance_when_yes_false(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"fish": "/usr/bin/fish"})
+        env = {"PATH": "/usr/bin", "USER": "alice"}
+        results = run_post_install_actions(home, yes=False, runner=runner, env=env)
+        statuses = {r["status"] for r in results}
+        self.assertEqual(statuses, {"guidance"})
+        self.assertFalse(runner.commands)  # no exec attempted
+
+    def test_post_install_login_actions_never_auto_run_even_with_yes(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"gh": "/usr/bin/gh", "claude": "/usr/local/bin/claude"})
+        results = run_post_install_actions(home, yes=True, runner=runner, env={"PATH": ""})
+        gh_actions = [r for r in results if r["tool"] == "gh"]
+        self.assertTrue(gh_actions)
+        for r in gh_actions:
+            self.assertEqual(r["status"], "guidance")
+            self.assertEqual(r["kind"], "guidance")
+
+    def test_post_install_unresolved_placeholder_downgrades_to_skipped(self) -> None:
+        home = self.make_home()
+        # fish on PATH so post_install runs, but no `which:fish` resolution
+        # because the runner doesn't return a path. Wait — fish IS in `which`
+        # below but the chsh template asks for which:fish; let's test by
+        # making USER absent so {user} can't resolve.
+        runner = FakeRunner(which={"fish": "/usr/bin/fish"})
+        env = {"PATH": ""}  # no USER
+        results = run_post_install_actions(home, yes=True, runner=runner, env=env)
+        chsh = next(r for r in results if r["label"] == "Set fish as default shell")
+        self.assertEqual(chsh["status"], "skipped")
+        self.assertIn("user", chsh["reason"])
+
+    def test_post_install_protected_apply_copies_fish_plugins(self) -> None:
+        home = self.make_home()
+        repo = self.make_home() / "repo"
+        (repo / "fish").mkdir(parents=True)
+        (repo / "fish" / "fish_plugins").write_text("jorgebucaran/fisher\n")
+        runner = FakeRunner(which={"fish": "/usr/bin/fish"})
+        env = {"PATH": "/usr/bin", "USER": "alice"}
+        results = run_post_install_actions(
+            home, yes=True, runner=runner, env=env, repo_path=repo,
+        )
+        plugin_action = next(r for r in results if "fisher update" in " ".join(r["command"]))
+        self.assertEqual(plugin_action["status"], "ran")
+        target = home / ".config" / "fish" / "fish_plugins"
+        self.assertTrue(target.exists())
+        self.assertEqual(target.read_text(), "jorgebucaran/fisher\n")
+        self.assertTrue(plugin_action["protected_overrides"])
+
+    def test_every_bootstrap_tool_declares_post_install(self) -> None:
+        from dotfiles_tools.baseline import TOOL_BASELINE
+        for item in TOOL_BASELINE:
+            if not item.get("bootstrap"):
+                continue
+            self.assertIn("post_install", item, f"{item['id']} missing post_install")
