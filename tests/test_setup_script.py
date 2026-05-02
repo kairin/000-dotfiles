@@ -47,6 +47,7 @@ class SetupScriptTests(DotfilesTestCase):
         "mktemp",
         "grep",
         "sed",
+        "head",
         "find",
         "mkdir",
         "cp",
@@ -69,7 +70,7 @@ class SetupScriptTests(DotfilesTestCase):
             (bin_dir / name).symlink_to(target)
         return bin_dir
 
-    def env_for(self, bin_dir: Path, home: Path) -> dict[str, str]:
+    def env_for(self, bin_dir: Path, home: Path, *, machine_summary_output: str | None = None) -> dict[str, str]:
         env = os.environ.copy()
         env["PATH"] = str(bin_dir)
         env["HOME"] = str(home)
@@ -78,6 +79,8 @@ class SetupScriptTests(DotfilesTestCase):
         # so option numbers stay stable. Tests that need the fresh-box flow
         # explicitly override this.
         env["DOTFILES_TOOL_PLATFORM"] = "darwin"
+        if machine_summary_output is not None:
+            env["FAKE_MACHINE_SUMMARY_OUTPUT"] = machine_summary_output
         return env
 
     def write_executable(self, path: Path, text: str) -> None:
@@ -107,12 +110,28 @@ if [[ "${{1:-}}" == "self" && "${{2:-}}" == "update" ]]; then
 fi
 if [[ "${{1:-}}" == "run" ]]; then
   shift
+  if [[ -n "${{FAKE_MACHINE_SUMMARY_OUTPUT:-}}" && "${{1:-}}" == "python" && "${{2:-}}" == "-m" && "${{3:-}}" == "dotfiles_tools.machine_summary" ]]; then
+    printf '%s' "$FAKE_MACHINE_SUMMARY_OUTPUT"
+    exit 0
+  fi
   exec "$@"
 fi
 echo "fake uv unsupported: $*" >&2
 exit 64
 """,
         )
+
+    def machine_summary_output(self, option_number: int, label: str, reason: str, *lines: str) -> str:
+        output_lines = [
+            "Machine setup summary",
+            "Repo: /tmp/fake-repo",
+            "Home: /tmp/fake-home",
+            "Profile: machine",
+            "",
+            f"Recommended next step: {option_number}. {label} - {reason}",
+            *lines,
+        ]
+        return "\n".join(output_lines) + "\n"
 
     def write_uv_installer(self, installer_path: Path, *, version: str) -> None:
         installer_path.write_text(
@@ -158,15 +177,13 @@ cat "{installer_path}"
         self.assertIn("uv found at", result.stdout)
         self.assertIn("uv self update completed.", result.stdout)
         self.assertIn("Machine setup summary", result.stdout)
-        self.assertIn("Option 2 will:", result.stdout)
+        self.assertIn("Recommended next step: 1. Install / update developer tools - Developer tools should be installed or updated first.", result.stdout)
         self.assertIn("Fonts:", result.stdout)
         self.assertIn("Create missing files:", result.stdout)
         self.assertIn("1. Install / update developer tools", result.stdout)
         self.assertIn("3. Show full technical details.", result.stdout)
-        # tools_present: option 2 (apply) is recommended, not option 1 (install tools)
-        self.assertIn("2. Apply safe non-protected dotfiles", result.stdout)
-        self.assertRegex(result.stdout, r"2\..*\[recommended\]")
-        self.assertNotRegex(result.stdout, r"1\..*\[recommended\]")
+        self.assertIn("1. Install / update developer tools (preview, then apply). [recommended]", result.stdout)
+        self.assertNotRegex(result.stdout, r"2\..*\[recommended\]")
         self.assertNotIn("entries:", result.stdout)
         self.assertNotIn("operations:", result.stdout)
         self.assertIn("No changes applied.", result.stdout)
@@ -241,11 +258,18 @@ cat "{installer_path}"
         home = self.make_home()
         bin_dir = self.make_command_path()
         self.write_fake_uv(bin_dir, home / "uv.log")
+        summary = self.machine_summary_output(
+            4,
+            "Show tool and sign-in guidance",
+            "Sign-in guidance is the useful next step.",
+            "  - Tool and sign-in guidance: gh auth status.",
+        )
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="4\n5\n")
+        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="4\n5\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("Show tool and sign-in guidance.", result.stdout)
+        self.assertIn("Recommended next step: 4. Show tool and sign-in guidance - Sign-in guidance is the useful next step.", result.stdout)
+        self.assertIn("4. Show tool and sign-in guidance. [recommended]", result.stdout)
         self.assertIn("Tool status:", result.stdout)
         self.assertIn("Missing tools:", result.stdout)
         self.assertIn("Sign-in checks unavailable until the tool is installed:", result.stdout)
@@ -255,16 +279,44 @@ cat "{installer_path}"
         home = self.make_home()
         bin_dir = self.make_command_path()
         self.write_fake_uv(bin_dir, home / "uv.log")
+        summary = self.machine_summary_output(
+            3,
+            "Show full technical details",
+            "The audit is incomplete.",
+            "  - The audit is incomplete; inspect the full technical details.",
+        )
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="3\n5\n")
+        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="3\n5\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Recommended next step: 3. Show full technical details - The audit is incomplete.", result.stdout)
+        self.assertIn("3. Show full technical details. [recommended]", result.stdout)
         self.assertIn("Full machine doctor:", result.stdout)
         self.assertIn("doctor:", result.stdout)
         self.assertIn("Full machine plan:", result.stdout)
         self.assertIn("font actions:", result.stdout)
         self.assertIn("operations:", result.stdout)
         self.assertIn("Show full technical details.", result.stdout)
+
+    def test_no_arg_install_choice_refreshes_summary_after_cancel(self) -> None:
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+        summary = self.machine_summary_output(
+            1,
+            "Install / update developer tools",
+            "Developer tools should be installed or updated first.",
+            "  - 2 developer tools are missing or unverified.",
+            "    - gh: install gh",
+        )
+
+        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="1\nn\n5\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertGreaterEqual(result.stdout.count("Machine setup summary"), 2)
+        self.assertGreaterEqual(result.stdout.count("Recommended next step: 1. Install / update developer tools - Developer tools should be installed or updated first."), 2)
+        self.assertGreaterEqual(result.stdout.count("1. Install / update developer tools (preview, then apply). [recommended]"), 2)
+        self.assertIn("No tool changes applied.", result.stdout)
 
     def test_help_subcommand(self) -> None:
         result = run_setup("help")
