@@ -129,6 +129,7 @@
       "kind": "file",
       "profiles": ["machine"],
       "protected": false,
+      "user_customizable": true,
       "placeholders": "none"
     },
     {
