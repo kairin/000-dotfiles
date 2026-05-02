@@ -4,6 +4,12 @@ exclude_paths:
   - ".specify/**"
   - "specs/**"
   - "AGENTS.md"
+  - "README.md"
+  - "CHANGELOG.md"
+  - "docs/**"
+  - "tests/**"
+  - "setup"
+  - "graph-obsidian-agent-docs/**"
 engines:
   metric:
     exclude_paths:
