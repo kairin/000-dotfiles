@@ -133,28 +133,19 @@ def _extend_dev_base_plan(
     package_states = {pkg: _dpkg_installed(runner, pkg) for pkg in DEV_BASE_PACKAGES}
     missing = tuple(pkg for pkg in DEV_BASE_PACKAGES if not package_states[pkg])
     installed = tuple(pkg for pkg in DEV_BASE_PACKAGES if package_states[pkg])
-    groups_summary = []
-    for name, group_pkgs in DEV_BASE_GROUPS:
-        groups_summary.append(
-            {
-                "name": name,
-                "packages": list(group_pkgs),
-                "installed": [pkg for pkg in group_pkgs if package_states[pkg]],
-                "missing": [pkg for pkg in group_pkgs if not package_states[pkg]],
-            }
-        )
+    entry = _dev_base_entry(missing, installed, package_states)
+    entries.append(entry)
+    tools.append(entry)
+    operations.extend(_dev_base_operations(missing, installed, cache_dir))
 
-    if missing and installed:
-        state = "needs_update"
-        action = "install_and_upgrade"
-    elif missing:
-        state = "missing"
-        action = "install"
-    else:
-        state = "installed"
-        action = "upgrade"
 
-    entry = {
+def _dev_base_entry(
+    missing: tuple[str, ...],
+    installed: tuple[str, ...],
+    package_states: dict[str, bool],
+) -> dict[str, Any]:
+    state, action = _dev_base_state_action(missing, installed)
+    return {
         "entry_id": DEV_BASE_ENTRY_ID,
         "recipe": "tool_installs",
         "label": "Developer base packages",
@@ -164,14 +155,39 @@ def _extend_dev_base_plan(
         "action": action,
         "missing_packages": list(missing),
         "installed_packages": list(installed),
-        "groups": groups_summary,
+        "groups": _dev_base_groups_summary(package_states),
         "total_packages": len(DEV_BASE_PACKAGES),
     }
-    entries.append(entry)
-    tools.append(entry)
 
+
+def _dev_base_state_action(missing: tuple[str, ...], installed: tuple[str, ...]) -> tuple[str, str]:
+    if missing and installed:
+        return "needs_update", "install_and_upgrade"
     if missing:
-        operations.append(
+        return "missing", "install"
+    return "installed", "upgrade"
+
+
+def _dev_base_groups_summary(package_states: dict[str, bool]) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": name,
+            "packages": list(group_pkgs),
+            "installed": [pkg for pkg in group_pkgs if package_states[pkg]],
+            "missing": [pkg for pkg in group_pkgs if not package_states[pkg]],
+        }
+        for name, group_pkgs in DEV_BASE_GROUPS
+    ]
+
+
+def _dev_base_operations(
+    missing: tuple[str, ...],
+    installed: tuple[str, ...],
+    cache_dir: Path,
+) -> list[dict[str, Any]]:
+    ops: list[dict[str, Any]] = []
+    if missing:
+        ops.append(
             _apt_op(
                 entry_id=DEV_BASE_ENTRY_ID,
                 op_type="tool_install_apt",
@@ -182,7 +198,7 @@ def _extend_dev_base_plan(
             )
         )
     if installed:
-        operations.append(
+        ops.append(
             _apt_op(
                 entry_id=DEV_BASE_ENTRY_ID,
                 op_type="tool_install_apt_upgrade",
@@ -192,6 +208,7 @@ def _extend_dev_base_plan(
                 reason=f"upgrade {len(installed)} installed dev-base packages",
             )
         )
+    return ops
 
 
 # ---------------------------------------------------------------------------
@@ -442,12 +459,7 @@ def _execute_apt(op: dict[str, Any], runner: CommandRunner, *, mode: str) -> int
     if not apt_get:
         op["result"] = "apt-get not found; install packages manually"
         return 0
-    prefix = _sudo_prefix()
-    runner.run([*prefix, apt_get, "update"])
-    if mode == "upgrade":
-        runner.run([*prefix, apt_get, "install", "--only-upgrade", "-y", *packages])
-    else:
-        runner.run([*prefix, apt_get, "install", "-y", *packages])
+    _apt_update_then_install(runner, _sudo_prefix(), apt_get, packages, mode=mode)
     return 1
 
 
@@ -459,39 +471,52 @@ def _execute_apt_keyring(op: dict[str, Any], runner: CommandRunner, cache_dir: P
     if not apt_get:
         op["result"] = "apt-get not found; install manually"
         return 0
+    cache_dir.mkdir(parents=True, exist_ok=True)
     prefix = _sudo_prefix()
     keyring_path = Path(op["keyring_path"])
     source_path = Path(op["source_path"])
 
     if not keyring_path.exists():
-        cached_keyring = Path(cache_dir) / keyring_path.name
+        cached_keyring = cache_dir / keyring_path.name
         runner.download(op["keyring_url"], cached_keyring)
         runner.run([*prefix, "install", "-D", "-m", "0644", str(cached_keyring), str(keyring_path)])
 
-    arch = _detect_dpkg_arch(runner)
-    rendered_source = op["source_line"].replace("{ARCH}", arch)
-    cached_source = Path(cache_dir) / source_path.name
-    cached_source.parent.mkdir(parents=True, exist_ok=True)
+    rendered_source = op["source_line"].replace("{ARCH}", _detect_dpkg_arch(runner))
+    cached_source = cache_dir / source_path.name
     cached_source.write_text(rendered_source + "\n")
     runner.run([*prefix, "install", "-D", "-m", "0644", str(cached_source), str(source_path)])
 
-    runner.run([*prefix, apt_get, "update"])
-    if op.get("mode") == "upgrade":
-        runner.run([*prefix, apt_get, "install", "--only-upgrade", "-y", *packages])
-    else:
-        runner.run([*prefix, apt_get, "install", "-y", *packages])
+    _apt_update_then_install(runner, prefix, apt_get, packages, mode=op.get("mode", "install"))
     return 1
 
 
 def _execute_curl(op: dict[str, Any], runner: CommandRunner, cache_dir: Path) -> int:
     sh = runner.which("sh") or "/bin/sh"
-    script = Path(cache_dir) / op["script_name"]
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    script = cache_dir / op["script_name"]
     runner.download(op["url"], script)
-    if script.exists():
-        script.chmod(0o755)
+    if not script.exists():
+        op["result"] = f"failed to download installer from {op['url']}"
+        return 0
+    script.chmod(0o755)
     prefix = _sudo_prefix() if op.get("requires_sudo") else []
     runner.run([*prefix, sh, str(script)])
     return 1
+
+
+def _apt_update_then_install(
+    runner: CommandRunner,
+    prefix: list[str],
+    apt_get: str,
+    packages: list[str],
+    *,
+    mode: str,
+) -> None:
+    runner.run([*prefix, apt_get, "update"])
+    if mode == "upgrade":
+        runner.run([*prefix, apt_get, "install", "--only-upgrade", "-y", *packages])
+    else:
+        runner.run([*prefix, apt_get, "install", "-y", *packages])
 
 
 def _execute_npm(op: dict[str, Any], runner: CommandRunner, *, mode: str) -> int:

@@ -208,23 +208,33 @@ def _extend_extra_tools(lines: list[str], tools: list[dict[str, Any]]) -> None:
     dev_base = next((item for item in tools if item.get("entry_id") == "tools.dev_base"), None)
     individual = [item for item in tools if item.get("entry_id") != "tools.dev_base"]
     lines.append("tool install/update preview:")
-    installed = [item for item in individual if item.get("state") == "installed"]
-    missing = [item for item in individual if item.get("state") == "missing"]
-    unsupported = [item for item in individual if item.get("state") == "unsupported"]
-    if installed:
-        lines.append("  Already installed (will be updated where possible):")
-        for item in installed:
-            lines.append(_tool_installed_line(item))
-    if missing:
-        lines.append("  Missing (will be installed):")
-        for item in missing:
-            lines.append(_tool_missing_line(item))
-    if unsupported:
-        lines.append("  Unsupported on this platform:")
-        for item in unsupported:
-            lines.append(f"    - {item.get('label')} ({item.get('install_method')})")
+    _extend_tool_section(lines, individual, "installed",
+                         "  Already installed (will be updated where possible):", _tool_installed_line)
+    _extend_tool_section(lines, individual, "missing",
+                         "  Missing (will be installed):", _tool_missing_line)
+    _extend_tool_section(lines, individual, "unsupported",
+                         "  Unsupported on this platform:", _tool_unsupported_line)
     if dev_base is not None:
         _extend_dev_base_summary(lines, dev_base)
+
+
+def _extend_tool_section(
+    lines: list[str],
+    items: list[dict[str, Any]],
+    state: str,
+    header: str,
+    formatter,
+) -> None:
+    matching = [item for item in items if item.get("state") == state]
+    if not matching:
+        return
+    lines.append(header)
+    for item in matching:
+        lines.append(formatter(item))
+
+
+def _tool_unsupported_line(item: dict[str, Any]) -> str:
+    return f"    - {item.get('label')} ({item.get('install_method')})"
 
 
 def _tool_installed_line(item: dict[str, Any]) -> str:
@@ -260,22 +270,30 @@ def _extend_dev_base_summary(lines: list[str], dev_base: dict[str, Any]) -> None
     installed = dev_base.get("installed_packages") or []
     lines.append(f"  Dev base packages ({total} total, grouped):")
     for group in dev_base.get("groups") or []:
-        name = group.get("name", "")
-        present = len(group.get("installed") or [])
-        size = len(group.get("packages") or [])
-        missing_pkgs = group.get("missing") or []
-        if missing_pkgs:
-            lines.append(
-                f"    {name:<10s} {present}/{size} installed (missing: {', '.join(missing_pkgs)})"
-            )
-        else:
-            lines.append(f"    {name:<10s} {present}/{size} installed -> apt --only-upgrade")
+        lines.append(_dev_base_group_line(group))
+    summary = _dev_base_summary_line(missing, installed)
+    if summary:
+        lines.append(summary)
+
+
+def _dev_base_group_line(group: dict[str, Any]) -> str:
+    name = group.get("name", "")
+    present = len(group.get("installed") or [])
+    size = len(group.get("packages") or [])
+    missing_pkgs = group.get("missing") or []
+    if missing_pkgs:
+        return f"    {name:<10s} {present}/{size} installed (missing: {', '.join(missing_pkgs)})"
+    return f"    {name:<10s} {present}/{size} installed -> apt --only-upgrade"
+
+
+def _dev_base_summary_line(missing: list[str], installed: list[str]) -> str:
     if missing and installed:
-        lines.append(
+        return (
             f"  -> One batched apt install for {len(missing)} missing packages,"
             f" one batched apt upgrade for {len(installed)} present packages."
         )
-    elif missing:
-        lines.append(f"  -> One batched apt install for {len(missing)} missing packages.")
-    elif installed:
-        lines.append(f"  -> One batched apt upgrade for {len(installed)} present packages.")
+    if missing:
+        return f"  -> One batched apt install for {len(missing)} missing packages."
+    if installed:
+        return f"  -> One batched apt upgrade for {len(installed)} present packages."
+    return ""

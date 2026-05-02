@@ -7,7 +7,11 @@ from .backups import BackupError
 from .fonts import CommandRunner, execute_font_operation, build_font_plan
 from .installer import build_plan, execute_manifest_operation
 from .reports import Report
-from .tool_installer import build_tool_install_plan, execute_tool_install_operation
+from .tool_installer import (
+    TOOL_CACHE_REL,
+    build_tool_install_plan,
+    execute_tool_install_operation,
+)
 
 
 WARNING_STATES = {"missing", "drifted", "protected", "manual", "unsupported", "needs_update"}
@@ -178,7 +182,7 @@ def _execute_operation(
     runner: CommandRunner | None,
 ) -> int:
     if op.get("recipe") == "tool_installs" or str(op.get("type", "")).startswith("tool_install_"):
-        cache_dir = Path(op.get("cache_dir") or Path.home() / ".cache/000-dotfiles/tool-installers")
+        cache_dir = Path(op.get("cache_dir") or Path.home() / TOOL_CACHE_REL)
         return execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
     if op.get("recipe") == "fonts" or str(op.get("type", "")).startswith("font_"):
         return execute_font_operation(op, runner=runner, backup_dir=backup_path, backups=backups)
