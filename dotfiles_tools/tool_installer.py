@@ -5,8 +5,10 @@ from pathlib import Path
 import sys
 from typing import Any, Mapping
 
+from .backups import BackupError, create_backup
 from .baseline import DEV_BASE_GROUPS, DEV_BASE_PACKAGES, TOOL_BASELINE
 from .font_runner import CommandRunner
+from .manifest import ManifestError, load_manifest
 
 
 TOOL_CACHE_REL = ".cache/000-dotfiles/tool-installers"
@@ -566,6 +568,7 @@ def run_post_install_actions(
     runner: CommandRunner | None = None,
     env: Mapping[str, str] | None = None,
     repo_path: Path | str | None = None,
+    backup_dir: Path | str | None = None,
 ) -> list[dict[str, Any]]:
     """For each verified tool, walk its `post_install` list:
       - kind='auto' AND yes=True → execute via runner.run; record outcome.
@@ -574,21 +577,36 @@ def run_post_install_actions(
     Templates with `{which:<name>}` or `{user}` placeholders are substituted
     before execution; an unresolved placeholder downgrades the action to
     guidance. `requires_protected_apply` copies the listed protected files
-    from the repo before exec (only when yes=True and repo_path is set)."""
+    from the repo before exec (only when yes=True and repo_path is set);
+    existing targets are backed up to `backup_dir` first."""
     effective_env = dict(os.environ if env is None else env)
     effective_runner = runner or CommandRunner(env=effective_env, path=effective_env.get("PATH", ""))
     repo = Path(repo_path).resolve() if repo_path else None
     home_path = Path(home).expanduser().resolve()
+    backup = Path(backup_dir).expanduser().resolve() if backup_dir else None
+    return _walk_post_install(
+        effective_runner, effective_env, yes=yes,
+        repo=repo, home=home_path, backup_dir=backup,
+    )
+
+
+def _walk_post_install(
+    runner: CommandRunner,
+    env: Mapping[str, str],
+    *,
+    yes: bool,
+    repo: Path | None,
+    home: Path,
+    backup_dir: Path | None,
+) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for item in TOOL_BASELINE:
-        if not item.get("bootstrap"):
+        if not item.get("bootstrap") or not runner.which(item["command"]):
             continue
-        if not effective_runner.which(item["command"]):
-            continue  # only run post-install for tools we can actually verify
         for action in item.get("post_install", ()):
             results.append(_run_one_post_install(
-                item, action, effective_runner, effective_env, yes=yes,
-                repo=repo, home=home_path,
+                item, action, runner, env, yes=yes,
+                repo=repo, home=home, backup_dir=backup_dir,
             ))
     return results
 
@@ -602,30 +620,47 @@ def _run_one_post_install(
     yes: bool,
     repo: Path | None,
     home: Path,
+    backup_dir: Path | None,
 ) -> dict[str, Any]:
     label = action.get("label", "")
     kind = action.get("kind", "guidance")
     template = list(action.get("command_template", ()))
     rendered, unresolved = _render_post_install_template(template, runner, env)
     base = {
-        "tool": item["id"],
-        "label": label,
-        "kind": kind,
-        "command": rendered,
-        "raw_template": template,
+        "tool": item["id"], "label": label, "kind": kind,
+        "command": rendered, "raw_template": template,
     }
     if unresolved:
         return {**base, "kind": "guidance", "status": "skipped",
                 "reason": f"unresolved placeholder: {unresolved}"}
     if kind != "auto" or not yes:
         return {**base, "status": "guidance"}
+    if not rendered:
+        return {**base, "status": "skipped", "reason": "empty command after substitution"}
+    return _execute_post_install_action(action, rendered, runner, base, repo=repo, home=home, backup_dir=backup_dir)
+
+
+def _execute_post_install_action(
+    action: Mapping[str, Any],
+    rendered: list[str],
+    runner: CommandRunner,
+    base: dict[str, Any],
+    *,
+    repo: Path | None,
+    home: Path,
+    backup_dir: Path | None,
+) -> dict[str, Any]:
     protected = list(action.get("requires_protected_apply", ()))
-    overrides = _apply_protected_files(protected, repo, home) if protected else []
+    overrides: list[dict[str, str]] = []
+    backups: list[dict[str, str]] = []
     try:
+        if protected:
+            overrides, backups = _apply_protected_files(protected, repo, home, backup_dir)
         runner.run(rendered)
-    except (OSError, RuntimeError) as exc:
-        return {**base, "status": "failed", "result": str(exc), "protected_overrides": overrides}
-    return {**base, "status": "ran", "protected_overrides": overrides}
+    except (OSError, RuntimeError, BackupError) as exc:
+        return {**base, "status": "failed", "result": str(exc),
+                "protected_overrides": overrides, "backups": backups}
+    return {**base, "status": "ran", "protected_overrides": overrides, "backups": backups}
 
 
 def _render_post_install_template(
@@ -664,18 +699,48 @@ def _apply_protected_files(
     protected: list[str],
     repo: Path | None,
     home: Path,
-) -> list[dict[str, str]]:
+    backup_dir: Path | None,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Look up each `protected` source path in the manifest, back up the
+    existing target (when a `backup_dir` is set), and copy the repo file
+    into place. Returns (overrides_applied, backups_created)."""
     if not repo:
-        return []
+        return [], []
+    try:
+        manifest = load_manifest(repo)
+    except ManifestError:
+        return [], []
+    by_source = {entry.source: entry for entry in manifest.entries}
     overrides: list[dict[str, str]] = []
+    backups: list[dict[str, str]] = []
     for rel in protected:
-        # rel is repo-relative like "fish/fish_plugins" → target is
-        # ~/.config/fish/fish_plugins (mirror the manifest mapping).
-        source = repo / rel
-        target = home / ".config" / rel
-        if not source.exists():
+        entry = by_source.get(rel)
+        if entry is None:
             continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(source.read_text())
-        overrides.append({"source": str(source), "target": str(target)})
-    return overrides
+        result = _copy_protected_file(entry, repo, home, backup_dir)
+        if result is None:
+            continue
+        override, backup = result
+        overrides.append(override)
+        if backup is not None:
+            backups.append(backup)
+    return overrides, backups
+
+
+def _copy_protected_file(
+    entry: Any,  # ManifestEntry
+    repo: Path,
+    home: Path,
+    backup_dir: Path | None,
+) -> tuple[dict[str, str], dict[str, str] | None] | None:
+    source = repo / entry.source
+    target = home / entry.target
+    if not source.exists():
+        return None
+    backup: dict[str, str] | None = None
+    if (target.exists() or target.is_symlink()) and backup_dir is not None:
+        backup = create_backup(target, backup_dir, entry_id=f"post_install:{entry.id}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(source.read_text())
+    override = {"source": str(source), "target": str(target), "entry_id": entry.id}
+    return override, backup

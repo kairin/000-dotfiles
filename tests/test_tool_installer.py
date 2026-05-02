@@ -444,22 +444,47 @@ class VerifyAndPostInstallTests(DotfilesTestCase):
         self.assertEqual(chsh["status"], "skipped")
         self.assertIn("user", chsh["reason"])
 
-    def test_post_install_protected_apply_copies_fish_plugins(self) -> None:
+    def test_post_install_protected_apply_uses_real_manifest_target(self) -> None:
+        # The real repo manifest maps fish/fish_plugins → ~/.config/fish/fish_plugins,
+        # which validates that protected-apply uses manifest target resolution
+        # (not the previously-hardcoded ~/.config prefix).
+        from tests.helpers import REPO_ROOT
         home = self.make_home()
-        repo = self.make_home() / "repo"
-        (repo / "fish").mkdir(parents=True)
-        (repo / "fish" / "fish_plugins").write_text("jorgebucaran/fisher\n")
         runner = FakeRunner(which={"fish": "/usr/bin/fish"})
         env = {"PATH": "/usr/bin", "USER": "alice"}
+        backup_dir = home / ".dotfiles-backups"
         results = run_post_install_actions(
-            home, yes=True, runner=runner, env=env, repo_path=repo,
+            home, yes=True, runner=runner, env=env,
+            repo_path=REPO_ROOT, backup_dir=backup_dir,
         )
         plugin_action = next(r for r in results if "fisher update" in " ".join(r["command"]))
         self.assertEqual(plugin_action["status"], "ran")
         target = home / ".config" / "fish" / "fish_plugins"
         self.assertTrue(target.exists())
-        self.assertEqual(target.read_text(), "jorgebucaran/fisher\n")
         self.assertTrue(plugin_action["protected_overrides"])
+        # No backup needed because target didn't exist beforehand.
+        self.assertEqual(plugin_action.get("backups"), [])
+
+    def test_post_install_protected_apply_backs_up_existing_target(self) -> None:
+        from tests.helpers import REPO_ROOT
+        home = self.make_home()
+        target = home / ".config" / "fish" / "fish_plugins"
+        target.parent.mkdir(parents=True)
+        target.write_text("user-customized\n")
+        runner = FakeRunner(which={"fish": "/usr/bin/fish"})
+        env = {"PATH": "/usr/bin", "USER": "alice"}
+        backup_dir = home / ".dotfiles-backups"
+        results = run_post_install_actions(
+            home, yes=True, runner=runner, env=env,
+            repo_path=REPO_ROOT, backup_dir=backup_dir,
+        )
+        plugin_action = next(r for r in results if "fisher update" in " ".join(r["command"]))
+        self.assertEqual(plugin_action["status"], "ran")
+        # The existing user-customized file was preserved as a backup.
+        self.assertTrue(plugin_action["backups"])
+        backup_target = Path(plugin_action["backups"][0]["backup_target"])
+        self.assertTrue(backup_target.exists())
+        self.assertEqual(backup_target.read_text(), "user-customized\n")
 
     def test_every_bootstrap_tool_declares_post_install(self) -> None:
         from dotfiles_tools.baseline import TOOL_BASELINE
