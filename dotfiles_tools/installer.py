@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -107,6 +108,9 @@ def _execute_operation(op: dict[str, Any], repo_path: Path, backup_path: Path, b
     if op["type"] == "copy":
         _copy_operation(op, repo_path)
         return 1
+    if op["type"] == "merge":
+        _merge_operation(op, repo_path)
+        return 1
     if op["type"] == "symlink":
         _symlink_operation(op)
         return 1
@@ -118,6 +122,30 @@ def _copy_operation(op: dict[str, Any], repo_path: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     source = Path(op["source"])
     target.write_text(expected_text(source, _entry_for(op["entry_id"], repo_path)))
+
+
+def _merge_operation(op: dict[str, Any], repo_path: Path) -> None:
+    source = Path(op["source"])
+    target_path = Path(op["target"])
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    source_text = expected_text(source, _entry_for(op["entry_id"], repo_path))
+    source_data = json.loads(source_text)
+    target_data = json.loads(target_path.read_text()) if target_path.exists() else {}
+    merged = _deep_merge(source_data, target_data)
+    target_path.write_text(json.dumps(merged, indent=2) + "\n")
+
+
+def _deep_merge(source: Any, target: Any) -> Any:
+    if not isinstance(source, dict) or not isinstance(target, dict):
+        return target
+    result = dict(target)
+    for key, source_value in source.items():
+        if key in result:
+            if isinstance(source_value, dict) and isinstance(result[key], dict):
+                result[key] = _deep_merge(source_value, result[key])
+        else:
+            result[key] = source_value
+    return result
 
 
 def _symlink_operation(op: dict[str, Any]) -> None:
@@ -169,6 +197,8 @@ def _operations_for_state(repo: Path, home: Path, entry, state: dict[str, Any]) 
         return [{**base, "type": "refuse", "reason": state.get("reason", "cannot plan write"), "requires_approval": False}]
     if state["state"] == "current":
         return [{**base, "type": "skip", "reason": "target already current", "requires_approval": False}]
+    if state["state"] == "needs_merge":
+        return [{**base, "type": "merge", "reason": state.get("reason", "merge missing entries")}]
     ops: list[dict[str, Any]] = []
     if not target.parent.exists():
         ops.append({**base, "type": "mkdir", "target": str(target.parent), "reason": "target parent directory is missing"})

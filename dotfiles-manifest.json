@@ -113,7 +113,8 @@
       "protected": false,
       "user_customizable": false,
       "parse": "json",
-      "placeholders": "none"
+      "placeholders": "none",
+      "merge_strategy": "json_merge"
     },
     {
       "id": "gh.config",
@@ -210,6 +211,7 @@
       "user_customizable": false,
       "parse": "json",
       "placeholders": "none",
+      "merge_strategy": "json_merge",
       "scope": "repo"
     }
   ],

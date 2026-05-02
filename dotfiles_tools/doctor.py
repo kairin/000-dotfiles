@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -101,6 +102,8 @@ def _target_preflight_state(result: dict[str, Any], target_path: Path, entry: Ma
 
 
 def _file_target_state(result: dict[str, Any], source_path: Path, target_path: Path, entry: ManifestEntry) -> dict[str, Any]:
+    if entry.merge_strategy == "json_merge":
+        return _json_merge_target_state(result, source_path, target_path)
     try:
         source_text = expected_text(source_path, entry)
         target_text = target_path.read_text()
@@ -111,6 +114,38 @@ def _file_target_state(result: dict[str, Any], source_path: Path, target_path: P
     if getattr(entry, 'user_customizable', False):
         return _state(result, "current", "user customizations are preserved")
     return _state(result, "drifted", "target differs from source")
+
+
+def _json_merge_target_state(result: dict[str, Any], source_path: Path, target_path: Path) -> dict[str, Any]:
+    try:
+        source_text = source_path.read_text()
+        source = json.loads(source_text)
+        target = json.loads(target_path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        return _state(result, "blocked", f"json parse error: {exc}")
+    missing = _missing_json_keys(source, target)
+    if not missing:
+        return _state(result, "current", "required entries are present")
+    return _state(result, "needs_merge", f"missing entries: {', '.join(missing)}")
+
+
+def _missing_json_keys(source: Any, target: Any) -> list[str]:
+    missing: list[str] = []
+    if not isinstance(source, dict) or not isinstance(target, dict):
+        return missing
+    for key, source_value in source.items():
+        if isinstance(source_value, dict):
+            target_sub = target.get(key, {})
+            if not isinstance(target_sub, dict):
+                missing.append(key)
+            else:
+                for sub_key in source_value:
+                    if sub_key not in target_sub:
+                        missing.append(f"{key}.{sub_key}")
+        else:
+            if key not in target:
+                missing.append(key)
+    return sorted(missing)
 
 
 def _base_result(entry: ManifestEntry, source_path: Path, target_path: Path) -> dict[str, Any]:
