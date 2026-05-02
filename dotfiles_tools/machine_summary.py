@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -9,6 +10,14 @@ from .doctor import run_doctor
 from .manifest import ManifestEntry, ManifestError, load_manifest
 from .reports import Report
 from .tool_installer import DEV_BASE_ENTRY_ID
+
+
+@dataclass(frozen=True)
+class Recommendation:
+    option_number: int
+    label: str
+    reason: str
+    state_category: str
 
 
 def render_machine_summary(repo: Path | str, home: Path | str, *, profile: str = "machine") -> str:
@@ -45,8 +54,9 @@ def render_reports(doctor: Report, plan: Report, repo: Path, home: Path, *, prof
     groups = _group_entries(plan.entries)
     action_summary = _action_summary(doctor, plan, groups)
     manifest_entries = _manifest_entry_map(repo)
-    lines = _summary_header(repo, home, profile)
-    _extend_option_decision(lines, action_summary, groups)
+    recommendation = _recommendation(doctor, plan, action_summary, groups)
+    lines = _summary_header(repo, home, profile, recommendation)
+    _extend_recommendation_context(lines, recommendation, action_summary, groups, doctor, plan)
     _extend_report_sections(lines, doctor, plan, groups, manifest_entries)
     lines.extend([
         "",
@@ -62,68 +72,132 @@ def _manifest_entry_map(repo: Path) -> dict[str, ManifestEntry]:
         return {}
 
 
-def _summary_header(repo: Path, home: Path, profile: str) -> list[str]:
+def _recommendation(
+    doctor: Report,
+    plan: Report,
+    action_summary: dict[str, int | bool],
+    groups: dict[str, list[dict[str, Any]]],
+) -> Recommendation:
+    tool_checks = doctor.extra.get("tool_checks") or []
+    missing_tools = _missing_tool_checks(tool_checks)
+    auth_guidance = doctor.extra.get("auth_guidance") or []
+
+    if doctor.errors or plan.errors:
+        return Recommendation(
+            3,
+            "Show full technical details",
+            "The audit is incomplete.",
+            "incomplete_audit",
+        )
+    if action_summary["blockers"]:
+        return Recommendation(
+            3,
+            "Show full technical details",
+            "Inspect the full details before applying changes.",
+            "blocked",
+        )
+    if missing_tools:
+        return Recommendation(
+            1,
+            "Install / update developer tools",
+            "Developer tools should be installed or updated first.",
+            "tools_missing",
+        )
+    if action_summary["file_changes"] or action_summary["font_actions"]:
+        return Recommendation(
+            2,
+            "Apply safe non-protected dotfiles",
+            "Safe non-protected setup changes are pending.",
+            "safe_changes",
+        )
+    if any(item.get("state") == "available" for item in auth_guidance):
+        return Recommendation(
+            4,
+            "Show tool and sign-in guidance",
+            "Sign-in guidance is the useful next step.",
+            "auth_guidance",
+        )
+    if groups["protected"] or action_summary["manual_fonts"]:
+        return Recommendation(
+            3,
+            "Show full technical details",
+            "Manual items need inspection and are not applied automatically.",
+            "manual_only",
+        )
+    return Recommendation(
+        5,
+        "Exit without writing",
+        "Setup is current and no write action is needed.",
+        "current",
+    )
+
+
+def _missing_tool_checks(tool_checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [item for item in tool_checks if item.get("state") == "missing"]
+
+
+def _summary_header(repo: Path, home: Path, profile: str, recommendation: Recommendation) -> list[str]:
     return [
         "Machine setup summary",
         f"Repo: {repo}",
         f"Home: {home}",
         f"Profile: {profile}",
         "",
-        "Option 2 will:",
+        f"Recommended next step: {recommendation.option_number}. {recommendation.label} - {recommendation.reason}",
     ]
 
 
-def _extend_option_decision(
+def _extend_recommendation_context(
     lines: list[str],
+    recommendation: Recommendation,
     action_summary: dict[str, int | bool],
     groups: dict[str, list[dict[str, Any]]],
+    doctor: Report,
+    plan: Report,
 ) -> None:
-    _extend_file_decision(lines, action_summary, groups)
-    _extend_font_decision(lines, action_summary)
-    _extend_requirement_decisions(lines, action_summary)
-    _extend_skip_decisions(lines, action_summary, groups)
-    lines.append("  - Nothing changes until you choose option 2.")
-
-
-def _extend_file_decision(
-    lines: list[str],
-    action_summary: dict[str, int | bool],
-    groups: dict[str, list[dict[str, Any]]],
-) -> None:
-    if not action_summary["file_changes"]:
-        lines.append("  - Apply no file changes; all non-protected targets are current.")
+    if recommendation.state_category == "tools_missing":
+        missing = _missing_tool_checks(doctor.extra.get("tool_checks") or [])
+        lines.append(f"  - {len(missing)} developer tools are missing or unverified.")
+        for item in missing:
+            lines.append(f"    - {item.get('command')}: {item.get('install_hint')}")
         return
-    sentence = _file_change_sentence(len(groups["updates"]), len(groups["creates"]), action_summary["backups"])
-    lines.append("  - " + sentence)
-
-
-def _extend_font_decision(lines: list[str], action_summary: dict[str, int | bool]) -> None:
-    if action_summary["font_actions"]:
-        lines.append("  - Install/update " + _font_action_sentence(action_summary) + ".")
-    else:
-        lines.append("  - Run no font install/update actions.")
-
-
-def _extend_requirement_decisions(lines: list[str], action_summary: dict[str, int | bool]) -> None:
-    if action_summary["requires_network"]:
-        lines.append("  - Network may be used for Nerd Font downloads unless cached.")
-    if action_summary["requires_apt_sudo"]:
-        lines.append("  - sudo is needed for apt fallback font packages.")
-    elif action_summary["requires_sudo"]:
-        lines.append("  - sudo is needed for host/system font actions.")
-
-
-def _extend_skip_decisions(
-    lines: list[str],
-    action_summary: dict[str, int | bool],
-    groups: dict[str, list[dict[str, Any]]],
-) -> None:
-    if groups["protected"]:
-        lines.append(f"  - Leave {_plural(len(groups['protected']), 'protected/manual file')} untouched.")
-    if action_summary["manual_fonts"]:
-        lines.append(f"  - Skip {_plural(action_summary['manual_fonts'], 'manual/unsupported font item')}; see Fonts below.")
-    if action_summary["blockers"]:
+    if recommendation.state_category == "safe_changes":
+        lines.append("  - Safe non-protected setup changes are pending.")
+        if action_summary["file_changes"]:
+            sentence = _file_change_sentence(len(groups["updates"]), len(groups["creates"]), action_summary["backups"])
+            lines.append("  - " + sentence)
+        if action_summary["font_actions"]:
+            lines.append("  - Install/update " + _font_action_sentence(action_summary) + ".")
+        if action_summary["requires_network"]:
+            lines.append("  - Network may be used for Nerd Font downloads unless cached.")
+        if action_summary["requires_apt_sudo"]:
+            lines.append("  - sudo is needed for apt fallback font packages.")
+        elif action_summary["requires_sudo"]:
+            lines.append("  - sudo is needed for host/system font actions.")
+        return
+    if recommendation.state_category == "incomplete_audit":
+        lines.append("  - The audit is incomplete; inspect the full technical details.")
+        if doctor.errors:
+            lines.append(f"  - Doctor errors: {_plural(len(doctor.errors), 'issue')}.")
+        if plan.errors:
+            lines.append(f"  - Plan errors: {_plural(len(plan.errors), 'issue')}.")
+        return
+    if recommendation.state_category == "blocked":
         lines.append(f"  - Stop on {_plural(action_summary['blockers'], 'blocking issue')}; fix before applying.")
+        return
+    if recommendation.state_category == "auth_guidance":
+        auth_guidance = doctor.extra.get("auth_guidance") or []
+        commands = ", ".join(str(item.get("command")) for item in auth_guidance if item.get("state") == "available")
+        if commands:
+            lines.append(f"  - Tool and sign-in guidance: {commands}.")
+        return
+    if recommendation.state_category == "manual_only":
+        if groups["protected"]:
+            lines.append(f"  - Leave {_plural(len(groups['protected']), 'protected/manual file')} untouched.")
+        if action_summary["manual_fonts"]:
+            lines.append(f"  - Skip {_plural(action_summary['manual_fonts'], 'manual/unsupported font item')}; see Fonts below.")
+        return
+    lines.append("  - Setup is current and no write action is needed.")
 
 
 def _extend_report_sections(
@@ -494,11 +568,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--profile", default="machine")
     parser.add_argument("--menu-mode", action="store_true")
     parser.add_argument("--missing-tool-count", action="store_true")
+    parser.add_argument("--recommendation", action="store_true")
     args = parser.parse_args(argv)
     if args.menu_mode:
         print(render_menu_mode(args.repo, args.home))
     elif args.missing_tool_count:
         print(render_missing_tool_count(args.repo, args.home))
+    elif args.recommendation:
+        repo_path = Path(args.repo).resolve()
+        home_path = Path(args.home).resolve()
+        doctor = run_doctor(repo_path, home_path, profile=args.profile)
+        plan = build_bootstrap_plan(repo_path, home_path, profile=args.profile)
+        groups = _group_entries(plan.entries)
+        action_summary = _action_summary(doctor, plan, groups)
+        recommendation = _recommendation(doctor, plan, action_summary, groups)
+        print(
+            f"{recommendation.option_number}\t{recommendation.label}\t{recommendation.reason}\t{recommendation.state_category}"
+        )
     else:
         print(render_machine_summary(args.repo, args.home, profile=args.profile), end="")
     return 0
