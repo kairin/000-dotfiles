@@ -92,6 +92,7 @@ validation/setup code and must generate `coverage.xml` before Codacy upload.
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan:
-`specs/002-setup-menu-recommendation/plan.md`
+shell commands, and other important information, see the spec documents in
+`specs/`. Recent implementations (setup menu recommendation, optional integrations)
+are complete. Check `specs/` for any new active specifications or design documents.
 <!-- SPECKIT END -->

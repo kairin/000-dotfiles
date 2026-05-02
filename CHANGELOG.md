@@ -2,6 +2,35 @@
 
 All notable changes to this project are documented here.
 
+## [0.1.x] — 2026-05-03
+
+### Added
+
+- **User customizable config files** — 10 user-facing config files (claude/settings.json,
+  claude/keybindings.json, claude/CLAUDE.md, codex/config.toml, codex/default.rules,
+  gemini/settings.json, gemini/GEMINI.md, gh/config.yml, fish/env.fish,
+  fish/functions/direnv.fish) are now marked `user_customizable` in the manifest and will
+  never be auto-overwritten by option 2 (apply dotfiles), even if they differ from
+  their templates
+- **Optional integrations menu** — GitHub (gh) and HuggingFace token options now appear
+  dynamically in the optional integrations menu (only when not yet configured), alongside
+  Codacy; users can configure multiple API credentials from one place
+- **Auto-install missing CLIs** — When selecting GitHub or HuggingFace from optional
+  integrations, setup offers to install the missing CLI: `sudo apt install -y gh` for
+  GitHub, or `uv tool install huggingface-hub` for HuggingFace
+- **Readline support in menu prompts** — All interactive menu prompts now use `read -r -e`,
+  enabling arrow key navigation and readline editing instead of raw escape sequences
+
+### Fixed
+
+- **Menu loop behavior** — Option 2 (apply dotfiles) now returns to the main menu instead
+  of exiting, matching option 1 (install tools) behavior
+- **Placeholder documentation** — AGENTS.md.template and CLAUDE.md now correctly document
+  the placeholder format as `{ {UPPER_SNAKE_CASE} }` (with spaces) to avoid false-positive
+  pattern matching in documentation
+- **API credential status visibility** — `./setup verify` now appends a 3-row credential
+  table (GitHub, HuggingFace, Codacy) showing configuration status when verification passes
+
 ## [0.1.x] — 2026-05-02
 
 ### Added

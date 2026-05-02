@@ -18,7 +18,7 @@ Code, Codex, Gemini, Copilot) and scaffolds AI agent guidelines for your project
 | Tool | Purpose | Config file |
 |---|---|---|
 | **fish** | Shell | `~/.config/fish/env.fish`, `direnv.fish` |
-| **direnv** | Environment isolation | `~/.config/direnv/direnvrc` |
+| **direnv** | Fish shell direnv hook | `~/.config/fish/functions/direnv.fish` |
 | **git** | Version control (manual) | `~/.config/git/config` |
 | **gh** | GitHub CLI | `~/.config/gh/config.yml` |
 | **Claude Code** | AI coding assistant | `~/.claude/settings.json`, `keybindings.json` |
@@ -91,7 +91,7 @@ The installer will run for 2–5 minutes. Once done, you'll see a summary with s
 Auth/setup guidance:
   - gh auth status: If it reports no authenticated host, run gh auth login.
   - codex auth: Run when Codex CLI is installed and needs user authentication.
-  - claude login: Run when Claude Code CLI is installed and needs user authentication.
+  - claude /login: Run when Claude Code CLI is installed and needs user authentication.
   - gemini: Start Gemini CLI and complete its login/setup prompt if needed.
   - copilot /login: Run when GitHub Copilot CLI is installed and needs user authentication.
 ```
@@ -260,7 +260,13 @@ behind a secondary menu so they do not compete with the core setup actions.
 ~/000-dotfiles/setup ~/Apps/my-project
 ```
 
-Choose `Optional integrations and APIs`, then `Manage Codacy API access`.
+Choose `Optional integrations and APIs`. The menu dynamically shows only the integrations you need:
+
+1. **Manage GitHub (gh) API access** — available only if `gh` is not yet authenticated. Offers to install `gh` via `apt` if not found.
+2. **Configure HuggingFace API token** — available only if no HF token is found in `$HF_TOKEN` or `~/.cache/huggingface/token`. Offers to install `huggingface-hub` via `uv tool install` if not found.
+3. **Manage Codacy API access** — always available.
+
+#### Codacy setup
 
 Codacy setup supports two modes:
 
@@ -292,6 +298,27 @@ specify init --here
 
 This creates per-project scaffolding (`.specify/`, `.agents/skills/`, etc.) that lets you define feature specs and code-generation integrations specific to your project.
 
+### Check API credential status
+
+To verify which integrations are configured, run:
+
+```bash
+./setup verify --project ~/Apps/my-project
+```
+
+The output includes an API credential status table showing:
+
+```
+API credential status:
+  Service              Status
+  ---                  ---
+  GitHub (gh)          ✓ Authenticated
+  HuggingFace          ✓ Token found
+  Codacy               ✗ Not configured
+```
+
+This is a quick health check to see which integrations are ready to use.
+
 ---
 
 ## Troubleshooting
@@ -322,6 +349,8 @@ If the setup script reports config drift:
 2. If you want to keep your changes, skip this file: just don't confirm the apply
 3. If you want the repo's version: choose option 2 and confirm
 4. Backups are created before overwrite (default: `~/.dotfiles-backups/`)
+
+**Note:** Some files are intentionally excluded from drift resolution and your customizations are always preserved. These files are marked `user_customizable` and include: `claude/settings.json`, `claude/keybindings.json`, `claude/CLAUDE.md`, `codex/config.toml`, `codex/default.rules`, `gemini/settings.json`, `gemini/GEMINI.md`, `gh/config.yml`, `fish/env.fish`, and `fish/functions/direnv.fish`. Option 2 will never overwrite these files even if they differ from the template.
 
 ### Font icons look broken in my terminal
 
