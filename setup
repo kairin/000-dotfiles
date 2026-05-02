@@ -977,11 +977,11 @@ configure_gh_auth() {
     printf "Install gh with uv? [Y/n]: "
     local install_choice
     if read -r install_choice && [[ "$install_choice" =~ ^[Yy]?$ ]]; then
-      echo "Installing gh..."
-      if uv pip install gh; then
+      echo "Installing gh via apt..."
+      if sudo apt install -y gh; then
         echo "✓ gh installed"
       else
-        echo "✗ Failed to install gh"
+        echo "✗ Failed to install gh. See: https://github.com/cli/cli#installation"
         return 1
       fi
     else
@@ -1007,8 +1007,9 @@ configure_huggingface_token() {
     local install_choice
     if read -r install_choice && [[ "$install_choice" =~ ^[Yy]?$ ]]; then
       echo "Installing huggingface-hub..."
-      if uv pip install huggingface-hub; then
+      if uv tool install huggingface-hub; then
         echo "✓ huggingface-hub installed"
+        refresh_uv_path
       else
         echo "✗ Failed to install huggingface-hub"
         return 1
