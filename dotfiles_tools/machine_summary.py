@@ -78,17 +78,27 @@ def _recommendation(
     action_summary: dict[str, int | bool],
     groups: dict[str, list[dict[str, Any]]],
 ) -> Recommendation:
-    tool_checks = doctor.extra.get("tool_checks") or []
-    missing_tools = _missing_tool_checks(tool_checks)
-    auth_guidance = doctor.extra.get("auth_guidance") or []
+    for candidate in (
+        _recommendation_for_audit_failure(doctor, plan),
+        _recommendation_for_blockers(action_summary),
+        _recommendation_for_missing_tools(doctor),
+        _recommendation_for_safe_changes(action_summary),
+        _recommendation_for_auth_guidance(doctor),
+        _recommendation_for_manual_only(action_summary, groups),
+        _recommendation_for_current(),
+    ):
+        if candidate is not None:
+            return candidate
+    raise AssertionError("unreachable recommendation state")
 
+
+def _recommendation_for_audit_failure(doctor: Report, plan: Report) -> Recommendation | None:
     if doctor.errors or plan.errors:
-        return Recommendation(
-            3,
-            "Show full technical details",
-            "The audit is incomplete.",
-            "incomplete_audit",
-        )
+        return Recommendation(3, "Show full technical details", "The audit is incomplete.", "incomplete_audit")
+    return None
+
+
+def _recommendation_for_blockers(action_summary: dict[str, int | bool]) -> Recommendation | None:
     if action_summary["blockers"]:
         return Recommendation(
             3,
@@ -96,13 +106,21 @@ def _recommendation(
             "Inspect the full details before applying changes.",
             "blocked",
         )
-    if missing_tools:
+    return None
+
+
+def _recommendation_for_missing_tools(doctor: Report) -> Recommendation | None:
+    if _missing_tool_checks(doctor.extra.get("tool_checks") or []):
         return Recommendation(
             1,
             "Install / update developer tools",
             "Developer tools should be installed or updated first.",
             "tools_missing",
         )
+    return None
+
+
+def _recommendation_for_safe_changes(action_summary: dict[str, int | bool]) -> Recommendation | None:
     if action_summary["file_changes"] or action_summary["font_actions"]:
         return Recommendation(
             2,
@@ -110,6 +128,11 @@ def _recommendation(
             "Safe non-protected setup changes are pending.",
             "safe_changes",
         )
+    return None
+
+
+def _recommendation_for_auth_guidance(doctor: Report) -> Recommendation | None:
+    auth_guidance = doctor.extra.get("auth_guidance") or []
     if any(item.get("state") == "available" for item in auth_guidance):
         return Recommendation(
             4,
@@ -117,6 +140,13 @@ def _recommendation(
             "Sign-in guidance is the useful next step.",
             "auth_guidance",
         )
+    return None
+
+
+def _recommendation_for_manual_only(
+    action_summary: dict[str, int | bool],
+    groups: dict[str, list[dict[str, Any]]],
+) -> Recommendation | None:
     if groups["protected"] or action_summary["manual_fonts"]:
         return Recommendation(
             3,
@@ -124,12 +154,11 @@ def _recommendation(
             "Manual items need inspection and are not applied automatically.",
             "manual_only",
         )
-    return Recommendation(
-        5,
-        "Exit without writing",
-        "Setup is current and no write action is needed.",
-        "current",
-    )
+    return None
+
+
+def _recommendation_for_current() -> Recommendation:
+    return Recommendation(5, "Exit without writing", "Setup is current and no write action is needed.", "current")
 
 
 def _missing_tool_checks(tool_checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -155,49 +184,74 @@ def _extend_recommendation_context(
     doctor: Report,
     plan: Report,
 ) -> None:
-    if recommendation.state_category == "tools_missing":
-        missing = _missing_tool_checks(doctor.extra.get("tool_checks") or [])
-        lines.append(f"  - {len(missing)} developer tools are missing or unverified.")
-        for item in missing:
-            lines.append(f"    - {item.get('command')}: {item.get('install_hint')}")
-        return
-    if recommendation.state_category == "safe_changes":
-        lines.append("  - Safe non-protected setup changes are pending.")
-        if action_summary["file_changes"]:
-            sentence = _file_change_sentence(len(groups["updates"]), len(groups["creates"]), action_summary["backups"])
-            lines.append("  - " + sentence)
-        if action_summary["font_actions"]:
-            lines.append("  - Install/update " + _font_action_sentence(action_summary) + ".")
-        if action_summary["requires_network"]:
-            lines.append("  - Network may be used for Nerd Font downloads unless cached.")
-        if action_summary["requires_apt_sudo"]:
-            lines.append("  - sudo is needed for apt fallback font packages.")
-        elif action_summary["requires_sudo"]:
-            lines.append("  - sudo is needed for host/system font actions.")
-        return
-    if recommendation.state_category == "incomplete_audit":
-        lines.append("  - The audit is incomplete; inspect the full technical details.")
-        if doctor.errors:
-            lines.append(f"  - Doctor errors: {_plural(len(doctor.errors), 'issue')}.")
-        if plan.errors:
-            lines.append(f"  - Plan errors: {_plural(len(plan.errors), 'issue')}.")
-        return
-    if recommendation.state_category == "blocked":
-        lines.append(f"  - Stop on {_plural(action_summary['blockers'], 'blocking issue')}; fix before applying.")
-        return
-    if recommendation.state_category == "auth_guidance":
-        auth_guidance = doctor.extra.get("auth_guidance") or []
-        commands = ", ".join(str(item.get("command")) for item in auth_guidance if item.get("state") == "available")
-        if commands:
-            lines.append(f"  - Tool and sign-in guidance: {commands}.")
-        return
-    if recommendation.state_category == "manual_only":
-        if groups["protected"]:
-            lines.append(f"  - Leave {_plural(len(groups['protected']), 'protected/manual file')} untouched.")
-        if action_summary["manual_fonts"]:
-            lines.append(f"  - Skip {_plural(action_summary['manual_fonts'], 'manual/unsupported font item')}; see Fonts below.")
-        return
-    lines.append("  - Setup is current and no write action is needed.")
+    handlers = {
+        "tools_missing": lambda: _extend_tools_missing_context(lines, doctor),
+        "safe_changes": lambda: _extend_safe_changes_context(lines, action_summary, groups),
+        "incomplete_audit": lambda: _extend_incomplete_audit_context(lines, doctor, plan),
+        "blocked": lambda: _extend_blocked_context(lines, action_summary),
+        "auth_guidance": lambda: _extend_auth_guidance_context(lines, doctor),
+        "manual_only": lambda: _extend_manual_only_context(lines, action_summary, groups),
+        "current": lambda: lines.append("  - Setup is current and no write action is needed."),
+    }
+    handler = handlers.get(recommendation.state_category)
+    if handler is not None:
+        handler()
+
+
+def _extend_tools_missing_context(lines: list[str], doctor: Report) -> None:
+    missing = _missing_tool_checks(doctor.extra.get("tool_checks") or [])
+    lines.append(f"  - {len(missing)} developer tools are missing or unverified.")
+    for item in missing:
+        lines.append(f"    - {item.get('command')}: {item.get('install_hint')}")
+
+
+def _extend_safe_changes_context(
+    lines: list[str],
+    action_summary: dict[str, int | bool],
+    groups: dict[str, list[dict[str, Any]]],
+) -> None:
+    lines.append("  - Safe non-protected setup changes are pending.")
+    if action_summary["file_changes"]:
+        sentence = _file_change_sentence(len(groups["updates"]), len(groups["creates"]), action_summary["backups"])
+        lines.append("  - " + sentence)
+    if action_summary["font_actions"]:
+        lines.append("  - Install/update " + _font_action_sentence(action_summary) + ".")
+    if action_summary["requires_network"]:
+        lines.append("  - Network may be used for Nerd Font downloads unless cached.")
+    if action_summary["requires_apt_sudo"]:
+        lines.append("  - sudo is needed for apt fallback font packages.")
+    elif action_summary["requires_sudo"]:
+        lines.append("  - sudo is needed for host/system font actions.")
+
+
+def _extend_incomplete_audit_context(lines: list[str], doctor: Report, plan: Report) -> None:
+    lines.append("  - The audit is incomplete; inspect the full technical details.")
+    if doctor.errors:
+        lines.append(f"  - Doctor errors: {_plural(len(doctor.errors), 'issue')}.")
+    if plan.errors:
+        lines.append(f"  - Plan errors: {_plural(len(plan.errors), 'issue')}.")
+
+
+def _extend_blocked_context(lines: list[str], action_summary: dict[str, int | bool]) -> None:
+    lines.append(f"  - Stop on {_plural(action_summary['blockers'], 'blocking issue')}; fix before applying.")
+
+
+def _extend_auth_guidance_context(lines: list[str], doctor: Report) -> None:
+    auth_guidance = doctor.extra.get("auth_guidance") or []
+    commands = ", ".join(str(item.get("command")) for item in auth_guidance if item.get("state") == "available")
+    if commands:
+        lines.append(f"  - Tool and sign-in guidance: {commands}.")
+
+
+def _extend_manual_only_context(
+    lines: list[str],
+    action_summary: dict[str, int | bool],
+    groups: dict[str, list[dict[str, Any]]],
+) -> None:
+    if groups["protected"]:
+        lines.append(f"  - Leave {_plural(len(groups['protected']), 'protected/manual file')} untouched.")
+    if action_summary["manual_fonts"]:
+        lines.append(f"  - Skip {_plural(action_summary['manual_fonts'], 'manual/unsupported font item')}; see Fonts below.")
 
 
 def _extend_report_sections(
