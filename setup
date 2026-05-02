@@ -330,6 +330,34 @@ check_placeholders() {
   return 0
 }
 
+check_api_credentials() {
+  echo
+  echo "API credential status:"
+  echo "  Service              Status"
+  echo "  ---                  ---"
+
+  # Check gh CLI
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    echo "  GitHub (gh)          ✓ Authenticated"
+  else
+    echo "  GitHub (gh)          ✗ Not configured"
+  fi
+
+  # Check HuggingFace token
+  if [[ -n "${HF_TOKEN:-}" ]] || [[ -f "$HOME/.cache/huggingface/token" ]]; then
+    echo "  HuggingFace          ✓ Token found"
+  else
+    echo "  HuggingFace          ✗ Not configured"
+  fi
+
+  # Check Codacy token
+  if [[ -f "$HOME/.codacy/project-token" ]] || [[ -f "$HOME/.codacy/account-token" ]]; then
+    echo "  Codacy               ✓ Token found"
+  else
+    echo "  Codacy               ✗ Not configured"
+  fi
+}
+
 cmd_verify() {
   local project="" copilot=0
   while [[ $# -gt 0 ]]; do
@@ -396,6 +424,7 @@ cmd_verify() {
     return 1
   fi
   echo "Verification passed."
+  check_api_credentials
   return 0
 }
 
