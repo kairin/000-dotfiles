@@ -103,6 +103,17 @@
       "placeholders": "none"
     },
     {
+      "id": "claude.mcp-servers",
+      "source": ".claude/.mcp.json.template",
+      "target": ".claude/.mcp.json",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "user_customizable": false,
+      "parse": "json",
+      "placeholders": "none"
+    },
+    {
       "id": "gh.config",
       "source": "gh/config.yml.template",
       "target": ".config/gh/config.yml",
@@ -185,6 +196,18 @@
       "manual_reason": "This symlink preserves agents/AGENTS.md.template as the project agent-doc source of truth.",
       "placeholders": "none",
       "link_target": "AGENTS.md.template",
+      "scope": "repo"
+    },
+    {
+      "id": "claude.mcp-servers-repo",
+      "source": ".claude/.mcp.json.template",
+      "target": ".claude/.mcp.json",
+      "kind": "template",
+      "profiles": ["repo"],
+      "protected": false,
+      "user_customizable": false,
+      "parse": "json",
+      "placeholders": "none",
       "scope": "repo"
     }
   ],
