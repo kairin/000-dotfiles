@@ -1158,8 +1158,8 @@ configure_gh_auth() {
 configure_huggingface_global() {
   echo
   echo "Setting up HuggingFace Hub..."
-  if ! command -v huggingface-cli >/dev/null 2>&1; then
-    echo "huggingface-cli not found. Installing via uv..."
+  if ! command -v hf >/dev/null 2>&1; then
+    echo "hf CLI not found. Installing via uv..."
     if uv tool install huggingface-hub; then
       echo "✓ huggingface-hub installed"
       refresh_uv_path
@@ -1169,8 +1169,8 @@ configure_huggingface_global() {
     fi
   fi
 
-  if command -v huggingface-cli >/dev/null 2>&1; then
-    huggingface-cli login
+  if command -v hf >/dev/null 2>&1; then
+    hf auth login
     if [[ -f "$HOME/.cache/huggingface/token" ]]; then
       echo "✓ HuggingFace token configured"
     fi

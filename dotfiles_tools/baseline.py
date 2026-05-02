@@ -198,7 +198,7 @@ TOOL_BASELINE = (
     {
         "id": "huggingface",
         "label": "HuggingFace Hub",
-        "command": "huggingface-cli",
+        "command": "hf",
         "bootstrap": True,
         "install_method": "uv_tool",
         "install_args": {
@@ -210,7 +210,7 @@ TOOL_BASELINE = (
             {
                 "kind": "guidance",
                 "label": "Sign in to HuggingFace",
-                "command_template": ("huggingface-cli", "login"),
+                "command_template": ("hf", "auth", "login"),
             },
         ),
     },
@@ -269,9 +269,9 @@ AUTH_GUIDANCE = (
     },
     {
         "id": "huggingface",
-        "tool": "huggingface-cli",
-        "command": "huggingface-cli whoami",
-        "guidance": "Run huggingface-cli login to authenticate with the HuggingFace Hub.",
+        "tool": "hf",
+        "command": "hf auth status",
+        "guidance": "Run 'hf auth login' to authenticate with the HuggingFace Hub.",
     },
 )
 
