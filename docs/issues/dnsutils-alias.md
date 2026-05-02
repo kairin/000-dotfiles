@@ -1,6 +1,6 @@
 # Issue: dev_base always reports needs_update (dnsutils alias)
 
-**Status:** Fixed in PR #82 — baseline.py updated to use bind9-dnsutils  
+**Status:** Fixed in PR #82 — baseline.py updated to use bind9-dnsutils
 **Affects:** All users on Ubuntu 22.04+ and WSL
 
 ## Problem

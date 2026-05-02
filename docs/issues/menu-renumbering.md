@@ -1,6 +1,6 @@
 # Issue: menu option numbers change between first and subsequent runs
 
-**Status:** Fixed in PR #82 — stable 5-option menu with [recommended] tag  
+**Status:** Fixed in PR #82 — stable 5-option menu with [recommended] tag
 **Affects:** Users who run setup more than once
 
 ## Problem

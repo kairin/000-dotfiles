@@ -1,6 +1,6 @@
 # Issue: keybindings.json rejected by /doctor
 
-**Status:** Template fix applied — live file patched, source template corrected  
+**Status:** Template fix applied — live file patched, source template corrected
 **Affects:** Any user running `dotfiles apply` then `/doctor`
 
 ## Problem
