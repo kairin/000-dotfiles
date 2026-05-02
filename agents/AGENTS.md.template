@@ -71,6 +71,28 @@ N. **Short invariant name.** Why: <root cause>. How to apply: <concrete rule>.
 
 **Proof of Validation (PoV)**: A task is not "Done" until empirical evidence is provided. Every completed task must include a command output, log snippet, or screenshot confirming the success state.
 
+## Optional Codacy API Environment
+
+Some projects may opt in to Codacy API access through:
+
+```bash
+./setup /path/to/project
+# Optional integrations and APIs -> Manage Codacy API access
+```
+
+When configured, the shell environment may expose:
+
+- `CODACY_PROJECT_TOKEN` — repository-scoped token for one Codacy project.
+- `CODACY_API_TOKEN` — account-scoped token for broader Codacy API access.
+- `CODACY_ORGANIZATION_PROVIDER` — provider code, normally `gh`.
+- `CODACY_USERNAME` — GitHub owner or organization for the Codacy project.
+- `CODACY_PROJECT_NAME` — repository name for the Codacy project.
+
+Token values are stored outside the repository under `~/.codacy/` and loaded
+through local environment files. Do not read, print, cat, copy, or commit those
+secret files. Agents may check whether the environment variables are present,
+but must never reveal their values in logs, comments, docs, or test fixtures.
+
 ## Branch Management
 
 **Format:** `YYYYMMDD-HHMMSS`. Example: `20260420-031200`.
