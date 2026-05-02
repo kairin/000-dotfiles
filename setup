@@ -705,12 +705,14 @@ machine_menu_loop() {
     local opt2="  2. Apply safe non-protected dotfiles and approved install/update recipes."
     local opt3="  3. Show full technical details."
     local opt4="  4. Show tool and sign-in guidance."
-    local opt5="  5. Exit without writing."
+    local opt5="  5. Configure API tokens (GitHub, HuggingFace, Codacy)."
+    local opt6="  6. Exit without writing."
     [[ "$rec_opt" == "1" ]] && opt1+=" [recommended]"
     [[ "$rec_opt" == "2" ]] && opt2+=" [recommended]"
     [[ "$rec_opt" == "3" ]] && opt3+=" [recommended]"
     [[ "$rec_opt" == "4" ]] && opt4+=" [recommended]"
     [[ "$rec_opt" == "5" ]] && opt5+=" [recommended]"
+    [[ "$rec_opt" == "6" ]] && opt6+=" [recommended]"
     cat <<EOF
 
 Recommended next step: ${recommendation_body}
@@ -719,8 +721,9 @@ ${opt2}
 ${opt3}
 ${opt4}
 ${opt5}
+${opt6}
 EOF
-    printf 'Choose [1-5]: '
+    printf 'Choose [1-6]: '
     local choice
     if ! read -r -e choice; then
       echo
@@ -732,7 +735,8 @@ EOF
       2) run_machine_apply_with_message; return $? ;;
       3) echo; run_machine_details ;;
       4) echo; show_tool_auth_commands ;;
-      5|"") echo "No changes applied."; return 0 ;;
+      5) echo; configure_machine_api_tokens ;;
+      6|"") echo "No changes applied."; return 0 ;;
       *) echo "Unknown choice: $choice" >&2 ;;
     esac
   done
@@ -1081,6 +1085,92 @@ EOF
   echo "Run your shell reload step, such as: direnv allow \"$project\""
 }
 
+configure_machine_api_tokens() {
+  local choice choice_count=1 gh_opt="" hf_opt="" codacy_opt="" back_opt=""
+
+  while true; do
+    choice_count=1
+    gh_opt="" hf_opt="" codacy_opt=""
+
+    # Check GitHub
+    if ! (command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1); then
+      gh_opt="$choice_count. Configure GitHub (gh) authentication."
+      ((choice_count++))
+    else
+      echo "  ✓ GitHub (gh) is authenticated"
+    fi
+
+    # Check HuggingFace
+    if ! command -v huggingface-cli >/dev/null 2>&1; then
+      hf_opt="$choice_count. Install and configure HuggingFace."
+      ((choice_count++))
+    elif [[ ! -f "$HOME/.cache/huggingface/token" ]]; then
+      hf_opt="$choice_count. Configure HuggingFace token."
+      ((choice_count++))
+    else
+      echo "  ✓ HuggingFace is configured"
+    fi
+
+    # Check Codacy
+    if [[ ! -f "$HOME/.codacy/account-token" ]]; then
+      codacy_opt="$choice_count. Configure Codacy account token."
+      ((choice_count++))
+    else
+      echo "  ✓ Codacy account token is configured"
+    fi
+
+    back_opt="$choice_count. Back to main menu."
+
+    echo
+    echo "API Token Configuration:"
+    [[ -n "$gh_opt" ]] && echo "  $gh_opt"
+    [[ -n "$hf_opt" ]] && echo "  $hf_opt"
+    [[ -n "$codacy_opt" ]] && echo "  $codacy_opt"
+    echo "  $back_opt"
+
+    printf "Choose [1-$((choice_count-1))]: "
+    if ! read -r -e choice; then
+      echo
+      return 0
+    fi
+
+    case "$choice" in
+      1)
+        if [[ -n "$gh_opt" ]]; then
+          configure_gh_auth
+        elif [[ -n "$hf_opt" ]]; then
+          configure_huggingface_global
+        else
+          configure_codacy_account_token
+        fi
+        ;;
+      2)
+        if [[ -n "$gh_opt" && -n "$hf_opt" ]]; then
+          configure_huggingface_global
+        elif [[ -n "$gh_opt" ]] || [[ -n "$hf_opt" ]]; then
+          configure_codacy_account_token
+        else
+          return 0
+        fi
+        ;;
+      3)
+        if [[ $choice_count -gt 4 ]]; then
+          configure_codacy_account_token
+        else
+          return 0
+        fi
+        ;;
+      $((choice_count-1))|"")
+        return 0
+        ;;
+      *)
+        echo "Unknown choice: $choice" >&2
+        ;;
+    esac
+    echo
+  done
+}
+
 configure_gh_auth() {
   echo
   echo "Setting up GitHub (gh) authentication..."
@@ -1108,6 +1198,57 @@ configure_gh_auth() {
       echo "✓ GitHub authentication configured"
     fi
   fi
+}
+
+configure_huggingface_global() {
+  echo
+  echo "Setting up HuggingFace Hub..."
+  if ! command -v huggingface-cli >/dev/null 2>&1; then
+    echo "huggingface-cli not found. Installing via uv..."
+    if uv tool install huggingface-hub; then
+      echo "✓ huggingface-hub installed"
+      refresh_uv_path
+    else
+      echo "✗ Failed to install huggingface-hub"
+      return 1
+    fi
+  fi
+
+  if command -v huggingface-cli >/dev/null 2>&1; then
+    huggingface-cli login
+    if [[ -f "$HOME/.cache/huggingface/token" ]]; then
+      echo "✓ HuggingFace token configured"
+    fi
+  fi
+}
+
+configure_codacy_account_token() {
+  echo
+  echo "Setting up Codacy API access..."
+  echo "Get your account token from: https://app.codacy.com/account/tokens"
+  echo
+  printf 'Paste Codacy account token (or press enter to skip): '
+  local token_value=""
+  if ! read -r -s token_value; then
+    echo
+    echo "Codacy setup cancelled."
+    return 0
+  fi
+  echo
+
+  if [[ -z "$token_value" ]]; then
+    echo "No token provided. Codacy will not be configured."
+    return 0
+  fi
+
+  local token_dir="$HOME/.codacy" token_file="$token_dir/account-token"
+  mkdir -p "$token_dir"
+  chmod 700 "$token_dir"
+  printf '%s\n' "$token_value" > "$token_file"
+  chmod 600 "$token_file"
+
+  echo "✓ Codacy account token configured at $token_file"
+  echo "  Export in shell: set -gx CODACY_ACCOUNT_TOKEN (cat ~/.codacy/account-token)"
 }
 
 configure_huggingface_token() {
