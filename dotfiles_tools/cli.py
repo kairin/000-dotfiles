@@ -4,7 +4,12 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
-from .bootstrap import apply_bootstrap, build_bootstrap_plan
+from .bootstrap import (
+    apply_bootstrap,
+    apply_tool_installs,
+    build_bootstrap_plan,
+    build_tool_install_subplan,
+)
 from .doctor import run_doctor
 from .installer import apply_plan, build_plan
 from .project_init import init_project
@@ -54,6 +59,22 @@ def build_parser() -> argparse.ArgumentParser:
     bootstrap_apply.add_argument("--yes", action="store_true")
     bootstrap_apply.add_argument("--include-protected", action="append", default=[])
 
+    install_tools_plan = subparsers.add_parser(
+        "bootstrap-install-tools-plan",
+        help="Preview tool install/update actions for option 5",
+    )
+    _common(install_tools_plan)
+    install_tools_plan.add_argument("--home", required=True)
+
+    install_tools_apply = subparsers.add_parser(
+        "bootstrap-install-tools",
+        help="Apply tool install/update actions (option 5)",
+    )
+    _common(install_tools_apply)
+    install_tools_apply.add_argument("--home", required=True)
+    install_tools_apply.add_argument("--backup-dir")
+    install_tools_apply.add_argument("--yes", action="store_true")
+
     project = subparsers.add_parser("init-project", help="Initialize project-level agent docs")
     _common(project)
     project.add_argument("--project", required=True)
@@ -96,6 +117,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             backup_dir=args.backup_dir,
             yes=args.yes,
             include_protected=args.include_protected,
+        )
+    elif args.command == "bootstrap-install-tools-plan":
+        report = build_tool_install_subplan(repo, args.home)
+    elif args.command == "bootstrap-install-tools":
+        report = apply_tool_installs(
+            repo,
+            args.home,
+            backup_dir=args.backup_dir,
+            yes=args.yes,
         )
     elif args.command == "init-project":
         report = init_project(repo, args.project, args.vars, backup_dir=args.backup_dir, yes=args.yes, copilot=args.copilot)

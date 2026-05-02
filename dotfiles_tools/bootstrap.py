@@ -7,6 +7,7 @@ from .backups import BackupError
 from .fonts import CommandRunner, execute_font_operation, build_font_plan
 from .installer import build_plan, execute_manifest_operation
 from .reports import Report
+from .tool_installer import build_tool_install_plan, execute_tool_install_operation
 
 
 WARNING_STATES = {"missing", "drifted", "protected", "manual", "unsupported", "needs_update"}
@@ -93,6 +94,62 @@ def apply_bootstrap(
     return _execute_bootstrap_operations(report, repo_path, backup_path, runner)
 
 
+def build_tool_install_subplan(
+    repo: Path | str,
+    home: Path | str,
+    *,
+    env: Mapping[str, str] | None = None,
+    runner: CommandRunner | None = None,
+) -> Report:
+    repo_path = Path(repo).resolve()
+    home_path = Path(home).resolve()
+    tool_plan = build_tool_install_plan(home_path, env=env, runner=runner)
+    operations = list(tool_plan["operations"])
+    _renumber_operations(operations)
+    entries = list(tool_plan["entries"])
+    status = _status(entries, operations, [])
+    return Report(
+        "bootstrap-install-tools-plan",
+        status,
+        str(repo_path),
+        home=str(home_path),
+        profile="machine",
+        entries=entries,
+        operations=operations,
+        extra={"tools": tool_plan["tools"]},
+    )
+
+
+def apply_tool_installs(
+    repo: Path | str,
+    home: Path | str,
+    *,
+    backup_dir: Path | str | None = None,
+    yes: bool = False,
+    env: Mapping[str, str] | None = None,
+    runner: CommandRunner | None = None,
+) -> Report:
+    repo_path = Path(repo).resolve()
+    home_path = Path(home).resolve()
+    backup_path = Path(backup_dir).expanduser().resolve() if backup_dir else home_path / ".dotfiles-backups"
+    if not yes:
+        return Report(
+            "bootstrap-install-tools",
+            "failed",
+            str(repo_path),
+            home=str(home_path),
+            profile="machine",
+            errors=[{"message": "bootstrap-install-tools requires --yes before writing"}],
+        )
+
+    plan = build_tool_install_subplan(repo_path, home_path, env=env, runner=runner)
+    plan.command = "bootstrap-install-tools"
+    if plan.errors or any(entry.get("state") in FAILED_STATES for entry in plan.entries):
+        plan.status = "failed"
+        return plan
+    return _execute_bootstrap_operations(plan, repo_path, backup_path, runner)
+
+
 def _execute_bootstrap_operations(
     report: Report,
     repo_path: Path,
@@ -120,6 +177,9 @@ def _execute_operation(
     backups: list[dict[str, Any]],
     runner: CommandRunner | None,
 ) -> int:
+    if op.get("recipe") == "tool_installs" or str(op.get("type", "")).startswith("tool_install_"):
+        cache_dir = Path(op.get("cache_dir") or Path.home() / ".cache/000-dotfiles/tool-installers")
+        return execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
     if op.get("recipe") == "fonts" or str(op.get("type", "")).startswith("font_"):
         return execute_font_operation(op, runner=runner, backup_dir=backup_path, backups=backups)
     return execute_manifest_operation(op, repo_path, backup_path, backups)
