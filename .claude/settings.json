@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "qmd": {
+      "command": "/home/kkk/Apps/graph-obsidian/node_modules/.bin/qmd",
+      "args": [
+        "mcp",
+        "--index",
+        "000-dotfiles-notes"
+      ]
+    }
+  }
+}
