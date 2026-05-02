@@ -22,6 +22,6 @@ class DoctorReportTests(DotfilesTestCase):
         report = run_doctor(REPO_ROOT, home)
         data = json.loads(report.to_json())
         tool_ids = {item["id"] for item in data["tool_checks"]}
-        self.assertGreaterEqual(tool_ids, {"uv", "git", "gh", "fish", "direnv", "codex", "claude", "gemini"})
+        self.assertGreaterEqual(tool_ids, {"uv", "git", "gh", "fish", "direnv", "codex", "claude", "gemini", "copilot", "specify"})
         auth_commands = {item["command"] for item in data["auth_guidance"]}
         self.assertIn("gh auth status", auth_commands)

@@ -512,7 +512,7 @@ run_machine_install_tools_with_confirm() {
   local confirm
   if read -r confirm && [[ "$confirm" =~ ^[Yy]$ ]]; then
     echo
-    run_machine_install_tools_apply
+    run_machine_install_tools_apply || return $?
   else
     echo "No tool changes applied."
   fi
@@ -529,14 +529,6 @@ run_machine_summary() {
     --repo "$DOTFILES_REPO" \
     --home "$HOME" \
     --profile machine)
-}
-
-run_machine_menu_label() {
-  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools.machine_summary \
-    --repo "$DOTFILES_REPO" \
-    --home "$HOME" \
-    --profile machine \
-    --menu-label)
 }
 
 run_machine_menu_mode() {
@@ -565,46 +557,19 @@ show_tool_auth_commands() {
   (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools.baseline)
 }
 
-machine_menu_tools_present() {
-  local option_one="$1"
+machine_menu_loop() {
+  local header_line="$1"
+  local rec_opt="$2"
   while true; do
+    local opt1="  1. Install / update developer tools (preview, then apply)."
+    local opt2="  2. Apply safe non-protected dotfiles and approved install/update recipes."
+    [[ "$rec_opt" == "1" ]] && opt1+=" [recommended]"
+    [[ "$rec_opt" == "2" ]] && opt2+=" [recommended]"
     cat <<EOF
 
-Next steps:
-  1. $option_one
-  2. Show full technical details.
-  3. Show tool and sign-in guidance.
-  4. Exit without writing.
-  5. Install / update developer tools (preview, then apply).
-EOF
-    printf 'Choose [1-5]: '
-    local choice
-    if ! read -r choice; then
-      echo
-      echo "No interactive selection received; no changes applied."
-      return 0
-    fi
-    case "$choice" in
-      1) run_machine_apply_with_message; return $? ;;
-      2) echo; run_machine_details ;;
-      3) echo; show_tool_auth_commands ;;
-      4|"") echo "No changes applied."; return 0 ;;
-      5) run_machine_install_tools_with_confirm ;;
-      *) echo "Unknown choice: $choice" >&2 ;;
-    esac
-  done
-}
-
-machine_menu_tools_missing() {
-  local missing_count="$1"
-  while true; do
-    cat <<EOF
-
-Recommended next: option 1 — ${missing_count} developer tools missing.
-
-Next steps:
-  1. Install / update developer tools (preview, then apply).
-  2. Apply safe changes (note: some configs target tools not yet installed).
+${header_line}
+${opt1}
+${opt2}
   3. Show full technical details.
   4. Show tool and sign-in guidance.
   5. Exit without writing.
@@ -617,7 +582,7 @@ EOF
       return 0
     fi
     case "$choice" in
-      1) run_machine_install_tools_with_confirm ;;
+      1) run_machine_install_tools_with_confirm; return $? ;;
       2) run_machine_apply_with_message; return $? ;;
       3) echo; run_machine_details ;;
       4) echo; show_tool_auth_commands ;;
@@ -629,14 +594,13 @@ EOF
 
 machine_menu() {
   local mode="${1:-tools_present}"
-  local option_one="${2:-Apply safe non-protected dotfiles and approved install/update recipes.}"
   if [[ "$mode" == "tools_missing" ]]; then
     local missing_count
     missing_count="$(run_machine_missing_tool_count 2>/dev/null)" || missing_count="?"
     [[ -z "$missing_count" ]] && missing_count="?"
-    machine_menu_tools_missing "$missing_count"
+    machine_menu_loop "Next steps (${missing_count} developer tools missing):" "1"
   else
-    machine_menu_tools_present "$option_one"
+    machine_menu_loop "Next steps:" "2"
   fi
 }
 
@@ -645,15 +609,11 @@ cmd_machine_setup() {
   echo "Preparing/checking this computer with profile: machine"
   echo
   run_machine_summary
-  local option_one
-  if ! option_one="$(run_machine_menu_label)" || [[ -z "$option_one" ]]; then
-    option_one="Apply safe non-protected dotfiles and approved install/update recipes."
-  fi
   local mode
   if ! mode="$(run_machine_menu_mode)" || [[ -z "$mode" ]]; then
     mode="tools_present"
   fi
-  machine_menu "$mode" "$option_one"
+  machine_menu "$mode"
 }
 
 project_is_empty() {

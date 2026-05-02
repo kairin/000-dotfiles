@@ -152,17 +152,21 @@ cat "{installer_path}"
         log_path = home / "uv.log"
         self.write_fake_uv(bin_dir, log_path)
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="4\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("uv found at", result.stdout)
         self.assertIn("uv self update completed.", result.stdout)
         self.assertIn("Machine setup summary", result.stdout)
-        self.assertIn("Option 1 will:", result.stdout)
+        self.assertIn("Option 2 will:", result.stdout)
         self.assertIn("Fonts:", result.stdout)
         self.assertIn("Create missing files:", result.stdout)
-        self.assertRegex(result.stdout, r"1\. Apply [0-9]+ file changes?( \+ [0-9]+ font actions?)?")
-        self.assertIn("2. Show full technical details.", result.stdout)
+        self.assertIn("1. Install / update developer tools", result.stdout)
+        self.assertIn("3. Show full technical details.", result.stdout)
+        # tools_present: option 2 (apply) is recommended, not option 1 (install tools)
+        self.assertIn("2. Apply safe non-protected dotfiles", result.stdout)
+        self.assertRegex(result.stdout, r"2\..*\[recommended\]")
+        self.assertNotRegex(result.stdout, r"1\..*\[recommended\]")
         self.assertNotIn("entries:", result.stdout)
         self.assertNotIn("operations:", result.stdout)
         self.assertIn("No changes applied.", result.stdout)
@@ -179,7 +183,7 @@ cat "{installer_path}"
         self.write_uv_installer(installer_path, version="uv 0.curl")
         self.write_fake_downloader(bin_dir, "curl", installer_path, log_path)
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="4\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("uv is required", result.stdout)
@@ -196,7 +200,7 @@ cat "{installer_path}"
         self.write_uv_installer(installer_path, version="uv 0.wget")
         self.write_fake_downloader(bin_dir, "wget", installer_path, log_path)
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="4\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("official standalone installer (wget)", result.stdout)
@@ -209,7 +213,7 @@ cat "{installer_path}"
         log_path = home / "uv.log"
         self.write_fake_uv(bin_dir, log_path, self_update_status=7)
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="4\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Machine setup summary", result.stdout)
@@ -225,7 +229,7 @@ cat "{installer_path}"
 
         env = self.env_for(bin_dir, home)
         env["DOTFILES_PLATFORM"] = "pixel-avf"
-        result = run_setup(env=env, input_text="1\n")
+        result = run_setup(env=env, input_text="2\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue((home / ".config" / "fish" / "functions" / "direnv.fish").exists())
@@ -238,7 +242,7 @@ cat "{installer_path}"
         bin_dir = self.make_command_path()
         self.write_fake_uv(bin_dir, home / "uv.log")
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="3\n4\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="4\n5\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Show tool and sign-in guidance.", result.stdout)
@@ -252,7 +256,7 @@ cat "{installer_path}"
         bin_dir = self.make_command_path()
         self.write_fake_uv(bin_dir, home / "uv.log")
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="2\n4\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="3\n5\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Full machine doctor:", result.stdout)

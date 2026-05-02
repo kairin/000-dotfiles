@@ -78,6 +78,7 @@ def _operation_handlers(runner: CommandRunner, cache_dir: Path) -> dict[str, Any
         "tool_install_curl": lambda op: _execute_curl(op, runner, cache_dir),
         "tool_install_npm": lambda op: _execute_npm(op, runner, mode="install"),
         "tool_install_npm_upgrade": lambda op: _execute_npm(op, runner, mode="upgrade"),
+        "tool_install_uv_tool": lambda op: _execute_uv_tool(op, runner),
         "tool_install_skip": lambda op: 0,
     }
 
@@ -290,6 +291,8 @@ def _tool_operations(item: Mapping[str, Any], cache_dir: Path, *, mode: str) -> 
         return [_curl_op(entry_id, item, iargs, cache_dir, mode=mode)]
     if method == "npm":
         return [_npm_op(entry_id, item, iargs, cache_dir, mode=mode)]
+    if method == "uv_tool":
+        return [_uv_tool_op(entry_id, item, iargs, cache_dir, mode=mode)]
     return []
 
 
@@ -391,6 +394,32 @@ def _npm_op(
         "cache_dir": str(cache_dir),
         "reason": f"{mode} {item['label']} via npm",
     }
+
+
+def _uv_tool_op(
+    entry_id: str,
+    item: Mapping[str, Any],
+    args: Mapping[str, Any],
+    cache_dir: Path,
+    *,
+    mode: str,
+) -> dict[str, Any]:
+    op_type = "tool_install_uv_tool"
+    op: dict[str, Any] = {
+        "entry_id": entry_id,
+        "recipe": "tool_installs",
+        "type": op_type,
+        "mode": mode,
+        "package": args["package"],
+        "requires_sudo": item.get("requires_sudo", False),
+        "requires_network": True,
+        "requires_approval": True,
+        "cache_dir": str(cache_dir),
+        "reason": f"{mode} {item['label']} via uv tool",
+    }
+    if "from_url" in args:
+        op["from_url"] = args["from_url"]
+    return op
 
 
 # ---------------------------------------------------------------------------
@@ -508,13 +537,34 @@ def _execute_npm(op: dict[str, Any], runner: CommandRunner, *, mode: str) -> int
         return 0
     npm = runner.which("npm")
     if not npm:
-        op["result"] = "npm not found; install Node first or re-run option 5 after dev-base completes"
+        op["result"] = "npm not found; install Node first or re-run option 1 after dev-base completes"
         return 0
     prefix = _sudo_prefix() if op.get("requires_sudo", True) else []
     if mode == "upgrade":
         runner.run([*prefix, npm, "update", "-g", package])
     else:
         runner.run([*prefix, npm, "install", "-g", package])
+    return 1
+
+
+def _execute_uv_tool(op: dict[str, Any], runner: CommandRunner) -> int:
+    package = op.get("package")
+    if not package:
+        return 0
+    uv = runner.which("uv")
+    if not uv:
+        op["result"] = "uv not found; install uv first"
+        return 0
+    prefix = _sudo_prefix() if op.get("requires_sudo", False) else []
+    mode = op.get("mode", "install")
+    if mode == "upgrade":
+        cmd = [*prefix, uv, "tool", "upgrade", package]
+    else:
+        cmd = [*prefix, uv, "tool", "install", package]
+        from_url = op.get("from_url")
+        if from_url:
+            cmd += ["--from", from_url]
+    runner.run(cmd)
     return 1
 
 

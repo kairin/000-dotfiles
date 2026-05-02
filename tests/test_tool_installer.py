@@ -158,15 +158,27 @@ class ToolInstallPlanTests(DotfilesTestCase):
         self.assertEqual(claude_ops[0]["type"], "tool_install_curl")
         self.assertEqual(claude_ops[0]["mode"], "upgrade")
 
-    def test_npm_install_for_codex_and_gemini(self) -> None:
+    def test_npm_install_for_codex_gemini_and_copilot(self) -> None:
         home = self.make_home()
         runner = FakeRunner(which={"dpkg-query": "/usr/bin/dpkg-query"})
         plan = build_tool_install_plan(home, runner=runner)
         codex_ops = [op for op in plan["operations"] if op.get("entry_id") == "tools.codex"]
         gemini_ops = [op for op in plan["operations"] if op.get("entry_id") == "tools.gemini"]
+        copilot_ops = [op for op in plan["operations"] if op.get("entry_id") == "tools.copilot"]
         self.assertEqual(codex_ops[0]["type"], "tool_install_npm")
         self.assertEqual(codex_ops[0]["package"], "@openai/codex")
         self.assertEqual(gemini_ops[0]["package"], "@google/gemini-cli")
+        self.assertEqual(copilot_ops[0]["type"], "tool_install_npm")
+        self.assertEqual(copilot_ops[0]["package"], "@github/copilot")
+
+    def test_uv_tool_install_for_specify(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"dpkg-query": "/usr/bin/dpkg-query"})
+        plan = build_tool_install_plan(home, runner=runner)
+        specify_ops = [op for op in plan["operations"] if op.get("entry_id") == "tools.specify"]
+        self.assertEqual(specify_ops[0]["type"], "tool_install_uv_tool")
+        self.assertEqual(specify_ops[0]["package"], "specify-cli")
+        self.assertEqual(specify_ops[0]["from_url"], "git+https://github.com/github/spec-kit.git")
 
     def test_npm_upgrade_when_present(self) -> None:
         home = self.make_home()
@@ -340,6 +352,59 @@ class ToolInstallExecuteTests(DotfilesTestCase):
         self.assertEqual(
             runner.commands[0],
             ["sudo", "/usr/bin/npm", "install", "-g", "@openai/codex"],
+        )
+
+    def test_uv_tool_missing_skips(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={})
+        op = {
+            "entry_id": "tools.specify",
+            "recipe": "tool_installs",
+            "type": "tool_install_uv_tool",
+            "package": "specify-cli",
+            "mode": "install",
+            "cache_dir": str(home / ".cache"),
+            "requires_sudo": False,
+        }
+        result = execute_tool_install_operation(op, runner=runner, cache_dir=Path(op["cache_dir"]))
+        self.assertEqual(result, 0)
+        self.assertIn("uv not found", op["result"])
+
+    def test_uv_tool_install_runs_correct_command(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"uv": "/usr/bin/uv"})
+        op = {
+            "entry_id": "tools.specify",
+            "recipe": "tool_installs",
+            "type": "tool_install_uv_tool",
+            "package": "specify-cli",
+            "from_url": "git+https://github.com/github/spec-kit.git",
+            "mode": "install",
+            "cache_dir": str(home / ".cache"),
+            "requires_sudo": False,
+        }
+        execute_tool_install_operation(op, runner=runner, cache_dir=Path(op["cache_dir"]))
+        self.assertEqual(
+            runner.commands[0],
+            ["/usr/bin/uv", "tool", "install", "specify-cli", "--from", "git+https://github.com/github/spec-kit.git"],
+        )
+
+    def test_uv_tool_upgrade_runs_upgrade_command(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"uv": "/usr/bin/uv"})
+        op = {
+            "entry_id": "tools.specify",
+            "recipe": "tool_installs",
+            "type": "tool_install_uv_tool",
+            "package": "specify-cli",
+            "mode": "upgrade",
+            "cache_dir": str(home / ".cache"),
+            "requires_sudo": False,
+        }
+        execute_tool_install_operation(op, runner=runner, cache_dir=Path(op["cache_dir"]))
+        self.assertEqual(
+            runner.commands[0],
+            ["/usr/bin/uv", "tool", "upgrade", "specify-cli"],
         )
 
     def test_apt_keyring_downloads_keyring_and_writes_source(self) -> None:
