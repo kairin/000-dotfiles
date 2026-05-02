@@ -7,6 +7,7 @@
         "claude.settings",
         "claude.keybindings",
         "claude.global-instructions",
+        "claude.mcp-servers",
         "codex.config",
         "codex.default-rules",
         "gemini.settings",
@@ -23,7 +24,8 @@
       "entries": [
         "repo.gitignore",
         "agents.claude-template",
-        "agents.gemini-template"
+        "agents.gemini-template",
+        "claude.mcp-servers-repo"
       ]
     }
   },
