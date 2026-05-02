@@ -12,6 +12,9 @@ from .font_runner import CommandRunner
 TOOL_CACHE_REL = ".cache/000-dotfiles/tool-installers"
 DEV_BASE_ENTRY_ID = "tools.dev_base"
 
+_APT_OP_TYPE = {"install": "tool_install_apt", "upgrade": "tool_install_apt_upgrade"}
+_APT_REASON_SUFFIX = {"install": "apt", "upgrade": "apt --only-upgrade"}
+
 
 __all__ = (
     "build_tool_install_plan",
@@ -264,27 +267,25 @@ def _plan_tool_entry(
 
 def _tool_operations(item: Mapping[str, Any], cache_dir: Path, *, mode: str) -> list[dict[str, Any]]:
     method = item["install_method"]
-    args = dict(item.get("install_args") or {})
+    iargs = dict(item.get("install_args", {}))
     entry_id = f"tools.{item['id']}"
     if method == "apt":
-        op_type = "tool_install_apt_upgrade" if mode == "upgrade" else "tool_install_apt"
-        action_label = "apt --only-upgrade" if mode == "upgrade" else "apt"
         return [
             _apt_op(
                 entry_id=entry_id,
-                op_type=op_type,
-                packages=list(args.get("packages") or ()),
+                op_type=_APT_OP_TYPE[mode],
+                packages=list(iargs.get("packages", [])),
                 requires_sudo=item.get("requires_sudo", True),
                 cache_dir=cache_dir,
-                reason=f"{mode} {item['label']} via {action_label}",
+                reason=f"{mode} {item['label']} via {_APT_REASON_SUFFIX[mode]}",
             )
         ]
     if method == "apt_keyring":
-        return [_apt_keyring_op(entry_id, item, args, cache_dir, mode=mode)]
+        return [_apt_keyring_op(entry_id, item, iargs, cache_dir, mode=mode)]
     if method == "curl_installer":
-        return [_curl_op(entry_id, item, args, cache_dir, mode=mode)]
+        return [_curl_op(entry_id, item, iargs, cache_dir, mode=mode)]
     if method == "npm":
-        return [_npm_op(entry_id, item, args, cache_dir, mode=mode)]
+        return [_npm_op(entry_id, item, iargs, cache_dir, mode=mode)]
     return []
 
 

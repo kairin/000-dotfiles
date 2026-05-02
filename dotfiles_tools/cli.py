@@ -112,7 +112,21 @@ def _dispatch_command(args: argparse.Namespace, repo: Path):
             profile=args.profile, backup_dir=args.backup_dir,
             yes=args.yes, include_protected=args.include_protected,
         )
-    elif cmd == "bootstrap-plan":
+    elif cmd == "init-project":
+        report = init_project(
+            repo, args.project, args.vars,
+            backup_dir=args.backup_dir, yes=args.yes, copilot=args.copilot,
+        )
+    elif cmd.startswith("bootstrap"):
+        report = _dispatch_bootstrap(args, repo)
+    else:
+        raise SystemExit(f"unknown command: {cmd}")
+    return report
+
+
+def _dispatch_bootstrap(args: argparse.Namespace, repo: Path):
+    cmd = args.command
+    if cmd == "bootstrap-plan":
         report = build_bootstrap_plan(
             repo, args.home, profile=args.profile, include_protected=args.include_protected
         )
@@ -126,11 +140,6 @@ def _dispatch_command(args: argparse.Namespace, repo: Path):
         report = build_tool_install_subplan(repo, args.home)
     elif cmd == "bootstrap-install-tools":
         report = apply_tool_installs(repo, args.home, backup_dir=args.backup_dir, yes=args.yes)
-    elif cmd == "init-project":
-        report = init_project(
-            repo, args.project, args.vars,
-            backup_dir=args.backup_dir, yes=args.yes, copilot=args.copilot,
-        )
     else:
         raise SystemExit(f"unknown command: {cmd}")
     return report

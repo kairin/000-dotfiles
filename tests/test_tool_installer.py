@@ -44,15 +44,18 @@ class FakeRunner:
             raise self.run_failures[Path(args[0]).name]
         command = Path(args[0]).name if args else ""
         if command == "dpkg-query":
-            package = args[-1]
-            if package in self.installed_dpkg:
-                return subprocess.CompletedProcess(args, 0, stdout="install ok installed", stderr="")
-            return subprocess.CompletedProcess(args, 1, stdout="", stderr="not installed")
+            return self._run_dpkg_query(args)
         if command == "dpkg" and "--print-architecture" in args:
             return subprocess.CompletedProcess(args, 0, stdout=f"{self.dpkg_arch}\n", stderr="")
         if "--version" in args:
             return subprocess.CompletedProcess(args, 0, stdout="dummy 1.2.3\n", stderr="")
         return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    def _run_dpkg_query(self, args: list[str]) -> subprocess.CompletedProcess[str]:
+        package = args[-1]
+        if package in self.installed_dpkg:
+            return subprocess.CompletedProcess(args, 0, stdout="install ok installed", stderr="")
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr="not installed")
 
     def download(self, url: str, target: Path) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
