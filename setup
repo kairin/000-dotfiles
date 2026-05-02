@@ -490,6 +490,20 @@ run_machine_apply() {
     --yes)
 }
 
+run_machine_install_tools_preview() {
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools bootstrap-install-tools-plan \
+    --repo "$DOTFILES_REPO" \
+    --home "$HOME")
+}
+
+run_machine_install_tools_apply() {
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools bootstrap-install-tools \
+    --repo "$DOTFILES_REPO" \
+    --home "$HOME" \
+    --backup-dir "$HOME/.dotfiles-backups" \
+    --yes)
+}
+
 run_machine_summary() {
   (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools.machine_summary \
     --repo "$DOTFILES_REPO" \
@@ -527,8 +541,9 @@ Next steps:
   2. Show full technical details.
   3. Show tool and sign-in guidance.
   4. Exit without writing.
+  5. Install / update developer tools (preview, then apply).
 EOF
-    printf 'Choose [1-4]: '
+    printf 'Choose [1-5]: '
     local choice
     if ! read -r choice; then
       echo
@@ -553,6 +568,19 @@ EOF
       4|"")
         echo "No changes applied."
         return 0
+        ;;
+      5)
+        echo
+        run_machine_install_tools_preview
+        echo
+        printf 'Apply tool install/update actions? [y/N]: '
+        local confirm
+        if read -r confirm && [[ "$confirm" =~ ^[Yy]$ ]]; then
+          echo
+          run_machine_install_tools_apply
+        else
+          echo "No tool changes applied."
+        fi
         ;;
       *)
         echo "Unknown choice: $choice" >&2

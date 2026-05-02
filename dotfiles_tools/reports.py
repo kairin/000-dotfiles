@@ -151,6 +151,7 @@ def _extend_extra(lines: list[str], extra: dict[str, Any]) -> None:
     _extend_extra_fonts(lines, extra.get("fonts") or [])
     _extend_extra_tool_checks(lines, extra.get("tool_checks") or [])
     _extend_extra_auth_guidance(lines, extra.get("auth_guidance") or [])
+    _extend_extra_tools(lines, extra.get("tools") or [])
 
 
 def _extend_extra_fonts(lines: list[str], fonts: list[dict[str, Any]]) -> None:
@@ -199,3 +200,100 @@ def _extra_auth_line(item: dict[str, Any]) -> str:
     if item.get("state") == "available":
         return f"  - {item.get('command')}: {item.get('guidance')}"
     return f"  - {item.get('tool')}: install tool before auth setup"
+
+
+def _extend_extra_tools(lines: list[str], tools: list[dict[str, Any]]) -> None:
+    if not tools:
+        return
+    dev_base = next((item for item in tools if item.get("entry_id") == "tools.dev_base"), None)
+    individual = [item for item in tools if item.get("entry_id") != "tools.dev_base"]
+    lines.append("tool install/update preview:")
+    _extend_tool_section(lines, individual, "installed",
+                         "  Already installed (will be updated where possible):", _tool_installed_line)
+    _extend_tool_section(lines, individual, "missing",
+                         "  Missing (will be installed):", _tool_missing_line)
+    _extend_tool_section(lines, individual, "unsupported",
+                         "  Unsupported on this platform:", _tool_unsupported_line)
+    if dev_base is not None:
+        _extend_dev_base_summary(lines, dev_base)
+
+
+def _extend_tool_section(
+    lines: list[str],
+    items: list[dict[str, Any]],
+    state: str,
+    header: str,
+    formatter,
+) -> None:
+    matching = [item for item in items if item.get("state") == state]
+    if not matching:
+        return
+    lines.append(header)
+    for item in matching:
+        lines.append(formatter(item))
+
+
+def _tool_unsupported_line(item: dict[str, Any]) -> str:
+    return f"    - {item.get('label')} ({item.get('install_method')})"
+
+
+def _tool_installed_line(item: dict[str, Any]) -> str:
+    method = item.get("install_method")
+    action_label = {
+        "apt": "apt --only-upgrade",
+        "apt_keyring": "apt --only-upgrade (keyring repo)",
+        "curl_installer": "re-run installer (self-update)",
+        "npm": "npm update -g",
+    }.get(method, "skip")
+    label = item.get("label") or item.get("command") or item.get("entry_id")
+    path = item.get("current_path") or ""
+    version = item.get("current_version") or ""
+    suffix = f" {version}" if version else ""
+    return f"    - {label}: {path}{suffix} -> {action_label}"
+
+
+def _tool_missing_line(item: dict[str, Any]) -> str:
+    method = item.get("install_method")
+    method_label = {
+        "apt": "apt (sudo)",
+        "apt_keyring": "apt + keyring repo (sudo)",
+        "curl_installer": "curl installer (no sudo)",
+        "npm": "npm install -g (sudo)",
+    }.get(method, method or "manual")
+    label = item.get("label") or item.get("command") or item.get("entry_id")
+    return f"    - {label}: {method_label}"
+
+
+def _extend_dev_base_summary(lines: list[str], dev_base: dict[str, Any]) -> None:
+    total = dev_base.get("total_packages") or 0
+    missing = dev_base.get("missing_packages") or []
+    installed = dev_base.get("installed_packages") or []
+    lines.append(f"  Dev base packages ({total} total, grouped):")
+    for group in dev_base.get("groups") or []:
+        lines.append(_dev_base_group_line(group))
+    summary = _dev_base_summary_line(missing, installed)
+    if summary:
+        lines.append(summary)
+
+
+def _dev_base_group_line(group: dict[str, Any]) -> str:
+    name = group.get("name", "")
+    present = len(group.get("installed") or [])
+    size = len(group.get("packages") or [])
+    missing_pkgs = group.get("missing") or []
+    if missing_pkgs:
+        return f"    {name:<10s} {present}/{size} installed (missing: {', '.join(missing_pkgs)})"
+    return f"    {name:<10s} {present}/{size} installed -> apt --only-upgrade"
+
+
+def _dev_base_summary_line(missing: list[str], installed: list[str]) -> str:
+    if missing and installed:
+        return (
+            f"  -> One batched apt install for {len(missing)} missing packages,"
+            f" one batched apt upgrade for {len(installed)} present packages."
+        )
+    if missing:
+        return f"  -> One batched apt install for {len(missing)} missing packages."
+    if installed:
+        return f"  -> One batched apt upgrade for {len(installed)} present packages."
+    return ""
