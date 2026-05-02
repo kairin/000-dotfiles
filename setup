@@ -972,24 +972,58 @@ EOF
 configure_gh_auth() {
   echo
   echo "Setting up GitHub (gh) authentication..."
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "gh CLI not found."
+    printf "Install gh with uv? [Y/n]: "
+    local install_choice
+    if read -r install_choice && [[ "$install_choice" =~ ^[Yy]?$ ]]; then
+      echo "Installing gh..."
+      if uv pip install gh; then
+        echo "✓ gh installed"
+      else
+        echo "✗ Failed to install gh"
+        return 1
+      fi
+    else
+      echo "Skipped gh installation. See: https://github.com/cli/cli#installation"
+      return 10
+    fi
+  fi
+
   if command -v gh >/dev/null 2>&1; then
     gh auth login
     if gh auth status >/dev/null 2>&1; then
       echo "✓ GitHub authentication configured"
     fi
-  else
-    echo "gh CLI not found. Install it first: https://github.com/cli/cli#installation"
   fi
 }
 
 configure_huggingface_token() {
   echo
   echo "Setting up HuggingFace token..."
+  if ! command -v huggingface-cli >/dev/null 2>&1; then
+    echo "HuggingFace CLI not found."
+    printf "Install huggingface-hub with uv? [Y/n]: "
+    local install_choice
+    if read -r install_choice && [[ "$install_choice" =~ ^[Yy]?$ ]]; then
+      echo "Installing huggingface-hub..."
+      if uv pip install huggingface-hub; then
+        echo "✓ huggingface-hub installed"
+      else
+        echo "✗ Failed to install huggingface-hub"
+        return 1
+      fi
+    else
+      echo "Skipped HuggingFace installation"
+      return 10
+    fi
+  fi
+
   if command -v huggingface-cli >/dev/null 2>&1; then
     huggingface-cli login
-    echo "✓ HuggingFace token configured"
-  else
-    echo "HuggingFace CLI not found. Install it first: pip install huggingface-hub"
+    if [[ -f "$HOME/.cache/huggingface/token" ]]; then
+      echo "✓ HuggingFace token configured"
+    fi
   fi
 }
 
