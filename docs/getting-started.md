@@ -251,6 +251,36 @@ This creates:
 - `GEMINI.md` → symlink to `AGENTS.md`
 - `copilot-instructions.md` (optional) — Copilot-specific instructions
 
+### Optional project integrations
+
+Project-scoped integrations that are useful only for some repositories live
+behind a secondary menu so they do not compete with the core setup actions.
+
+```bash
+~/000-dotfiles/setup ~/Apps/my-project
+```
+
+Choose `Optional integrations and APIs`, then `Manage Codacy API access`.
+
+Codacy setup supports two modes:
+
+- `repository token` exposes `CODACY_PROJECT_TOKEN` for one project.
+- `account token` exposes `CODACY_API_TOKEN` for broader Codacy API access.
+
+Both modes also expose `CODACY_ORGANIZATION_PROVIDER`, `CODACY_USERNAME`, and
+`CODACY_PROJECT_NAME`. Token values are stored outside the project under
+`~/.codacy/`; project files only contain a bridge that reads those files.
+
+Before writing anything, setup shows a token-free preview of the project files
+and token-storage path that would change. Writes require final confirmation.
+If existing `.envrc` or `.envrc.local` files are changed, setup creates a
+backup first. After setup, run the shell activation step shown in the output,
+for example:
+
+```bash
+direnv allow ~/Apps/my-project
+```
+
 ### For SpecKit users:
 
 Once `specify` is installed, initialize SpecKit in your project:

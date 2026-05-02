@@ -1,0 +1,15 @@
+[run]
+source =
+    dotfiles_tools
+
+[report]
+omit =
+    tests/*
+    docs/*
+    specs/*
+    .agents/*
+    .specify/*
+    graph-obsidian-agent-docs/*
+    setup
+    README.md
+    CHANGELOG.md

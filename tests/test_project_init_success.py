@@ -12,4 +12,16 @@ class ProjectInitSuccessTests(DotfilesTestCase):
         self.assertTrue((project / "CLAUDE.md").is_symlink())
         self.assertEqual(str((project / "CLAUDE.md").readlink()), "AGENTS.md")
         self.assertTrue((project / "GEMINI.md").is_symlink())
-        self.assertNotIn("{{PROJECT_NAME}}", (project / "AGENTS.md").read_text())
+        agents_text = (project / "AGENTS.md").read_text()
+        self.assertNotIn("{{PROJECT_NAME}}", agents_text)
+        self.assertIn("Optional Codacy API Environment", agents_text)
+        for variable in (
+            "CODACY_PROJECT_TOKEN",
+            "CODACY_API_TOKEN",
+            "CODACY_ORGANIZATION_PROVIDER",
+            "CODACY_USERNAME",
+            "CODACY_PROJECT_NAME",
+        ):
+            self.assertIn(variable, agents_text)
+        self.assertIn("Do not read, print, cat, copy, or commit", agents_text)
+        self.assertIn("~/.codacy/", agents_text)

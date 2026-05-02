@@ -51,9 +51,12 @@ class SetupScriptTests(DotfilesTestCase):
         "find",
         "mkdir",
         "cp",
+        "cmp",
         "rm",
         "cat",
         "chmod",
+        "date",
+        "git",
         "python",
     )
 
@@ -164,6 +167,26 @@ printf '%s\\n' "$*" >> "{log_path}"
 cat "{installer_path}"
 """,
         )
+
+    def assert_no_codacy_files(self, project: Path, home: Path) -> None:
+        self.assertFalse((project / ".envrc").exists())
+        self.assertFalse((project / ".envrc.local").exists())
+        self.assertFalse((home / ".codacy").exists())
+        self.assertFalse(list(project.glob(".envrc.bak.*")))
+        self.assertFalse(list(project.glob(".envrc.local.bak.*")))
+
+    def run_project_setup(
+        self,
+        project: Path,
+        input_text: str,
+        *,
+        home: Path | None = None,
+    ) -> tuple[subprocess.CompletedProcess, Path]:
+        actual_home = home or self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, actual_home / "uv.log")
+        result = run_setup(str(project), env=self.env_for(bin_dir, actual_home), input_text=input_text)
+        return result, actual_home
 
     def test_no_args_runs_machine_doctor_plan_after_uv_bootstrap(self) -> None:
         home = self.make_home()
@@ -462,6 +485,187 @@ cat "{installer_path}"
         self.assertTrue((project / ".dotfiles" / "project-vars.json").exists())
         self.assertFalse((project / "AGENTS.md").exists())
         self.assertIn("Project folder is empty", result.stdout)
+
+    def test_empty_project_menu_uses_optional_integrations_entry(self) -> None:
+        project = self.make_project()
+        result, _home = self.run_project_setup(project, "5\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("3. Open optional integrations and APIs.", result.stdout)
+        self.assertIn("1. Bootstrap AGENTS.md plus CLAUDE.md/GEMINI.md symlinks.", result.stdout)
+        self.assertIn("2. Bootstrap agent docs plus Copilot instructions.", result.stdout)
+        self.assertNotIn("Manage Codacy API access", result.stdout)
+        self.assertNotRegex(result.stdout, r"Open optional integrations.*\[recommended\]")
+
+    def test_existing_project_menu_uses_optional_integrations_entry(self) -> None:
+        project = self.make_project()
+        write_clean_project(project)
+        result, _home = self.run_project_setup(project, "6\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("4. Open optional integrations and APIs.", result.stdout)
+        self.assertIn("1. Verify agent docs.", result.stdout)
+        self.assertIn("2. Repair/bootstrap AGENTS.md plus CLAUDE.md/GEMINI.md symlinks.", result.stdout)
+        self.assertIn("3. Add or refresh Copilot instructions.", result.stdout)
+        self.assertNotIn("Manage Codacy API access", result.stdout)
+        self.assertNotRegex(result.stdout, r"Open optional integrations.*\[recommended\]")
+
+    def test_optional_integrations_back_and_eof_do_not_write_codacy_files(self) -> None:
+        project = self.make_project()
+        result, home = self.run_project_setup(project, "3\n2\n5\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Manage Codacy API access", result.stdout)
+        self.assertIn("Back to project setup", result.stdout)
+        self.assert_no_codacy_files(project, home)
+
+        eof_project = self.make_project()
+        eof_result, eof_home = self.run_project_setup(eof_project, "3\n")
+
+        self.assertEqual(eof_result.returncode, 0, eof_result.stdout + eof_result.stderr)
+        self.assertIn("No optional integration selection received", eof_result.stdout)
+        self.assert_no_codacy_files(eof_project, eof_home)
+
+    def test_codacy_repository_token_mode_writes_secret_safe_bridge(self) -> None:
+        project = self.make_project()
+        secret = "repo-token-value"
+        result, home = self.run_project_setup(
+            project,
+            f"3\n1\n1\nkairin\n000-dotfiles\n{secret}\ny\n2\n5\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        token_file = home / ".codacy" / "kairin-000-dotfiles.project-token"
+        envrc = project / ".envrc"
+        envrc_local = project / ".envrc.local"
+        self.assertTrue(token_file.exists())
+        self.assertEqual(token_file.read_text(), secret + "\n")
+        self.assertEqual(oct(token_file.stat().st_mode & 0o777), "0o600")
+        self.assertEqual(oct(envrc.stat().st_mode & 0o777), "0o444")
+        self.assertEqual(oct(envrc_local.stat().st_mode & 0o777), "0o600")
+        self.assertIn("source_env_if_exists .envrc.local", envrc.read_text())
+        local_text = envrc_local.read_text()
+        self.assertIn("CODACY_PROJECT_TOKEN", local_text)
+        self.assertIn('CODACY_ORGANIZATION_PROVIDER="gh"', local_text)
+        self.assertIn('CODACY_USERNAME="kairin"', local_text)
+        self.assertIn('CODACY_PROJECT_NAME="000-dotfiles"', local_text)
+        self.assertNotIn(secret, local_text)
+        self.assertNotIn(secret, result.stdout)
+        self.assertNotIn(secret, result.stderr)
+
+    def test_codacy_account_token_mode_writes_secret_safe_bridge(self) -> None:
+        project = self.make_project()
+        secret = "account-token-value"
+        result, home = self.run_project_setup(
+            project,
+            f"3\n1\n2\nkairin\n000-dotfiles\n{secret}\ny\n2\n5\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        token_file = home / ".codacy" / "account-token"
+        self.assertTrue(token_file.exists())
+        self.assertEqual(token_file.read_text(), secret + "\n")
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn("CODACY_API_TOKEN", local_text)
+        self.assertIn('CODACY_ORGANIZATION_PROVIDER="gh"', local_text)
+        self.assertIn('CODACY_USERNAME="kairin"', local_text)
+        self.assertIn('CODACY_PROJECT_NAME="000-dotfiles"', local_text)
+        self.assertNotIn(secret, local_text)
+        self.assertNotIn(secret, result.stdout)
+        self.assertNotIn(secret, result.stderr)
+
+    def test_codacy_mode_cancel_returns_to_optional_menu_without_writes(self) -> None:
+        project = self.make_project()
+        result, home = self.run_project_setup(project, "3\n1\n3\n2\n5\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Codacy setup cancelled; returning to optional integrations.", result.stdout)
+        self.assertIn("2. Back to project setup.", result.stdout)
+        self.assert_no_codacy_files(project, home)
+
+    def test_codacy_identity_fallback_prompts_for_owner_and_repository(self) -> None:
+        project = self.make_project()
+        result, _home = self.run_project_setup(
+            project,
+            "3\n1\n1\nfallback-owner\nfallback-repo\nrepo-token\ny\n2\n5\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("GitHub owner", result.stdout)
+        self.assertIn("GitHub repository", result.stdout)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn('CODACY_USERNAME="fallback-owner"', local_text)
+        self.assertIn('CODACY_PROJECT_NAME="fallback-repo"', local_text)
+
+    def test_codacy_declined_confirmation_creates_no_files_or_backups(self) -> None:
+        project = self.make_project()
+        secret = "declined-token"
+        result, home = self.run_project_setup(
+            project,
+            f"3\n1\n1\nkairin\n000-dotfiles\n{secret}\nn\n2\n5\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("No Codacy environment changes applied.", result.stdout)
+        self.assert_no_codacy_files(project, home)
+        self.assertNotIn(secret, result.stdout)
+        self.assertNotIn(secret, result.stderr)
+
+    def test_codacy_blank_token_without_existing_file_writes_no_active_token_export(self) -> None:
+        project = self.make_project()
+        result, home = self.run_project_setup(
+            project,
+            "3\n1\n1\nkairin\n000-dotfiles\n\ny\n2\n5\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((home / ".codacy" / "kairin-000-dotfiles.project-token").exists())
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn("CODACY_PROJECT_TOKEN not exported", local_text)
+        self.assertNotIn("export CODACY_PROJECT_TOKEN=", local_text)
+        self.assertIn("A Codacy token is required before activation.", result.stdout)
+
+    def test_codacy_existing_env_files_are_backed_up_before_changes(self) -> None:
+        project = self.make_project()
+        (project / ".envrc").write_text("# user envrc\n")
+        (project / ".envrc.local").write_text("# user local env\n")
+        result, _home = self.run_project_setup(
+            project,
+            "4\n1\n1\nkairin\n000-dotfiles\nrepo-token\ny\n2\n6\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        envrc_backups = list(project.glob(".envrc.bak.*"))
+        local_backups = list(project.glob(".envrc.local.bak.*"))
+        self.assertEqual(len(envrc_backups), 1)
+        self.assertEqual(len(local_backups), 1)
+        self.assertEqual(envrc_backups[0].read_text(), "# user envrc\n")
+        self.assertEqual(local_backups[0].read_text(), "# user local env\n")
+        self.assertIn("# user envrc", (project / ".envrc").read_text())
+        self.assertIn("# user local env", (project / ".envrc.local").read_text())
+
+    def test_codacy_repeat_setup_keeps_one_managed_section_and_preserves_content(self) -> None:
+        project = self.make_project()
+        result, home = self.run_project_setup(
+            project,
+            "3\n1\n1\nkairin\n000-dotfiles\nrepo-token\ny\n2\n5\n",
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        local_file = project / ".envrc.local"
+        local_file.write_text(local_file.read_text() + "\n# user managed line\n")
+        second_result, _home = self.run_project_setup(
+            project,
+            "4\n1\n1\nkairin\n000-dotfiles\n\ny\n2\n6\n",
+            home=home,
+        )
+
+        self.assertEqual(second_result.returncode, 0, second_result.stdout + second_result.stderr)
+        local_text = local_file.read_text()
+        self.assertEqual(local_text.count("# BEGIN DOTFILES CODACY"), 1)
+        self.assertEqual(local_text.count("# END DOTFILES CODACY"), 1)
+        self.assertIn("# user managed line", local_text)
+        self.assertEqual((home / ".codacy" / "kairin-000-dotfiles.project-token").read_text(), "repo-token\n")
 
 
 if __name__ == "__main__":
