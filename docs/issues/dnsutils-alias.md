@@ -1,6 +1,6 @@
 # Issue: dev_base always reports needs_update (dnsutils alias)
 
-**Status:** Open — bug in baseline.py package check  
+**Status:** Fixed in PR #82 — baseline.py updated to use bind9-dnsutils  
 **Affects:** All users on Ubuntu 22.04+ and WSL
 
 ## Problem
@@ -16,10 +16,12 @@ On Ubuntu 22.04+, `dnsutils` is a virtual package that apt resolves to
 `bind9-dnsutils`. The tool checks for the literal name `dnsutils`, which is never
 reported as installed, so `dev_base` always shows missing.
 
-## Fix required
+## Fix applied
 
-`dotfiles_tools/baseline.py:178` — replace `"dnsutils"` with `"bind9-dnsutils"`,
-or add virtual-package alias resolution so apt-resolved names are accepted.
+`dotfiles_tools/baseline.py:215` — changed from `"dnsutils"` to `"bind9-dnsutils"`.
+Ubuntu 22.04+ resolves the virtual package `dnsutils` to `bind9-dnsutils`; the
+baseline now checks for the concrete package name so machines are never reported
+as having a missing network package when it's actually installed.
 
 ## Expected outcome
 
