@@ -1086,88 +1086,43 @@ EOF
 }
 
 configure_machine_api_tokens() {
-  local choice choice_count=1 gh_opt="" hf_opt="" codacy_opt="" back_opt=""
-
   while true; do
-    choice_count=1
-    gh_opt="" hf_opt="" codacy_opt=""
-
-    # Check GitHub
-    if ! (command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1); then
-      gh_opt="$choice_count. Configure GitHub (gh) authentication."
-      ((choice_count++))
-    else
-      echo "  ✓ GitHub (gh) is authenticated"
-    fi
-
-    # Check HuggingFace
-    if ! command -v huggingface-cli >/dev/null 2>&1; then
-      hf_opt="$choice_count. Install and configure HuggingFace."
-      ((choice_count++))
-    elif [[ ! -f "$HOME/.cache/huggingface/token" ]]; then
-      hf_opt="$choice_count. Configure HuggingFace token."
-      ((choice_count++))
-    else
-      echo "  ✓ HuggingFace is configured"
-    fi
-
-    # Check Codacy
-    if [[ ! -f "$HOME/.codacy/account-token" ]]; then
-      codacy_opt="$choice_count. Configure Codacy account token."
-      ((choice_count++))
-    else
-      echo "  ✓ Codacy account token is configured"
-    fi
-
-    back_opt="$choice_count. Back to main menu."
-
     echo
     echo "API Token Configuration:"
-    [[ -n "$gh_opt" ]] && echo "  $gh_opt"
-    [[ -n "$hf_opt" ]] && echo "  $hf_opt"
-    [[ -n "$codacy_opt" ]] && echo "  $codacy_opt"
-    echo "  $back_opt"
+    local gh_status="Configure" hf_status="Configure" codacy_status="Configure"
 
-    printf "Choose [1-$((choice_count-1))]: "
+    # Check status for display
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+      gh_status="Reconfigure"
+    fi
+    if [[ -f "$HOME/.cache/huggingface/token" ]]; then
+      hf_status="Reconfigure"
+    fi
+    if [[ -f "$HOME/.codacy/account-token" ]]; then
+      codacy_status="Reconfigure"
+    fi
+
+    cat <<EOF
+  1. $gh_status GitHub (gh) authentication
+  2. $hf_status HuggingFace Hub access
+  3. $codacy_status Codacy account token
+  4. Back to main menu
+EOF
+
+    printf "Choose [1-4]: "
+    local choice
     if ! read -r -e choice; then
       echo
       return 0
     fi
 
     case "$choice" in
-      1)
-        if [[ -n "$gh_opt" ]]; then
-          configure_gh_auth
-        elif [[ -n "$hf_opt" ]]; then
-          configure_huggingface_global
-        else
-          configure_codacy_account_token
-        fi
-        ;;
-      2)
-        if [[ -n "$gh_opt" && -n "$hf_opt" ]]; then
-          configure_huggingface_global
-        elif [[ -n "$gh_opt" ]] || [[ -n "$hf_opt" ]]; then
-          configure_codacy_account_token
-        else
-          return 0
-        fi
-        ;;
-      3)
-        if [[ $choice_count -gt 4 ]]; then
-          configure_codacy_account_token
-        else
-          return 0
-        fi
-        ;;
-      $((choice_count-1))|"")
-        return 0
-        ;;
-      *)
-        echo "Unknown choice: $choice" >&2
-        ;;
+      1) configure_gh_auth ;;
+      2) configure_huggingface_global ;;
+      3) configure_codacy_account_token ;;
+      4|"") return 0 ;;
+      *) echo "Unknown choice: $choice" >&2 ;;
     esac
-    echo
   done
 }
 
