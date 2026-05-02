@@ -82,8 +82,8 @@ uv run python -m dotfiles_tools plan --repo . --home "$HOME" --profile machine
 uv run python -m dotfiles_tools apply --repo . --home "$HOME" --profile machine --backup-dir "$HOME/.dotfiles-backups" --yes
 uv run python -m dotfiles_tools init-project --repo . --project /path/to/project --vars project-vars.json --yes
 uv run python -m unittest discover -s tests
-uv run --with coverage coverage run -m unittest discover -s tests
-uv run --with coverage coverage xml
+uv run --with coverage==7.5.4 coverage run -m unittest discover -s tests
+uv run --with coverage==7.5.4 coverage xml
 ```
 
 Do not add lock files unless runtime dependencies are introduced and the Spec

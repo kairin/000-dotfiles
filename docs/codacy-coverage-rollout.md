@@ -47,10 +47,11 @@ Use this document as the checklist for applying the same pattern to other repos.
      ```
 2. Generate a Codacy-supported coverage report.
    - For Python, `coverage.py` can generate `coverage.xml`.
+   - Scope coverage to production Python code with `.coveragerc` so docs, tests, and shell scripts do not inflate the report.
    - Example:
      ```bash
-     uv run --with coverage coverage run -m unittest discover -s tests
-     uv run --with coverage coverage xml
+     uv run --with coverage==7.5.4 coverage run -m unittest discover -s tests
+     uv run --with coverage==7.5.4 coverage xml
      test -f coverage.xml
      ```
 3. Add a GitHub Actions workflow that runs tests and generates coverage.
