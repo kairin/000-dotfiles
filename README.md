@@ -1,69 +1,189 @@
 # dotfiles
 
-Config templates plus a small Python+bash tool to bootstrap a developer
-machine and scaffold AI-agent docs in any project. Status: **0.1.x beta** —
-feature-complete, single-maintainer, suitable for personal and team use.
+Config templates and tools to bootstrap a developer machine and scaffold AI agent docs in any
+project. Status: **0.1.x beta** — feature-complete, single-maintainer, suitable for personal
+and team use.
+
+## What is this?
+
+You've just bought a new laptop (or your hard drive died, or you're setting up CI). On a
+fresh machine, you normally spend hours manually installing tools, copying config files, and
+signing in to each one. This repo automates that: **one command installs your full tool stack
+and applies your configs.** Repeated runs apply any config drift—changes you've made that
+differ from the repo's templates.
+
+This particular repo manages configs for AI coding tools (Claude Code, Codex, Gemini,
+Copilot), shell customization (fish, direnv), version control (git, gh), and terminal fonts
+(Nerd Fonts). It also scaffolds AI agent guidelines for your projects so Claude Code and
+other tools know your codebase conventions.
+
+## What gets installed
+
+| Category | Tools | Notes |
+|---|---|---|
+| **Shell & environment** | fish, direnv | Shell and per-project env vars |
+| **Version control** | git, GitHub CLI | Git + GitHub; auth is manual |
+| **Python toolchain** | uv | Fast Python installer & package manager |
+| **AI coding assistants** | Claude Code, Codex, Gemini, Copilot, SpecKit | Latest versions; sign-in on first run |
+| **Fonts** | JetBrainsMono, FiraCode, Hack, MesloLGS Nerd Fonts | Auto-downloaded and installed |
+| **Project scaffolding** | AI agent docs | `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` per project |
 
 ## Quick start
 
-```bash
-# 1. Clone (or symlink ./setup onto PATH).
-git clone https://github.com/kairin/000-dotfiles.git ~/000-dotfiles
-
-# 2. Bootstrap this computer (installs uv if missing, then shows a menu).
-~/000-dotfiles/setup
-
-# 3. Scaffold AI-agent docs in any project folder.
-~/000-dotfiles/setup ~/Apps/my-project
-```
-
-`./setup` with no args audits the current machine and presents a **state-aware
-menu**. When developer tools are missing (fresh-Ubuntu box), option 1 is
-"Install / update developer tools" and the apply-configs option moves to 2.
-When tools are already installed, option 1 applies safe dotfile + font drift,
-and option 5 re-runs the tool installer to upgrade existing tools. Nothing is
-written without explicit confirmation. After tool install, the run prints a
-verification panel and a list of post-install actions (login commands, etc.)
-to complete on your terms.
-
-### First-time setup on a fresh Ubuntu box
+### Clone and run setup on a fresh machine
 
 ```bash
 git clone https://github.com/kairin/000-dotfiles.git ~/000-dotfiles
 ~/000-dotfiles/setup
-# 1. Install / update developer tools (preview, then apply)  → choose 1, then y
-#    Installs the dev-base apt bundle, git, gh, fish, direnv, claude, codex,
-#    gemini, copilot, specify. Auto-runs fish chsh + fisher bootstrap + plugin apply.
-#    Prints sign-in commands for gh/claude/codex/gemini/copilot.
-# 2. Apply safe changes  → choose 2, then y
-#    Copies all non-protected config templates and installs Nerd Fonts.
-# Run the printed sign-in commands when ready (gh auth login, claude /login,
-# codex auth login, gemini, copilot /login).
-# Run `specify init --here` in each project to set up SpecKit.
+# → Menu appears. Choose 1 (install tools), then 2 (apply configs). Done in ~5 min.
 ```
 
-### Re-running on a configured machine
+### Scaffold AI agent docs in a project
+
+```bash
+cd ~/Apps/my-project
+~/000-dotfiles/setup init --yes
+# → Creates AGENTS.md, CLAUDE.md, GEMINI.md. Your AI tools now know your codebase.
+```
+
+### Update a machine you already set up
 
 ```bash
 ~/000-dotfiles/setup
-# Option 2 applies any config drift (safe, backups files it overwrites).
-# Option 1 upgrades installed tools (apt --only-upgrade, npm update -g,
-# re-run self-updating curl installers).
+# → Menu shows state. Choose 2 to apply any drift. Tools update automatically.
 ```
+
+---
+
+## How it works — setup flow
+
+When you run `./setup`, the script audits your machine and shows a **5-option menu**. The
+option numbers **never change**, but the `[recommended]` tag highlights which action fits
+your current state.
+
+### Fresh machine (tools missing)
+
+```
+$ ~/000-dotfiles/setup
+                         ↓
+        ╔═══════════════════════════════════════╗
+        ║ Machine setup summary                 ║
+        ║ Home: /home/user                      ║
+        ║ Tools: 7/10 missing                   ║
+        ║ Configs: N/A (tools not installed)    ║
+        ╚═══════════════════════════════════════╝
+                         ↓
+   1. Install / update developer tools   [recommended] ← CHOOSE THIS
+   2. Apply safe non-protected dotfiles
+   3. Show full technical details
+   4. Show tool and sign-in guidance
+   5. Exit without writing
+                         ↓
+        Choose [1-5]: 1
+                         ↓
+   [Preview shows: uv, git, gh, fish, direnv, claude,
+    codex, gemini, copilot, specify to be installed]
+                         ↓
+   Apply tool install/update actions? [y/N]: y
+                         ↓
+   [Tools installed; 5 min...]
+   [Prints sign-in commands: gh auth login, claude /login, etc.]
+                         ↓
+   Menu reappears. Now tool count shows 10/10.
+                         ↓
+   1. Install / update developer tools
+   2. Apply safe non-protected dotfiles   [recommended] ← NOW CHOOSE THIS
+   3. Show full technical details
+   4. Show tool and sign-in guidance
+   5. Exit without writing
+                         ↓
+        Choose [1-5]: 2
+                         ↓
+   [Configs + fonts installed; backups created]
+                         ↓
+        DONE. Run these sign-in commands:
+        $ gh auth login
+        $ claude /login
+        $ codex auth
+        $ gemini
+        $ copilot /login
+```
+
+### Configured machine (tools present, configs drifted)
+
+```
+$ ~/000-dotfiles/setup
+                         ↓
+        ╔═══════════════════════════════════════╗
+        ║ Machine setup summary                 ║
+        ║ Home: /home/user                      ║
+        ║ Tools: 10/10 found                    ║
+        ║ Configs: 2 drifted, 8 current         ║
+        ╚═══════════════════════════════════════╝
+                         ↓
+   1. Install / update developer tools
+   2. Apply safe non-protected dotfiles   [recommended] ← CHOOSE THIS
+   3. Show full technical details
+   4. Show tool and sign-in guidance
+   5. Exit without writing
+                         ↓
+        Choose [1-5]: 2
+                         ↓
+   [2 files written with backups]
+   [Fonts already installed, no changes]
+                         ↓
+        DONE.
+```
+
+Nothing is written without your explicit confirmation (`[y/N]`). Files are backed up before overwrite (default: `~/.dotfiles-backups/`). The script is idempotent—safe to run repeatedly.
+
+---
 
 ## What you can do with this
 
 | Scenario | Command |
 |---|---|
-| Fresh-machine setup (configs + Nerd Fonts) | `./setup` |
-| Drift audit on an existing machine (read-only) | `./setup doctor` |
-| Scaffold `AGENTS.md` + `CLAUDE.md`/`GEMINI.md` symlinks in a project | `./setup init --yes` |
-| Verify project agent docs in CI / pre-commit | `./setup verify` |
-| Add `.github/copilot-instructions.md` to a project | `./setup init --copilot --yes` |
-| Reuse the Codacy coverage workflow in another repo | see `docs/codacy-coverage-rollout.md` |
+| Fresh-machine setup (tools + configs + fonts) | `./setup` |
+| Check current state (read-only) | `./setup doctor` |
+| Scaffold `AGENTS.md` + `CLAUDE.md`/`GEMINI.md` in a project | `./setup init --yes` |
+| Verify agent docs in CI / pre-commit (no uv required) | `./setup verify` |
+| Upgrade installed tools | `./setup` → choose option 1 |
+| Apply config drift | `./setup` → choose option 2 |
+| Show full technical details (cache, versions, operations) | `./setup` → choose option 3 |
 
-Supported platforms: Ubuntu-style Linux, WSL (with Windows host font install),
-Raspberry Pi, Pixel Terminal (ttyd), Pixel AVF (weston-terminal fallback).
+Supported platforms: Ubuntu-style Linux, WSL (with Windows host font install), Raspberry Pi, Pixel Terminal, Pixel AVF.
+
+---
+
+## Going deeper
+
+- **[Getting Started](docs/getting-started.md)** — Step-by-step first-time setup, ongoing maintenance, AI agent doc scaffolding, troubleshooting
+- **[Setup script reference](#setup-script-reference)** (below) — All commands and options
+- **[Direct CLI reference](#direct-cli-advanced)** (below) — Stable commands for automation
+- **[Protected files](#protected-files)** — Which files are never auto-overwritten
+- **[Project bootstrap example](#project-bootstrap-example)** (below) — Detailed walkthrough
+- **[Validation and coverage](#validation-and-coverage)** (below) — Running tests
+- **[Changelog](CHANGELOG.md)** — Version history and what was built
+
+## Is this a good dotfiles repo? ✓
+
+A good dotfiles repo should:
+
+| Requirement | Status |
+|---|---|
+| Version-controlled config templates | ✓ All `.template` files tracked |
+| One-command bootstrap on a fresh machine | ✓ `./setup` handles it |
+| Idempotent — safe to run repeatedly | ✓ No errors from running twice |
+| Backup before overwrite | ✓ Default: `~/.dotfiles-backups/` |
+| Never writes without confirmation | ✓ Requires explicit `[y/N]` |
+| Protected files never auto-overwritten | ✓ git config, fish plugins, etc. |
+| No secrets or tokens committed | ✓ Auth files `.gitignore`d |
+| Multi-platform support | ✓ Linux, WSL, Pi, Pixel Terminal |
+| Validation & test coverage | ✓ 103 unit tests; CI/CD integration |
+| AI tool config management | ✓ Claude, Codex, Gemini, Copilot |
+| Per-project AI agent scaffolding | ✓ `AGENTS.md` + symlinks |
+
+---
 
 ## Repo layout
 
@@ -79,9 +199,12 @@ Raspberry Pi, Pixel Terminal (ttyd), Pixel AVF (weston-terminal fallback).
 | `dotfiles_tools/` | — | Python validation/setup CLI (`python -m dotfiles_tools …`) |
 | `setup` | `~/.local/bin/dotfiles-setup` (optional) | Self-locating bash entrypoint |
 | `dotfiles-manifest.json` | — | Source of truth for what installs where |
+| `specs/` | — | Design specification, task tracking, contracts |
+| `docs/` | — | Getting started guide, operations docs, issue tracking |
 
-Files ending in `.template` are copy-and-customize sources. Placeholders use
-`{{UPPER_SNAKE_CASE}}` and must all be replaced before use.
+Files ending in `.template` are copy-and-customize sources. Placeholders use `{{UPPER_SNAKE_CASE}}` and must all be replaced before use.
+
+---
 
 ## Setup script reference
 
@@ -100,10 +223,11 @@ ln -s /path/to/000-dotfiles/setup ~/.local/bin/dotfiles-setup
 dotfiles-setup verify --project ~/code/my-app
 ```
 
+---
+
 ## Direct CLI (advanced)
 
-`./setup` is a wrapper. The underlying commands are stable and useful for
-automation:
+`./setup` is a wrapper. The underlying commands are stable and useful for automation:
 
 ```bash
 uv run python -m dotfiles_tools doctor          --repo . --home "$HOME"
@@ -114,10 +238,7 @@ uv run python -m dotfiles_tools bootstrap-apply --repo . --home "$HOME" --yes
 uv run python -m dotfiles_tools init-project    --repo . --project /path/to/project --vars project-vars.json --yes
 ```
 
-`doctor` audits without writing. `plan` prints exact operations. `apply`
-writes only after `--yes`. Existing differing files are backed up before
-replacement. `bootstrap-plan`/`bootstrap-apply` add font recipes to the same
-manifest operations. Every command supports `--json` for stable machine output.
+`doctor` audits without writing. `plan` prints exact operations. `apply` writes only after `--yes`. Existing differing files are backed up before replacement. `bootstrap-plan`/`bootstrap-apply` add font recipes to the same manifest operations. Every command supports `--json` for stable machine output.
 
 ### Protected files
 
@@ -138,15 +259,11 @@ uv run python -m dotfiles_tools apply --repo . --home "$HOME" \
 
 ### Fonts
 
-The font stage is catalog-driven. On Linux it manages Nerd Fonts archives
-(`JetBrainsMono`, `FiraCode`, `Hack`, `Meslo`) cached in
-`~/.cache/000-dotfiles/fonts/` and installs to `~/.local/share/fonts/`. It
-also installs apt fallbacks (`fonts-noto-color-emoji`, `fonts-symbola`,
-`fonts-freefont-ttf`, `fonts-dejavu-core`). Terminal checks always use
-`* Nerd Font Mono` faces, never Propo. WSL additionally installs JetBrainsMono
-on the Windows host and updates Windows Terminal defaults when discoverable.
+The font stage is catalog-driven. On Linux it manages Nerd Fonts archives (`JetBrainsMono`, `FiraCode`, `Hack`, `Meslo`) cached in `~/.cache/000-dotfiles/fonts/` and installs to `~/.local/share/fonts/`. It also installs apt fallbacks (`fonts-noto-color-emoji`, `fonts-symbola`, `fonts-freefont-ttf`, `fonts-dejavu-core`). Terminal checks always use `* Nerd Font Mono` faces, never Propo. WSL additionally installs JetBrainsMono on the Windows host and updates Windows Terminal defaults when discoverable.
 
-### Project bootstrap example
+---
+
+## Project bootstrap example
 
 ```bash
 cd ~/Apps/my-project
@@ -168,9 +285,9 @@ JSON
 ~/000-dotfiles/setup verify                  # re-check
 ```
 
-When `project-vars.json` is missing and `--yes` is supplied, defaults are
-inferred from `package.json`/`pyproject.toml`/`Cargo.toml`/`go.mod`/Makefile
-and persisted to `<project>/.dotfiles/project-vars.json`.
+When `project-vars.json` is missing and `--yes` is supplied, defaults are inferred from `package.json`/`pyproject.toml`/`Cargo.toml`/`go.mod`/Makefile and persisted to `<project>/.dotfiles/project-vars.json`.
+
+---
 
 ## Validation and coverage
 
@@ -180,29 +297,19 @@ uv run --with coverage coverage run -m unittest discover -s tests
 uv run --with coverage coverage xml
 ```
 
-CI runs the same validation suite on pushes and pull requests and generates
-`coverage.xml`. Codacy upload is attempted on push events only when the
-`CODACY_PROJECT_TOKEN` GitHub secret is configured. See
-`docs/codacy-coverage-rollout.md` for replicating this pattern in other repos.
+CI runs the same validation suite on pushes and pull requests and generates `coverage.xml`. Codacy upload is attempted on push events only when the `CODACY_PROJECT_TOKEN` GitHub secret is configured. See `docs/codacy-coverage-rollout.md` for replicating this pattern in other repos.
+
+---
 
 ## Conventions and safety
 
-- **No secrets.** No tokens, passwords, or API keys live in this repo. Auth
-  files (`hosts.yml`, `auth.json`, `oauth_creds.json`, `token`) are
-  `.gitignore`d. Sign in via `huggingface-cli login`, `gh auth login`,
-  `codex auth`, etc.
-- **Symlinks for AI-agent docs.** Root `CLAUDE.md`/`GEMINI.md` symlink to
-  `AGENTS.md`; `agents/CLAUDE.md.template` and `agents/GEMINI.md.template`
-  symlink to `agents/AGENTS.md.template`. One source of truth per scope.
-- **Backups before replace.** Drifted targets are copied to the backup dir
-  (default `~/.dotfiles-backups`) before being overwritten.
-- **Stop on first failure.** `apply` halts on the first failed write and
-  reports `partial` status with completed operations and backups intact.
+- **No secrets.** No tokens, passwords, or API keys live in this repo. Auth files (`hosts.yml`, `auth.json`, `oauth_creds.json`, `token`) are `.gitignore`d. Sign in via `gh auth login`, `codex auth`, `claude /login`, etc.
+- **Symlinks for AI-agent docs.** Root `CLAUDE.md`/`GEMINI.md` symlink to `AGENTS.md`; `agents/CLAUDE.md.template` and `agents/GEMINI.md.template` symlink to `agents/AGENTS.md.template`. One source of truth per scope.
+- **Backups before replace.** Drifted targets are copied to the backup dir (default `~/.dotfiles-backups`) before being overwritten.
+- **Stop on first failure.** `apply` halts on the first failed write and reports `partial` status with completed operations and backups intact.
 
-## Spec and contributing
+---
 
-The implementation plan, contracts, and task list live under
-`specs/001-dotfiles-bootstrap-validation/`. AI-agent guidelines are in
-`AGENTS.md` (which `CLAUDE.md` and `GEMINI.md` symlink to). When changing
-templates, edit the `.template` file directly and run `git diff --staged`
-before every commit to catch tokens or personal paths.
+## Design and contributing
+
+The implementation plan, contracts, and task list live in `specs/001-dotfiles-bootstrap-validation/`. AI-agent guidelines are in `AGENTS.md` (which `CLAUDE.md` and `GEMINI.md` symlink to). When changing templates, edit the `.template` file directly and run `git diff --staged` before every commit to catch tokens or personal paths. See `AGENTS.md` for detailed agent guidelines.
