@@ -15,6 +15,7 @@ TOOL_BASELINE = (
         "install_args": {},
         "requires_sudo": False,
         "install_hint": "Installed automatically by ./setup when missing.",
+        "post_install": (),
     },
     {
         "id": "git",
@@ -24,7 +25,14 @@ TOOL_BASELINE = (
         "install_method": "apt",
         "install_args": {"packages": ("git",)},
         "requires_sudo": True,
-        "install_hint": "Installed by setup option 5 (apt).",
+        "install_hint": "Installed by the setup tool-install menu option (apt).",
+        "post_install": (
+            {
+                "kind": "guidance",
+                "label": "Configure git identity (skip if git/config already sets it)",
+                "command_template": ("git", "config", "--global", "user.email", "<your-email>"),
+            },
+        ),
     },
     {
         "id": "gh",
@@ -43,7 +51,14 @@ TOOL_BASELINE = (
             "source_path": "/etc/apt/sources.list.d/github-cli.list",
         },
         "requires_sudo": True,
-        "install_hint": "Installed by setup option 5 (GitHub keyring repo).",
+        "install_hint": "Installed by the setup tool-install menu option (GitHub keyring repo).",
+        "post_install": (
+            {
+                "kind": "guidance",
+                "label": "Sign in to GitHub CLI",
+                "command_template": ("gh", "auth", "login"),
+            },
+        ),
     },
     {
         "id": "fish",
@@ -53,7 +68,29 @@ TOOL_BASELINE = (
         "install_method": "apt",
         "install_args": {"packages": ("fish",)},
         "requires_sudo": True,
-        "install_hint": "Installed by setup option 5 (apt).",
+        "install_hint": "Installed by the setup tool-install menu option (apt).",
+        "post_install": (
+            {
+                "kind": "auto",
+                "label": "Set fish as default shell",
+                "command_template": ("sudo", "chsh", "-s", "{which:fish}", "{user}"),
+            },
+            {
+                "kind": "auto",
+                "label": "Bootstrap fisher (one-time)",
+                "command_template": (
+                    "fish",
+                    "-c",
+                    "curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher",
+                ),
+            },
+            {
+                "kind": "auto",
+                "label": "Apply fish_plugins via fisher update",
+                "command_template": ("fish", "-c", "fisher update"),
+                "requires_protected_apply": ("fish/fish_plugins",),
+            },
+        ),
     },
     {
         "id": "direnv",
@@ -63,7 +100,8 @@ TOOL_BASELINE = (
         "install_method": "apt",
         "install_args": {"packages": ("direnv",)},
         "requires_sudo": True,
-        "install_hint": "Installed by setup option 5 (apt).",
+        "install_hint": "Installed by the setup tool-install menu option (apt).",
+        "post_install": (),  # hook is in fish/direnv.fish.template; no manual step needed
     },
     {
         "id": "codex",
@@ -73,7 +111,14 @@ TOOL_BASELINE = (
         "install_method": "npm",
         "install_args": {"package": "@openai/codex"},
         "requires_sudo": True,
-        "install_hint": "Installed by setup option 5 (npm install -g @openai/codex).",
+        "install_hint": "Installed by the setup tool-install menu option (npm install -g @openai/codex).",
+        "post_install": (
+            {
+                "kind": "guidance",
+                "label": "Sign in to Codex CLI",
+                "command_template": ("codex", "auth", "login"),
+            },
+        ),
     },
     {
         "id": "claude",
@@ -84,9 +129,17 @@ TOOL_BASELINE = (
         "install_args": {
             "url": "https://claude.ai/install.sh",
             "script_name": "claude-install.sh",
+            "interpreter": "bash",
         },
         "requires_sudo": False,
-        "install_hint": "Installed by setup option 5 (claude.ai/install.sh).",
+        "install_hint": "Installed by the setup tool-install menu option (claude.ai/install.sh).",
+        "post_install": (
+            {
+                "kind": "guidance",
+                "label": "Sign in to Claude Code",
+                "command_template": ("claude", "/login"),
+            },
+        ),
     },
     {
         "id": "gemini",
@@ -96,7 +149,14 @@ TOOL_BASELINE = (
         "install_method": "npm",
         "install_args": {"package": "@google/gemini-cli"},
         "requires_sudo": True,
-        "install_hint": "Installed by setup option 5 (npm install -g @google/gemini-cli).",
+        "install_hint": "Installed by the setup tool-install menu option (npm install -g @google/gemini-cli).",
+        "post_install": (
+            {
+                "kind": "guidance",
+                "label": "Sign in to Gemini CLI",
+                "command_template": ("gemini",),
+            },
+        ),
     },
 )
 
@@ -175,7 +235,7 @@ def _extend_missing_tools(lines: list[str], missing_tools: list[dict[str, Any]])
     lines.append("  Missing tools:")
     for item in missing_tools:
         if item.get("bootstrap"):
-            hint = "Install via setup option 5 (Install / update developer tools)."
+            hint = "Install via the setup tool-install menu option."
         else:
             hint = item["install_hint"]
         lines.append(f"    - {item['command']}: {hint}")

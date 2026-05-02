@@ -17,9 +17,38 @@ git clone https://github.com/kairin/000-dotfiles.git ~/000-dotfiles
 ~/000-dotfiles/setup ~/Apps/my-project
 ```
 
-`./setup` with no args audits the current machine and offers four choices:
-apply safe dotfiles + fonts, show full diagnostics, show sign-in guidance, or
-exit. Nothing is written without explicit confirmation.
+`./setup` with no args audits the current machine and presents a **state-aware
+menu**. When developer tools are missing (fresh-Ubuntu box), option 1 is
+"Install / update developer tools" and the apply-configs option moves to 2.
+When tools are already installed, option 1 applies safe dotfile + font drift,
+and option 5 re-runs the tool installer to upgrade existing tools. Nothing is
+written without explicit confirmation. After tool install, the run prints a
+verification panel and a list of post-install actions (login commands, etc.)
+to complete on your terms.
+
+### First-time setup on a fresh Ubuntu box
+
+```bash
+git clone https://github.com/kairin/000-dotfiles.git ~/000-dotfiles
+~/000-dotfiles/setup
+# 1. Install / update developer tools (preview, then apply)  → choose 1, then y
+#    Installs the dev-base apt bundle, git, gh, fish, direnv, claude, codex,
+#    gemini. Auto-runs fish chsh + fisher bootstrap + plugin apply.
+#    Prints sign-in commands for gh/claude/codex/gemini.
+# 2. Apply safe changes  → choose 2, then y
+#    Copies all non-protected config templates and installs Nerd Fonts.
+# Run the printed sign-in commands when ready (gh auth login, claude /login,
+# codex auth login, gemini).
+```
+
+### Re-running on a configured machine
+
+```bash
+~/000-dotfiles/setup
+# Option 1 applies any config drift (safe, backups files it overwrites).
+# Option 5 upgrades installed tools (apt --only-upgrade, npm update -g,
+# re-run self-updating curl installers).
+```
 
 ## What you can do with this
 

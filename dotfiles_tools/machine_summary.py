@@ -4,10 +4,11 @@ import argparse
 from pathlib import Path
 from typing import Any, Sequence
 
-from .bootstrap import build_bootstrap_plan
+from .bootstrap import build_bootstrap_plan, build_tool_install_subplan
 from .doctor import run_doctor
 from .manifest import ManifestEntry, ManifestError, load_manifest
 from .reports import Report
+from .tool_installer import DEV_BASE_ENTRY_ID
 
 
 def render_machine_summary(repo: Path | str, home: Path | str, *, profile: str = "machine") -> str:
@@ -24,6 +25,28 @@ def render_menu_label(repo: Path | str, home: Path | str, *, profile: str = "mac
     plan = build_bootstrap_plan(repo_path, home_path, profile=profile)
     groups = _group_entries(plan.entries)
     return _option_one_label(plan, groups)
+
+
+def render_menu_mode(repo: Path | str, home: Path | str) -> str:
+    """Return 'tools_missing' if any non-dev-base bootstrap tool is absent;
+    otherwise 'tools_present'. The bash menu reads this token to choose the
+    fresh-box vs. configured-machine option ordering."""
+    plan = build_tool_install_subplan(Path(repo).resolve(), Path(home).resolve())
+    has_missing = any(
+        entry.get("state") == "missing"
+        for entry in plan.entries
+        if entry.get("entry_id") != DEV_BASE_ENTRY_ID
+    )
+    return "tools_missing" if has_missing else "tools_present"
+
+
+def render_missing_tool_count(repo: Path | str, home: Path | str) -> int:
+    plan = build_tool_install_subplan(Path(repo).resolve(), Path(home).resolve())
+    return sum(
+        1
+        for entry in plan.entries
+        if entry.get("state") == "missing" and entry.get("entry_id") != DEV_BASE_ENTRY_ID
+    )
 
 
 def render_reports(doctor: Report, plan: Report, repo: Path, home: Path, *, profile: str = "machine") -> str:
@@ -521,9 +544,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--home", required=True)
     parser.add_argument("--profile", default="machine")
     parser.add_argument("--menu-label", action="store_true")
+    parser.add_argument("--menu-mode", action="store_true")
+    parser.add_argument("--missing-tool-count", action="store_true")
     args = parser.parse_args(argv)
     if args.menu_label:
         print(render_menu_label(args.repo, args.home, profile=args.profile))
+    elif args.menu_mode:
+        print(render_menu_mode(args.repo, args.home))
+    elif args.missing_tool_count:
+        print(render_missing_tool_count(args.repo, args.home))
     else:
         print(render_machine_summary(args.repo, args.home, profile=args.profile), end="")
     return 0

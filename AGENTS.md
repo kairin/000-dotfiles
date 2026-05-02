@@ -61,6 +61,8 @@ ls -la CLAUDE.md GEMINI.md
 - Adding a new tool config: create a `<tool>/` directory with `<file>.template` files; update `README.md` table and the bootstrap commands.
 - Updating an existing template: edit the `.template` file directly; note in the commit message if any placeholder names changed.
 - Never commit files containing real credentials. Run `git diff --staged` before every commit and check for tokens, keys, or personal paths.
+- Adding a curl-based installer to `TOOL_BASELINE`: declare `"interpreter": "..."` in `install_args` if the script is anything other than bash. `_execute_curl` runs the script under that interpreter (Ubuntu's default `/bin/sh` is dash and rejects bash extensions).
+- Adding a new bootstrap tool to `TOOL_BASELINE`: declare a `post_install` tuple (may be empty) listing follow-up actions. `kind="auto"` runs when the user passes `--yes`; `kind="guidance"` only prints the command. Templates may use `{which:<name>}` and `{user}` placeholders; unresolved placeholders downgrade to guidance automatically.
 
 ## Development Workflow
 

@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dotfiles_tools.machine_summary import render_menu_label, render_reports
+from unittest import mock
+
+from dotfiles_tools.machine_summary import (
+    render_menu_label,
+    render_menu_mode,
+    render_missing_tool_count,
+    render_reports,
+)
 from dotfiles_tools.reports import Report
 from tests.helpers import DotfilesTestCase, REPO_ROOT
 
@@ -223,3 +230,24 @@ class MachineSummaryTests(DotfilesTestCase):
 
         self.assertRegex(label, r"^Apply [0-9]+ file changes?( \+ [0-9]+ font actions?)?")
         self.assertIn("backs up 1 file", label)
+
+    def test_menu_mode_returns_tools_missing_when_any_bootstrap_tool_absent(self) -> None:
+        home = self.make_home()
+        # Empty PATH means no bootstrap tool is detected on the user's machine
+        # (linux platform forced so the plan emits real entries, not "unsupported").
+        with mock.patch.dict("os.environ", {"PATH": "", "DOTFILES_TOOL_PLATFORM": "linux"}, clear=False):
+            mode = render_menu_mode(REPO_ROOT, home)
+            count = render_missing_tool_count(REPO_ROOT, home)
+        self.assertEqual(mode, "tools_missing")
+        self.assertGreater(count, 0)
+
+    def test_menu_mode_returns_tools_present_when_platform_unsupported(self) -> None:
+        home = self.make_home()
+        # Forcing darwin makes every tool entry "unsupported", so nothing is
+        # "missing" — this is also the behaviour every test exercises through
+        # env_for in test_setup_script.py.
+        with mock.patch.dict("os.environ", {"DOTFILES_TOOL_PLATFORM": "darwin"}, clear=False):
+            mode = render_menu_mode(REPO_ROOT, home)
+            count = render_missing_tool_count(REPO_ROOT, home)
+        self.assertEqual(mode, "tools_present")
+        self.assertEqual(count, 0)

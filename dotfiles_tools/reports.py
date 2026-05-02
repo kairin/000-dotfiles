@@ -152,6 +152,8 @@ def _extend_extra(lines: list[str], extra: dict[str, Any]) -> None:
     _extend_extra_tool_checks(lines, extra.get("tool_checks") or [])
     _extend_extra_auth_guidance(lines, extra.get("auth_guidance") or [])
     _extend_extra_tools(lines, extra.get("tools") or [])
+    _extend_extra_verification(lines, extra.get("verification") or [])
+    _extend_extra_post_install(lines, extra.get("post_install_actions") or [])
 
 
 def _extend_extra_fonts(lines: list[str], fonts: list[dict[str, Any]]) -> None:
@@ -297,3 +299,72 @@ def _dev_base_summary_line(missing: list[str], installed: list[str]) -> str:
     if installed:
         return f"  -> One batched apt upgrade for {len(installed)} present packages."
     return ""
+
+
+def _extend_extra_verification(lines: list[str], verification: list[dict[str, Any]]) -> None:
+    if not verification:
+        return
+    lines.append("verification:")
+    for item in verification:
+        glyph = "OK" if item.get("verified") else "MISSING"
+        path = item.get("path") or "not found on PATH"
+        version = f"  ({item['version']})" if item.get("version") else ""
+        lines.append(f"  {glyph}  {item.get('command', ''):<10s} {path}{version}")
+
+
+def _extend_extra_post_install(lines: list[str], actions: list[dict[str, Any]]) -> None:
+    if not actions:
+        return
+    by_status = _post_install_group_by_status(actions)
+    _extend_post_install_auto(lines, by_status["ran"], by_status["failed"])
+    _extend_post_install_skipped(lines, by_status["skipped"])
+    _extend_post_install_guidance(lines, by_status["guidance"])
+
+
+def _post_install_group_by_status(actions: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    groups: dict[str, list[dict[str, Any]]] = {
+        "ran": [], "failed": [], "skipped": [], "guidance": [],
+    }
+    for action in actions:
+        bucket = groups.get(action.get("status"))
+        if bucket is not None:
+            bucket.append(action)
+    return groups
+
+
+def _extend_post_install_auto(
+    lines: list[str],
+    auto_run: list[dict[str, Any]],
+    auto_failed: list[dict[str, Any]],
+) -> None:
+    if not (auto_run or auto_failed):
+        return
+    lines.append("post-install actions (auto-run, --yes):")
+    for item in auto_run:
+        lines.append(_post_install_line(item, glyph="OK"))
+    for item in auto_failed:
+        lines.append(_post_install_line(item, glyph="FAIL"))
+        if item.get("result"):
+            lines.append(f"      reason: {item['result']}")
+
+
+def _extend_post_install_skipped(lines: list[str], skipped: list[dict[str, Any]]) -> None:
+    if not skipped:
+        return
+    lines.append("post-install actions (skipped, unresolved placeholder):")
+    for item in skipped:
+        lines.append(f"  - {item.get('tool')}  {item.get('label')}: {item.get('reason')}")
+
+
+def _extend_post_install_guidance(lines: list[str], guidance: list[dict[str, Any]]) -> None:
+    if not guidance:
+        return
+    lines.append("post-install actions (manual, run when ready):")
+    for item in guidance:
+        cmd = " ".join(item.get("command") or item.get("raw_template") or [])
+        lines.append(f"  - {item.get('tool'):<8s} {item.get('label')}:  {cmd}")
+
+
+def _post_install_line(item: dict[str, Any], *, glyph: str) -> str:
+    cmd = " ".join(item.get("command") or [])
+    return f"  {glyph}  {item.get('tool'):<8s} {item.get('label')}:  {cmd}"
