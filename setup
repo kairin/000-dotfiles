@@ -63,6 +63,10 @@ Commands:
       Audit a machine home directory by wrapping 'dotfiles_tools doctor'.
       Defaults: --home="\$HOME", --profile=machine.
 
+  quality
+      Run the local quality pipeline (tests, coverage, Codacy upload) via
+      scripts/quality-pipeline.sh. Use before pushing to validate locally.
+
   help, -h, --help
       Show this message.
 
@@ -612,6 +616,14 @@ cmd_doctor() {
     --repo "$DOTFILES_REPO" \
     --home "${home_arg:-$HOME}" \
     --profile "${profile:-machine}")
+}
+
+cmd_quality() {
+  local repo_root
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || die "setup quality must run inside a git repository"
+  local pipeline="$repo_root/scripts/quality-pipeline.sh"
+  [[ -x "$pipeline" ]] || die "quality pipeline script missing or not executable: $pipeline"
+  exec bash "$pipeline"
 }
 
 run_machine_doctor() {
@@ -1367,6 +1379,7 @@ main() {
     verify) cmd_verify "$@" ;;
     init)   cmd_init "$@" ;;
     doctor) cmd_doctor "$@" ;;
+    quality) cmd_quality "$@" ;;
     help|-h|--help) usage ;;
     *)
       if [[ $# -eq 0 && -d "$sub" ]]; then
