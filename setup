@@ -1178,7 +1178,7 @@ configure_huggingface_global() {
 }
 
 configure_codacy_account_token() {
-  local token_value token_dir token_file
+  local token_value token_dir token_file fish_env
   echo
   echo "Setting up Codacy API access..."
   echo "Get your account token from: https://app.codacy.com/account/tokens"
@@ -1204,7 +1204,14 @@ configure_codacy_account_token() {
   chmod 600 "$token_file"
 
   echo "✓ Codacy account token configured at $token_file"
-  echo "  Export in shell: set -gx CODACY_ACCOUNT_TOKEN (cat ~/.codacy/account-token)"
+
+  # Add export to fish env if fish is configured
+  fish_env="$HOME/.config/fish/env.fish"
+  if [[ -f "$fish_env" ]] && ! grep -q "CODACY_ACCOUNT_TOKEN" "$fish_env"; then
+    echo "  Adding to fish environment..."
+    echo 'set -gx CODACY_ACCOUNT_TOKEN (cat ~/.codacy/account-token 2>/dev/null || true)' >> "$fish_env"
+    echo "  ✓ Added to $fish_env"
+  fi
 }
 
 configure_huggingface_token() {
