@@ -195,7 +195,7 @@ A good dotfiles repo should:
 | `codex/` | `~/.codex/` | `config.toml`, `rules/default.rules` |
 | `gemini/` | `~/.gemini/` | `settings.json`, global `GEMINI.md` |
 | `gh/` | `~/.config/gh/` | `config.yml`, Codacy branch-protection checklist |
-| `fish/` | `~/.config/fish/` | `fish_plugins`, `functions/direnv.fish`, `env.fish` |
+| `fish/` | `~/.config/fish/` | `fish_plugins`, `conf.d/direnv.fish` (auto-installs direnv hook), `functions/direnv.fish`, `env.fish` |
 | `git/` | `~/.config/git/` | `config` |
 | `dotfiles_tools/` | — | Python validation/setup CLI (`python -m dotfiles_tools …`) |
 | `setup` | `~/.local/bin/dotfiles-setup` (optional) | Self-locating bash entrypoint |
@@ -221,7 +221,7 @@ Menu options during `./setup`:
 - **Option 1:** Install or update developer tools
 - **Option 2:** Apply safe non-protected dotfiles (backed up before overwrite)
 - **Option 3:** Show full technical details (machine state, versions, all pending operations)
-- **Option 4:** Manage optional integrations (GitHub auth, HuggingFace token configuration, Codacy setup). GitHub CLI installs via `apt`; HuggingFace CLI installs via `uv tool install huggingface-hub`.
+- **Option 4:** Manage optional integrations (GitHub auth, HuggingFace token configuration, Codacy setup). GitHub CLI installs via `apt`; HuggingFace CLI (`hf`) installs via `uv tool install huggingface-hub`; use `hf auth login` to authenticate. Machine bootstrap calls `ensure_mcp_servers()`, which auto-registers the **GitHub MCP** server (uses `GITHUB_TOKEN`) and **Codacy MCP** server (uses `CODACY_ACCOUNT_TOKEN`) with the Claude CLI.
 
 Install on `PATH`:
 
@@ -310,7 +310,7 @@ CI runs the same validation suite on pushes and pull requests and generates `cov
 
 ## Conventions and safety
 
-- **No secrets.** No tokens, passwords, or API keys live in this repo. Auth files (`hosts.yml`, `auth.json`, `oauth_creds.json`, `token`) are `.gitignore`d. Sign in via `gh auth login`, `codex auth`, `claude /login`, etc.
+- **No secrets.** No tokens, passwords, or API keys live in this repo. Auth files (`hosts.yml`, `auth.json`, `oauth_creds.json`, `token`) are `.gitignore`d. Sign in via `gh auth login`, `codex auth`, `claude /login`, etc. The local `.envrc.local` (also `.gitignore`d) exports `GITHUB_TOKEN` dynamically via `$(gh auth token 2>/dev/null)` so the GitHub MCP server can authenticate without storing a static token.
 - **Symlinks for AI-agent docs.** Root `CLAUDE.md`/`GEMINI.md` symlink to `AGENTS.md`; `agents/CLAUDE.md.template` and `agents/GEMINI.md.template` symlink to `agents/AGENTS.md.template`. One source of truth per scope.
 - **Backups before replace.** Drifted targets are copied to the backup dir (default `~/.dotfiles-backups`) before being overwritten.
 - **Stop on first failure.** `apply` halts on the first failed write and reports `partial` status with completed operations and backups intact.

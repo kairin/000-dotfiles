@@ -364,49 +364,36 @@ check_mcp_servers() {
   echo "  Server               Status"
   echo "  ---                  ---"
 
-  local mcp_json="$HOME/.claude/.mcp.json"
+  local claude_json="$HOME/.claude.json"
 
-  # Check if .mcp.json exists
-  if [[ ! -f "$mcp_json" ]]; then
-    echo "  (none configured)    ✗ .mcp.json not found"
+  if [[ ! -f "$claude_json" ]]; then
+    echo "  (none configured)    ✗ ~/.claude.json not found"
     return
   fi
 
-  # Validate JSON structure
-  local json_content
-  json_content=$(cat "$mcp_json" 2>/dev/null)
   if ! command -v python3 >/dev/null 2>&1; then
     echo "  (validation)         ✗ python3 required for JSON validation"
     return
   fi
 
-  if ! python3 -c "import json; json.loads('''$json_content''')" 2>/dev/null; then
-    echo "  (invalid)            ✗ .mcp.json contains invalid JSON"
-    return
-  fi
-
-  # Extract and check all MCP servers
   local servers
   servers=$(python3 -c "
 import json
 try:
-  with open('$mcp_json', 'r') as f:
+  with open('$claude_json', 'r') as f:
     data = json.load(f)
-    if 'mcpServers' in data:
-      for server_name in data['mcpServers'].keys():
-        print(server_name)
+    for name in data.get('mcpServers', {}).keys():
+      print(name)
 except:
   pass
 " 2>/dev/null)
 
-  # If no servers found
   if [[ -z "$servers" ]]; then
-    echo "  (none defined)       ⚠ .mcp.json exists but no servers defined"
+    echo "  (none defined)       ⚠ no user MCP servers in ~/.claude.json"
     return
   fi
 
   local has_issues=0
-  # Check each server
   for server in $servers; do
     check_mcp_server_config "$server" || has_issues=1
   done
@@ -416,44 +403,38 @@ except:
 
 check_mcp_server_config() {
   local server_name="$1"
-  local mcp_json="$HOME/.claude/.mcp.json"
+  local claude_json="$HOME/.claude.json"
 
-  # Get server config
   local server_config
   server_config=$(python3 << PYSCRIPT 2>/dev/null
 import json
-import sys
-with open("$mcp_json", 'r') as f:
+with open("$claude_json", 'r') as f:
   data = json.load(f)
-  if '$server_name' in data.get('mcpServers', {}):
-    import json as j
-    print(j.dumps(data['mcpServers']['$server_name']))
+  cfg = data.get('mcpServers', {}).get('$server_name')
+  if cfg:
+    print(json.dumps(cfg))
 PYSCRIPT
 )
 
   if [[ -z "$server_config" ]]; then
-    echo "  $server_name         ✗ Not found in mcpServers"
+    echo "  $server_name         ✗ Not registered (run: claude mcp add --scope user)"
     return 1
   fi
 
-  # Extract command and env vars from config
   local command env_vars
-  command=$(echo "$server_config" | python3 -c "import json, sys; d=json.load(sys.stdin); print(d.get('command', ''))" 2>/dev/null)
-  env_vars=$(echo "$server_config" | python3 -c "import json, sys; d=json.load(sys.stdin); print(' '.join(d.get('env', {}).keys()))" 2>/dev/null)
+  command=$(echo "$server_config" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('command',''))" 2>/dev/null)
+  env_vars=$(echo "$server_config" | python3 -c "import json,sys; d=json.load(sys.stdin); print(' '.join(d.get('env',{}).keys()))" 2>/dev/null)
 
-  # Check if command is available
   if ! command -v "$command" >/dev/null 2>&1; then
     echo "  $server_name         ⚠ Command '$command' not available"
     return 1
   fi
 
-  # Check environment variables
   local all_env_ok=1
   for env_var in $env_vars; do
     if [[ -z "${!env_var:-}" ]]; then
-      # Try to check if it's in .envrc.local
       if [[ -f "$HOME/.envrc.local" ]] && grep -q "$env_var" "$HOME/.envrc.local"; then
-        continue  # Found in .envrc.local, likely just not sourced
+        continue
       else
         all_env_ok=0
       fi
@@ -467,6 +448,31 @@ PYSCRIPT
 
   echo "  $server_name         ✓ Configured"
   return 0
+}
+
+ensure_mcp_servers() {
+  local claude_json="$HOME/.claude.json"
+  local registered
+  registered=$(python3 -c "
+import json
+try:
+  with open('$claude_json','r') as f:
+    print(' '.join(json.load(f).get('mcpServers',{}).keys()))
+except:
+  pass
+" 2>/dev/null)
+
+  if [[ "$registered" != *"github"* ]]; then
+    claude mcp add -e 'GITHUB_TOKEN=$GITHUB_TOKEN' --scope user github -- npx -y @modelcontextprotocol/server-github 2>/dev/null \
+      && echo "  github MCP server registered" \
+      || echo "  github MCP server registration failed (is claude CLI installed?)"
+  fi
+
+  if [[ "$registered" != *"codacy"* ]]; then
+    claude mcp add -e 'CODACY_ACCOUNT_TOKEN=$CODACY_ACCOUNT_TOKEN' --scope user codacy -- npx -y @codacy/codacy-mcp@latest 2>/dev/null \
+      && echo "  codacy MCP server registered" \
+      || echo "  codacy MCP server registration failed (is claude CLI installed?)"
+  fi
 }
 
 cmd_verify() {
@@ -665,6 +671,7 @@ run_machine_apply_with_message() {
   echo
   echo "Applying safe non-protected machine dotfiles and approved install/update recipes..."
   run_machine_apply || return $?
+  ensure_mcp_servers
   return 2
 }
 

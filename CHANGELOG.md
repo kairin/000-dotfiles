@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 ### Added
 
+- **GitHub MCP auto-registration** — after machine bootstrap, setup auto-registers
+  `@modelcontextprotocol/server-github` via `claude mcp add --scope user` so the GitHub
+  MCP is available in all Claude Code sessions without manual configuration
+- **Codacy MCP + account token** — machine-level Codacy account token support added
+  (`~/.codacy/account-token`); `@codacy/codacy-mcp@latest` auto-registered via
+  `claude mcp add --scope user`; setup "Configure API tokens" menu includes a
+  dedicated "Codacy" option
+- **direnv fish hook** — `fish/conf.d/direnv.fish` added to auto-source the direnv hook
+  in interactive fish shells; `direnv allow` is run automatically after Codacy project
+  setup completes
+- **HuggingFace CLI renamed** — CLI command updated from `huggingface-cli` to `hf`;
+  login command updated to `hf auth login`
+- **GITHUB_TOKEN in .envrc.local** — project `.envrc.local` now exports `GITHUB_TOKEN`
+  via `$(gh auth token 2>/dev/null)` so tools that read the standard env var get a
+  valid token without manual configuration
 - **User customizable config files** — 10 user-facing config files (claude/settings.json,
   claude/keybindings.json, claude/CLAUDE.md, codex/config.toml, codex/default.rules,
   gemini/settings.json, gemini/GEMINI.md, gh/config.yml, fish/env.fish,
