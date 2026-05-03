@@ -1,0 +1,62 @@
+{
+  "description": "Codex hooks for dotfiles-quality-gate: guides plugin setup, gates dangerous operations, validates tool use",
+  "scopes": ["user", "project"],
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "enabled": true,
+        "description": "Guide recommended plugin installation on session start",
+        "handlers": [
+          {
+            "type": "command",
+            "command": "bash -c 'cat <<EOF\n📦 dotfiles-quality-gate plugin loaded\n\nRecommended plugins (install with: codex plugin install <name>):\n  • superpowers — TDD, debugging, code review, planning\n  • plugin-dev — Plugin development tools\n  • mcp-server-dev — MCP server development\n\nSkills ready to use:\n  /quality-pipeline — Run 7-stage validation before pushing\n  /setup-claude-code — Register GitHub + Codacy MCP servers\n  /dotfiles-apply — Safe doctor/plan/apply workflow\n\nCheck status: codex config show\nEOF'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "Bash.*git\\spush",
+        "enabled": true,
+        "description": "Gate git push without running quality pipeline",
+        "handlers": [
+          {
+            "type": "command",
+            "command": "bash -c 'echo \"⚠️  Before pushing, run: /quality-pipeline\" && exit 1'",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write.*\\.env",
+        "enabled": true,
+        "description": "Block writes to .env files (use .envrc.local instead)",
+        "handlers": [
+          {
+            "type": "command",
+            "command": "bash -c 'echo \"🔒 .env files are protected. Use .envrc.local for personal config.\" && exit 1'",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash.*python.*-m.*unittest",
+        "enabled": true,
+        "description": "Provide guidance after running tests",
+        "handlers": [
+          {
+            "type": "command",
+            "command": "bash -c 'echo \"✓ Tests completed. Next: run /quality-pipeline for full validation.\"'",
+            "timeout": 2
+          }
+        ]
+      }
+    ]
+  }
+}

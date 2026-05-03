@@ -1,0 +1,47 @@
+{
+  "name": "dotfiles-quality-gate",
+  "version": "1.0.0",
+  "description": "Complete quality pipeline for dotfiles: validation, setup, and application with integrated development superpowers",
+  "author": "kairin",
+  "license": "MIT",
+  "repository": "https://github.com/kairin/000-dotfiles",
+  "skills": [
+    {
+      "name": "quality-pipeline",
+      "id": "quality-pipeline",
+      "description": "7-stage pre-push validation: tests → complexity → code review → style → architecture → optimization → Codacy gate"
+    },
+    {
+      "name": "setup-claude-code",
+      "id": "setup-claude-code",
+      "description": "One-time global Claude Code setup: register GitHub and Codacy MCP servers"
+    },
+    {
+      "name": "dotfiles-apply",
+      "id": "dotfiles-apply",
+      "description": "Safe doctor/plan/apply workflow for syncing machine state with dotfiles"
+    }
+  ],
+  "mcp": {
+    "required": ["github", "codacy"],
+    "optional": []
+  },
+  "recommended-plugins": [
+    {
+      "plugin": "superpowers",
+      "reason": "Core development superpowers (TDD, debugging, code review, planning)"
+    },
+    {
+      "plugin": "plugin-dev",
+      "reason": "Plugin development tools (if extending this ecosystem)"
+    },
+    {
+      "plugin": "mcp-server-dev",
+      "reason": "MCP server development (for custom integrations)"
+    },
+    {
+      "plugin": "desktop-commander",
+      "reason": "Local file and directory operations"
+    }
+  ]
+}
