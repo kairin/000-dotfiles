@@ -13,7 +13,7 @@ class DoctorReportTests(DotfilesTestCase):
         report = run_doctor(REPO_ROOT, home)
         data = json.loads(report.to_json())
         states = {entry["entry_id"]: entry["state"] for entry in data["entries"]}
-        self.assertEqual(states["claude.settings"], "drifted")
+        self.assertEqual(states["claude.settings"], "current")
         self.assertEqual(states["git.config"], "protected")
         self.assertIn("summary", data)
 

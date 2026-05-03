@@ -40,6 +40,24 @@ setup               Bash entrypoint that wraps dotfiles_tools with sensible defa
 dotfiles-manifest.json  Source of truth for what installs where
 ```
 
+## MCP Tool Availability
+
+Two MCP servers are available to agents when the required tokens are set.
+
+### GitHub MCP (`mcp__github__*`)
+
+Available when `GITHUB_TOKEN` is set. In this repo, `.envrc.local` populates it via `gh auth token`.
+
+Key tools: `create_issue`, `list_issues`, `create_pull_request`, `list_pull_requests`, `get_pull_request`, `get_pull_request_files`, `get_pull_request_reviews`, `get_pull_request_status`, `push_files`, `search_code`, `search_repositories`.
+
+Prerequisite: `gh auth login` must have been run. If `gh` is not authenticated, `GITHUB_TOKEN` silently becomes an empty string and all GitHub MCP calls will fail — run `gh auth status` to verify.
+
+### Codacy MCP (`mcp__codacy__*`)
+
+Available when `CODACY_ACCOUNT_TOKEN` is set. The token is a machine-level account token stored at `~/.codacy/account-token`; `.envrc.local` sources it via `$(cat ~/.codacy/account-token)`. A project-level token alone is insufficient.
+
+Key tools: `codacy_list_repository_issues`, `codacy_get_file_issues`, `codacy_get_file_coverage`, `codacy_get_pull_request_files_coverage`, `codacy_cli_analyze`, `codacy_setup_repository`.
+
 ## Template Convention
 
 - Files ending in `.template` are copy-and-customize — never source or execute from this path.
