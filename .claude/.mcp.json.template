@@ -2,11 +2,17 @@
   "mcpServers": {
     "github": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"]
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "$GITHUB_TOKEN"
+      }
     },
     "codacy": {
       "command": "npx",
-      "args": ["-y", "@codacy/codacy-mcp@latest"]
+      "args": ["-y", "@codacy/codacy-mcp@latest"],
+      "env": {
+        "CODACY_ACCOUNT_TOKEN": "$CODACY_ACCOUNT_TOKEN"
+      }
     }
   }
 }
