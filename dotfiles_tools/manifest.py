@@ -31,6 +31,8 @@ class ManifestEntry:
     link_target: str | None = None
     mode: str | None = None
     scope: str = "home"
+    user_customizable: bool = False
+    merge_strategy: str | None = None
 
     @property
     def source_path(self) -> Path:
@@ -130,6 +132,7 @@ def _validate_entry_metadata(entry: ManifestEntry) -> None:
     _validate_choice(entry.parse, {None, "json", "toml"}, "parse value", entry.id)
     _validate_choice(entry.placeholders, {"required", "allowed_examples", "none"}, "placeholders value", entry.id)
     _validate_choice(entry.scope, {"home", "repo", "project"}, "scope", entry.id)
+    _validate_choice(entry.merge_strategy, {None, "json_merge"}, "merge_strategy", entry.id)
 
 
 def _validate_choice(value: Any, allowed: set[Any], label: str, entry_id: str) -> None:
@@ -211,6 +214,8 @@ def _parse_entry(raw: Any) -> ManifestEntry:
         link_target=raw.get("link_target"),
         mode=raw.get("mode"),
         scope=str(raw.get("scope", "home")),
+        user_customizable=bool(raw.get("user_customizable", False)),
+        merge_strategy=raw.get("merge_strategy"),
     )
 
 

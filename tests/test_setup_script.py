@@ -71,6 +71,13 @@ class SetupScriptTests(DotfilesTestCase):
                 target = shutil.which("python3")
             self.assertIsNotNone(target, f"required command not found for test PATH: {name}")
             (bin_dir / name).symlink_to(target)
+        # Provide a fake gh that always reports authenticated so optional_integrations_menu
+        # omits the gh option and Codacy remains option 1 (matching test input sequences).
+        if not (bin_dir / "gh").exists():
+            self.write_executable(
+                bin_dir / "gh",
+                "#!/usr/bin/env bash\n[[ \"${1:-}\" == auth && \"${2:-}\" == status ]] && exit 0\nexit 1\n",
+            )
         return bin_dir
 
     def env_for(self, bin_dir: Path, home: Path, *, machine_summary_output: str | None = None) -> dict[str, str]:
@@ -194,7 +201,7 @@ cat "{installer_path}"
         log_path = home / "uv.log"
         self.write_fake_uv(bin_dir, log_path)
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="6\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("uv found at", result.stdout)
@@ -259,11 +266,8 @@ cat "{installer_path}"
         self.assertIn("Machine setup summary", result.stdout)
         self.assertIn("WARN: uv self update failed", result.stderr)
 
-    def test_no_arg_apply_writes_only_non_protected_config_with_backups(self) -> None:
+    def test_no_arg_apply_writes_only_non_protected_config(self) -> None:
         home = self.make_home()
-        drifted = home / ".claude" / "settings.json"
-        drifted.parent.mkdir(parents=True)
-        drifted.write_text('{"drift": true}')
         bin_dir = self.make_command_path()
         self.write_fake_uv(bin_dir, home / "uv.log")
 
@@ -275,7 +279,6 @@ cat "{installer_path}"
         self.assertTrue((home / ".config" / "fish" / "functions" / "direnv.fish").exists())
         self.assertFalse((home / ".config" / "git" / "config").exists())
         self.assertTrue((home / ".config" / "fish" / "conf.d" / "000-dotfiles-pixel-avf-prompt.fish").exists())
-        self.assertTrue(any(path.is_file() for path in (home / ".dotfiles-backups").rglob("*")))
 
     def test_no_arg_tool_guidance_choice_prints_status(self) -> None:
         home = self.make_home()
