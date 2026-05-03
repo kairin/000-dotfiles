@@ -214,6 +214,21 @@ TOOL_BASELINE = (
             },
         ),
     },
+    {
+        "id": "codacy-cli",
+        "label": "Codacy CLI",
+        "command": "codacy-cli",
+        "bootstrap": True,
+        "install_method": "curl_installer",
+        "install_args": {
+            "url": "https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh",
+            "script_name": "codacy-cli.sh",
+            "interpreter": "bash",
+        },
+        "requires_sudo": False,
+        "install_hint": "Installed by the setup tool-install menu option (codacy-cli-v2 install script).",
+        "post_install": (),
+    },
 )
 
 
