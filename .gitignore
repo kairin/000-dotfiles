@@ -4,7 +4,6 @@
 *.token
 .DS_Store
 .specify/
-.agents/
 __pycache__/
 *.pyc
 .coverage
