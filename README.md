@@ -204,7 +204,7 @@ A good dotfiles repo should:
 | `specs/` | — | Design specification, task tracking, contracts |
 | `docs/` | — | Getting started guide, operations docs, issue tracking |
 
-Files ending in `.template` are copy-and-customize sources. Placeholders follow the pattern of double-braces with upper-snake-case content (e.g. `{ {PROJECT_NAME} }`) and must all be replaced before use.
+Files ending in `.template` are copy-and-customize sources. Placeholders follow the pattern of double-braces with upper-snake-case content (e.g. `{{PROJECT_NAME}}`) and must all be replaced before use.
 
 ---
 
