@@ -149,7 +149,43 @@ Confirm to apply:
 Apply these changes? [y/N]: y
 ```
 
-Configs and fonts are now installed. Done!
+Configs and fonts are now installed.
+
+### Step 5b: MCP server registration
+
+After applying dotfiles, setup automatically registers GitHub MCP and Codacy MCP
+with Claude Code at user scope:
+
+```
+  github MCP server registered
+  codacy MCP server registered
+```
+
+Both are registered via `claude mcp add --scope user` and skipped if already
+present. Prerequisites:
+
+- **GitHub MCP**: `gh auth login` must have been run first (so `GITHUB_TOKEN` is
+  non-empty in `~/.envrc.local`).
+- **Codacy MCP**: the machine-level Codacy account token must be set up. Run
+  `./setup`, choose `Configure API tokens` → `Codacy`, and enter your account
+  token.
+
+To verify registration after setup:
+
+```bash
+claude mcp list
+```
+
+Both `github` and `codacy` should appear. Alternatively, `./setup verify` includes
+an MCP server status section in its audit report:
+
+```
+MCP server configuration:
+  Server               Status
+  ---                  ---
+  github               ✓ Configured
+  codacy               ✓ Configured
+```
 
 ### Step 6: Restart your shell
 
@@ -306,7 +342,7 @@ To verify which integrations are configured, run:
 ./setup verify --project ~/Apps/my-project
 ```
 
-The output includes an API credential status table showing:
+The output includes an API credential status table and an MCP server status section:
 
 ```
 API credential status:
@@ -315,9 +351,15 @@ API credential status:
   GitHub (gh)          ✓ Authenticated
   HuggingFace          ✓ Token found
   Codacy               ✗ Not configured
+
+MCP server configuration:
+  Server               Status
+  ---                  ---
+  github               ✓ Configured
+  codacy               ✓ Configured
 ```
 
-This is a quick health check to see which integrations are ready to use.
+This is a quick health check to see which integrations and MCP servers are ready to use.
 
 ---
 

@@ -93,6 +93,29 @@ through local environment files. Do not read, print, cat, copy, or commit those
 secret files. Agents may check whether the environment variables are present,
 but must never reveal their values in logs, comments, docs, or test fixtures.
 
+## MCP Tools
+
+<!-- Remove this section for projects that don't use GitHub or Codacy MCP. -->
+
+These tools are available when the corresponding credentials are configured.
+
+### GitHub MCP (`mcp__github__*`)
+
+Available when `GITHUB_TOKEN` is set in `.envrc.local`. Requires `gh auth login` to have been completed — if it hasn't, `GITHUB_TOKEN` will be empty and all `mcp__github__*` calls will fail silently.
+
+Useful for: creating issues and PRs, searching code, checking PR status and reviews.
+
+Diagnose with:
+```bash
+gh auth status
+```
+
+### Codacy MCP (`mcp__codacy__*`)
+
+Available when `CODACY_ACCOUNT_TOKEN` is set. This is the machine-level account token — `CODACY_PROJECT_TOKEN` alone is insufficient for the MCP server.
+
+Useful for: listing issues, checking coverage, running local analysis via `mcp__codacy__codacy_cli_analyze`.
+
 ## Branch Management
 
 **Format:** `YYYYMMDD-HHMMSS`. Example: `20260420-031200`.
