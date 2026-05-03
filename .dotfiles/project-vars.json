@@ -1,0 +1,10 @@
+{
+  "PROJECT_NAME": "000-dotfiles-main",
+  "PROJECT_DESCRIPTION": "dotfiles",
+  "LANGUAGE": "Not detected",
+  "PACKAGE_MANAGER": "not specified",
+  "RUNTIME_DESCRIPTION": "local project",
+  "INSTALL_CMD": "true  # no install command configured yet",
+  "RUN_CMD": "true  # no run command configured yet",
+  "TEST_CMD": "true  # no test command configured yet"
+}

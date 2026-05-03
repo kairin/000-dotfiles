@@ -1,6 +1,6 @@
 # Implementation Plan: Optional Setup Integrations Menu
 
-**Branch**: `20260504-setup-optional-integrations` | **Date**: 2026-05-02 | **Spec**: [spec.md](./spec.md)
+**Branch**: `20260504-setup-optional-integrations` | **Date**: 2026-05-02 | **Spec**: [spec.md](./spec.md) | **Status**: COMPLETED — 2026-05
 **Input**: Feature specification from `/specs/002-setup-optional-integrations/spec.md`
 
 ## Summary
