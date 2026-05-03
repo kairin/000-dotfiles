@@ -17,5 +17,11 @@ __pycache__/
 !.claude/skills/**
 !.claude/plugins/
 !.claude/plugins/**
+.codex/
+!.codex/plugins/
+!.codex/plugins/**
+.agents/
+!.agents/skills/
+!.agents/skills/**
 .vscode/
 skills-lock.json
