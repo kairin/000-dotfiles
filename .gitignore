@@ -7,6 +7,11 @@
 .agents/
 __pycache__/
 *.pyc
+.coverage
+.coverage.*
+.envrc.local
+.envrc.local.bak.*
+.dotfiles/project-vars.json
 .claude/
 !.claude/skills/
 !.claude/skills/**

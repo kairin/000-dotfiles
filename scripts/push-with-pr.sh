@@ -43,8 +43,7 @@ else
 
     PR_URL=$(gh pr create --base main \
         --title "$TITLE" \
-        --body "$BODY" \
-        --fill 2>&1 | grep "https://github.com" || echo "")
+        --body "$BODY" 2>&1 | grep "https://github.com" || echo "")
 
     if [ -z "$PR_URL" ]; then
         echo -e "${RED}✗ Failed to create PR${NC}"

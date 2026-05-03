@@ -18,6 +18,7 @@ cat > "$HOOKS_DIR/pre-push" << 'HOOK'
 # Bypass with: git push --no-verify (not recommended)
 
 set -e
+set -o pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
