@@ -1,0 +1,80 @@
+{
+  "name": "dotfiles-quality-gate",
+  "version": "1.0.0",
+  "description": "Complete quality pipeline for dotfiles: validation, setup, and application with integrated development superpowers",
+  "author": "kairin",
+  "license": "MIT",
+  "repository": "https://github.com/kairin/000-dotfiles",
+  "homepage": "https://github.com/kairin/000-dotfiles#dotfiles-quality-gate",
+  "skills": [
+    {
+      "name": "quality-pipeline",
+      "path": "../../.agents/skills/quality-pipeline",
+      "description": "7-stage pre-push validation: tests → complexity → code review → style → architecture → optimization → Codacy gate"
+    },
+    {
+      "name": "setup-claude-code",
+      "path": "../../.agents/skills/setup-claude-code",
+      "description": "One-time global Claude Code setup: register GitHub and Codacy MCP servers"
+    },
+    {
+      "name": "dotfiles-apply",
+      "path": "../../.agents/skills/dotfiles-apply",
+      "description": "Safe doctor/plan/apply workflow for syncing machine state with dotfiles"
+    }
+  ],
+  "mcp": {
+    "servers": [
+      {
+        "name": "github",
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"],
+        "env": {
+          "GITHUB_TOKEN": "$(gh auth token)"
+        },
+        "required": true,
+        "description": "GitHub operations: issues, PRs, code search"
+      },
+      {
+        "name": "codacy",
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", "@codacy/codacy-mcp@latest"],
+        "env": {
+          "CODACY_ACCOUNT_TOKEN": "$(cat ~/.codacy/account-token)"
+        },
+        "required": true,
+        "description": "Codacy quality metrics and issue tracking"
+      }
+    ]
+  },
+  "hooks": {
+    "path": "hooks/hooks.json"
+  },
+  "recommended": [
+    {
+      "name": "superpowers",
+      "reason": "Core development workflows (TDD, debugging, code review, planning)"
+    },
+    {
+      "name": "plugin-dev",
+      "reason": "Plugin development tools (if extending this ecosystem)"
+    },
+    {
+      "name": "mcp-server-dev",
+      "reason": "MCP server development (for custom integrations)"
+    }
+  ],
+  "settings": {
+    "quality-pipeline": {
+      "enabled": true,
+      "stages": ["tests", "complexity", "review", "style", "architecture", "optimization", "gate"],
+      "description": "Enable/disable individual quality pipeline stages"
+    }
+  },
+  "codex": {
+    "marketplace": "https://github.com/openai/codex-plugins/tree/main/plugins/dotfiles-quality-gate",
+    "installation": "codex plugin install kairin/000-dotfiles-quality-gate"
+  }
+}
