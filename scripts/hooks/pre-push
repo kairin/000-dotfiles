@@ -1,0 +1,138 @@
+#!/bin/bash
+
+# Pre-push hook: enforce quality checks before pushing to remote
+# Focuses on newly modified files to avoid blocking on pre-existing issues
+# Bypass with: git push --no-verify (not recommended)
+
+set -e
+set -o pipefail
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}════════════════════════════════════════════════════════${NC}"
+echo -e "${BLUE}Running Pre-Push Quality Checks${NC}"
+echo -e "${BLUE}════════════════════════════════════════════════════════${NC}"
+
+FAILED=0
+
+# ============================================================================
+# 1. UNIT TESTS (Hard requirement - always run)
+# ============================================================================
+echo -e "\n${YELLOW}[1/4] Running unit tests...${NC}"
+if uv run python -m unittest discover -s tests 2>&1 | tail -3; then
+    echo -e "${GREEN}✓ All unit tests passed${NC}"
+else
+    echo -e "${RED}✗ Unit tests failed - BLOCKING${NC}"
+    FAILED=1
+fi
+
+# ============================================================================
+# 2. COMPLEXITY CHECK (For all modified Python files in dotfiles_tools/)
+# ============================================================================
+echo -e "\n${YELLOW}[2/4] Checking complexity of modified files...${NC}"
+
+# Get list of ALL modified Python files in dotfiles_tools/ (not just doctor.py and installer.py)
+MODIFIED_FILES=$(git diff origin/main...HEAD --name-only --diff-filter=ACM | grep 'dotfiles_tools/.*\.py$' || true)
+
+if [ -z "$MODIFIED_FILES" ]; then
+    echo -e "${GREEN}✓ No modified Python files to check${NC}"
+else
+    echo "   Files to check: $MODIFIED_FILES"
+
+    for file in $MODIFIED_FILES; do
+        echo "   Analyzing: $file"
+        RESULT=$(uv run --with radon radon cc "$file" -a 2>&1 | tail -1)
+        echo "   $RESULT"
+
+        # Extract average complexity (should be < 5 for new code)
+        # Use awk instead of bc to avoid dependency on bc
+        AVG=$(echo "$RESULT" | grep -oE '[0-9]+\.[0-9]+' | head -1)
+        if [ -n "$AVG" ]; then
+            # Use awk for float comparison (bc-independent)
+            if awk "BEGIN {exit !($AVG > 5)}"; then
+                echo -e "   ${RED}✗ Average complexity $AVG exceeds 5.0${NC}"
+                FAILED=1
+            fi
+        fi
+    done
+
+    if [ "$FAILED" -eq 0 ]; then
+        echo -e "${GREEN}✓ Modified files meet complexity standards${NC}"
+    fi
+fi
+
+# ============================================================================
+# 3. TYPE ANNOTATIONS CHECK (Warning only - not blocking)
+# ============================================================================
+echo -e "\n${YELLOW}[3/4] Checking type annotations in modified files...${NC}"
+
+if [ -z "$MODIFIED_FILES" ]; then
+    echo -e "${GREEN}✓ No modified Python files to check${NC}"
+else
+    MISSING=0
+    for file in $MODIFIED_FILES; do
+        # Count functions without return type annotations (rough check)
+        MISSING_COUNT=$(grep -c "^def " "$file" 2>/dev/null | head -1)
+        ANNOTATED=$(grep -c "^def .* -> " "$file" 2>/dev/null | head -1)
+        PRIVATE=$(grep -c "^def _" "$file" 2>/dev/null | head -1)
+
+        MISSING_COUNT=$((MISSING_COUNT - ANNOTATED - PRIVATE))
+        if [ "$MISSING_COUNT" -gt 0 ]; then
+            echo -e "   ${YELLOW}⚠ $file: $MISSING_COUNT public functions may lack return types${NC}"
+            MISSING=$((MISSING + MISSING_COUNT))
+        fi
+    done
+
+    if [ "$MISSING" -eq 0 ]; then
+        echo -e "${GREEN}✓ Type annotations look good${NC}"
+    else
+        echo -e "   ${YELLOW}(Warnings only - not blocking)${NC}"
+    fi
+fi
+
+# ============================================================================
+# 4. LINE LENGTH CHECK (Warning only - not blocking)
+# ============================================================================
+echo -e "\n${YELLOW}[4/4] Checking line length in modified files...${NC}"
+
+if [ -z "$MODIFIED_FILES" ]; then
+    echo -e "${GREEN}✓ No modified Python files to check${NC}"
+else
+    LONG_LINES=0
+    for file in $MODIFIED_FILES; do
+        # Count lines exceeding 79 characters
+        COUNT=$(awk 'length > 79 {count++} END {print count+0}' "$file")
+        if [ "$COUNT" -gt 0 ]; then
+            echo -e "   ${YELLOW}⚠ $file: $COUNT lines exceed 79 characters${NC}"
+            LONG_LINES=$((LONG_LINES + COUNT))
+        fi
+    done
+
+    if [ "$LONG_LINES" -eq 0 ]; then
+        echo -e "${GREEN}✓ Line length looks good${NC}"
+    else
+        echo -e "   ${YELLOW}(Warnings only - not blocking)${NC}"
+    fi
+fi
+
+# ============================================================================
+# RESULT
+# ============================================================================
+echo -e "\n${BLUE}════════════════════════════════════════════════════════${NC}"
+if [ "$FAILED" -eq 0 ]; then
+    echo -e "${GREEN}✓ All critical checks passed!${NC}"
+    echo -e "${BLUE}Ready to push to remote${NC}"
+else
+    echo -e "${RED}✗ Critical checks failed!${NC}"
+    echo -e "${RED}Fix the issues above and try again.${NC}"
+    exit 1
+fi
+echo -e "${BLUE}════════════════════════════════════════════════════════${NC}"
