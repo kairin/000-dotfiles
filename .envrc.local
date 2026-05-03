@@ -1,9 +1,0 @@
-export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
-
-# BEGIN DOTFILES CODACY
-export CODACY_ORGANIZATION_PROVIDER="gh"
-export CODACY_USERNAME="kairin"
-export CODACY_PROJECT_NAME="000-dotfiles"
-export CODACY_ACCOUNT_TOKEN="$(cat "$HOME/.codacy/account-token")"
-export CODACY_PROJECT_TOKEN="$(cat "$HOME/.codacy/kairin-000-dotfiles.project-token")"
-# END DOTFILES CODACY
