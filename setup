@@ -381,16 +381,17 @@ check_mcp_servers() {
   fi
 
   local servers
-  servers=$(python3 -c "
-import json
+  servers=$(python3 - "$claude_json" <<'PYSCRIPT' 2>/dev/null
+import json, sys
 try:
-  with open('$claude_json', 'r') as f:
+  with open(sys.argv[1], 'r') as f:
     data = json.load(f)
     for name in data.get('mcpServers', {}).keys():
       print(name)
-except:
+except Exception:
   pass
-" 2>/dev/null)
+PYSCRIPT
+)
 
   if [[ -z "$servers" ]]; then
     echo "  (none defined)       ⚠ no user MCP servers in ~/.claude.json"
@@ -410,13 +411,16 @@ check_mcp_server_config() {
   local claude_json="$HOME/.claude.json"
 
   local server_config
-  server_config=$(python3 << PYSCRIPT 2>/dev/null
-import json
-with open("$claude_json", 'r') as f:
-  data = json.load(f)
-  cfg = data.get('mcpServers', {}).get('$server_name')
-  if cfg:
-    print(json.dumps(cfg))
+  server_config=$(python3 - "$claude_json" "$server_name" <<'PYSCRIPT' 2>/dev/null
+import json, sys
+try:
+  with open(sys.argv[1], 'r') as f:
+    data = json.load(f)
+    cfg = data.get('mcpServers', {}).get(sys.argv[2])
+    if cfg:
+      print(json.dumps(cfg))
+except Exception:
+  pass
 PYSCRIPT
 )
 
@@ -457,14 +461,15 @@ PYSCRIPT
 ensure_mcp_servers() {
   local claude_json="$HOME/.claude.json"
   local registered
-  registered=$(python3 -c "
-import json
+  registered=$(python3 - "$claude_json" <<'PYSCRIPT' 2>/dev/null
+import json, sys
 try:
-  with open('$claude_json','r') as f:
-    print(' '.join(json.load(f).get('mcpServers',{}).keys()))
-except:
+  with open(sys.argv[1], 'r') as f:
+    print(' '.join(json.load(f).get('mcpServers', {}).keys()))
+except Exception:
   pass
-" 2>/dev/null)
+PYSCRIPT
+)
 
   if [[ "$registered" != *"github"* ]]; then
     claude mcp add -e 'GITHUB_TOKEN=$GITHUB_TOKEN' --scope user github -- npx -y @modelcontextprotocol/server-github 2>/dev/null \
