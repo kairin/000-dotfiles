@@ -1,0 +1,17 @@
+{
+  "description": "Setup hooks for dotfiles-quality-gate plugin: guides recommended plugin installation",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'cat <<EOF\n📦 dotfiles-quality-gate plugin loaded\n\nRecommended plugins (install with: claude plugin install <name>):\n  • superpowers — TDD, debugging, code review\n  • plugin-dev — Plugin development tools\n  • mcp-server-dev — MCP server development\n  • desktop-commander — File operations\n\nSkills ready to use:\n  /quality-pipeline, /setup-claude-code, /dotfiles-apply\nEOF'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
