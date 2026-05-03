@@ -1,0 +1,16 @@
+{
+  "description": "Setup hooks for dotfiles-quality-gate plugin: guides recommended plugin installation and validates environment",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "User just started Claude Code with dotfiles-quality-gate plugin installed. Check which recommended plugins are missing: superpowers, plugin-dev, mcp-server-dev, desktop-commander. For each missing plugin, provide install command: `claude plugin install <plugin-name>`. Keep it brief (2-3 sentences max) and don't block the session."
+          }
+        ]
+      }
+    ]
+  }
+}
