@@ -6,7 +6,7 @@ from typing import Any
 
 from .backups import BackupError, create_backup
 from .doctor import evaluate_entry
-from .manifest import ManifestError, load_manifest, resolve_source, resolve_target, validate_included_protected
+from .manifest import ManifestEntry, ManifestError, load_manifest, resolve_source, resolve_target, validate_included_protected
 from .reports import Report
 from .templates import expected_text
 
@@ -27,7 +27,12 @@ def build_plan(repo: Path | str, home: Path | str, *, profile: str = "machine", 
     except ManifestError as exc:
         errors.append({"message": str(exc)})
     _renumber_operations(operations)
-    status = "failed" if errors or any(entry["state"] in {"invalid", "blocked"} for entry in entries) else "warning" if operations else "ok"
+    if errors or any(entry["state"] in {"invalid", "blocked"} for entry in entries):
+        status = "failed"
+    elif operations:
+        status = "warning"
+    else:
+        status = "ok"
     return Report("plan", status, str(repo_path), home=str(home_path), profile=profile, entries=entries, operations=operations, errors=errors)
 
 
@@ -182,7 +187,7 @@ def _failed_apply_report(
     return report
 
 
-def _operations_for_state(repo: Path, home: Path, entry, state: dict[str, Any]) -> list[dict[str, Any]]:
+def _operations_for_state(repo: Path, home: Path, entry: ManifestEntry, state: dict[str, Any]) -> list[dict[str, Any]]:
     source = resolve_source(repo, entry)
     target = resolve_target(repo, home, entry)
     base = {
@@ -216,6 +221,6 @@ def _renumber_operations(operations: list[dict[str, Any]]) -> None:
         operation["operation_id"] = f"op-{index:03d}"
 
 
-def _entry_for(entry_id: str, repo: Path):
+def _entry_for(entry_id: str, repo: Path) -> ManifestEntry:
     manifest = load_manifest(repo)
     return manifest.entry_map()[entry_id]

@@ -116,7 +116,9 @@ def _file_target_state(result: dict[str, Any], source_path: Path, target_path: P
     return _state(result, "drifted", "target differs from source")
 
 
-def _json_merge_target_state(result: dict[str, Any], source_path: Path, target_path: Path) -> dict[str, Any]:
+def _json_merge_target_state(
+    result: dict[str, Any], source_path: Path, target_path: Path
+) -> dict[str, Any]:
     try:
         source_text = source_path.read_text()
         source = json.loads(source_text)
@@ -126,25 +128,39 @@ def _json_merge_target_state(result: dict[str, Any], source_path: Path, target_p
     missing = _missing_json_keys(source, target)
     if not missing:
         return _state(result, "current", "required entries are present")
-    return _state(result, "needs_merge", f"missing entries: {', '.join(missing)}")
+    missing_str = ", ".join(missing)
+    return _state(result, "needs_merge", f"missing entries: {missing_str}")
+
+
+def _check_missing_key(key: str, source_value: Any, target: dict[str, Any], missing: list[str]) -> None:
+    if not isinstance(source_value, dict):
+        if key not in target:
+            missing.append(key)
+        return
+    _missing_nested_keys(key, source_value, target, missing)
+
+
+def _missing_nested_keys(
+    key: str,
+    source_value: dict[str, Any],
+    target: dict[str, Any],
+    missing: list[str],
+) -> None:
+    target_sub = target.get(key, {})
+    if not isinstance(target_sub, dict):
+        missing.append(key)
+        return
+    for sub_key in source_value:
+        if sub_key not in target_sub:
+            missing.append(f"{key}.{sub_key}")
 
 
 def _missing_json_keys(source: Any, target: Any) -> list[str]:
-    missing: list[str] = []
     if not isinstance(source, dict) or not isinstance(target, dict):
-        return missing
+        return []
+    missing: list[str] = []
     for key, source_value in source.items():
-        if isinstance(source_value, dict):
-            target_sub = target.get(key, {})
-            if not isinstance(target_sub, dict):
-                missing.append(key)
-            else:
-                for sub_key in source_value:
-                    if sub_key not in target_sub:
-                        missing.append(f"{key}.{sub_key}")
-        else:
-            if key not in target:
-                missing.append(key)
+        _check_missing_key(key, source_value, target, missing)
     return sorted(missing)
 
 
