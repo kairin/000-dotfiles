@@ -15,6 +15,7 @@
         "gh.config",
         "fish.env",
         "fish.direnv",
+        "fish.direnv-hook",
         "fish.plugins",
         "git.config"
       ]
@@ -140,6 +141,16 @@
       "id": "fish.direnv",
       "source": "fish/functions/direnv.fish",
       "target": ".config/fish/functions/direnv.fish",
+      "kind": "file",
+      "profiles": ["machine"],
+      "protected": false,
+      "user_customizable": true,
+      "placeholders": "none"
+    },
+    {
+      "id": "fish.direnv-hook",
+      "source": "fish/conf.d/direnv.fish",
+      "target": ".config/fish/conf.d/direnv.fish",
       "kind": "file",
       "profiles": ["machine"],
       "protected": false,

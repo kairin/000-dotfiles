@@ -1089,7 +1089,19 @@ EOF
   if [[ "$has_active_token" -eq 0 ]]; then
     echo "A Codacy token is required before activation."
   fi
-  echo "Run your shell reload step, such as: direnv allow \"$project\""
+
+  # Auto-run direnv allow since user already approved the changes
+  if command -v direnv >/dev/null 2>&1; then
+    if direnv allow "$project" 2>/dev/null; then
+      echo "✓ direnv allowed for $project"
+      echo "  Environment will load automatically when you cd into the project."
+    else
+      echo "Note: Run 'direnv allow \"$project\"' manually to activate the environment."
+    fi
+  else
+    echo "Note: direnv not installed. Install via './setup' (machine setup)."
+    echo "Once installed, run: direnv allow \"$project\""
+  fi
 }
 
 configure_machine_api_tokens() {
@@ -1217,25 +1229,25 @@ configure_codacy_account_token() {
 optional_integrations_menu() {
   local project="$1"
   while true; do
-    local menu_items="" choice_count=1 gh_opt="" codacy_opt="" back_opt=""
+    local choice_count=1 gh_num="" codacy_num="" back_num=""
 
     # Check which services need configuration
     if ! (command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1); then
-      gh_opt="$choice_count. Manage GitHub (gh) API access."
+      gh_num="$choice_count"
       ((choice_count++))
     fi
 
-    codacy_opt="$choice_count. Manage Codacy API access."
+    codacy_num="$choice_count"
     ((choice_count++))
-    back_opt="$choice_count. Back to project setup."
+    back_num="$choice_count"
 
     echo
     echo "Optional integrations and APIs:"
-    [[ -n "$gh_opt" ]] && echo "  $gh_opt"
-    echo "  $codacy_opt"
-    echo "  $back_opt"
+    [[ -n "$gh_num" ]] && echo "  $gh_num. Manage GitHub (gh) API access."
+    echo "  $codacy_num. Manage Codacy API access."
+    echo "  $back_num. Back to project setup."
 
-    printf "Choose [1-$((choice_count-1))]: "
+    printf "Choose [1-%s]: " "$back_num"
     local choice
     if ! read -r -e choice; then
       echo
@@ -1243,29 +1255,16 @@ optional_integrations_menu() {
       return 10
     fi
 
-    case "$choice" in
-      1)
-        if [[ -n "$gh_opt" ]]; then
-          configure_gh_auth
-        else
-          configure_codacy_env "$project"
-        fi
-        ;;
-      2)
-        if [[ -n "$gh_opt" ]]; then
-          configure_codacy_env "$project"
-        else
-          return 0
-        fi
-        ;;
-      $((choice_count-1))|"")
-        echo "No optional integration selection received; project files were not changed."
-        return 10
-        ;;
-      *)
-        echo "Unknown choice: $choice" >&2
-        ;;
-    esac
+    if [[ -z "$choice" || "$choice" == "$back_num" ]]; then
+      echo "No optional integration selection received; project files were not changed."
+      return 10
+    elif [[ -n "$gh_num" && "$choice" == "$gh_num" ]]; then
+      configure_gh_auth
+    elif [[ "$choice" == "$codacy_num" ]]; then
+      configure_codacy_env "$project"
+    else
+      echo "Unknown choice: $choice" >&2
+    fi
   done
 }
 
