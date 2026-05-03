@@ -12,6 +12,8 @@ class WorkflowTests(DotfilesTestCase):
         self.assertIn("steps.codacy_status.outputs.status == 'analyzed'", workflow)
         self.assertIn("steps.codacy_status.outputs.status != 'analyzed'", workflow)
         self.assertIn("scripts/quality-pipeline.sh", workflow)
+        self.assertIn("coverage.xml", workflow)
+        self.assertIn("codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699", workflow)
         self.assertIn("codacy-cli-v2/main/codacy-cli.sh) download", workflow)
         self.assertIn('ln -sf "$CLI_PATH" "$INSTALL_DIR/codacy-cli-v2"', workflow)
         self.assertIn('ln -sf "$CLI_PATH" "$INSTALL_DIR/codacy-cli"', workflow)

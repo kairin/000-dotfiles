@@ -74,3 +74,10 @@ jobs:
       - name: Run quality pipeline (fallback path)
         if: steps.codacy_status.outputs.status != 'analyzed'
         run: bash scripts/quality-pipeline.sh
+
+      - name: Upload coverage to Codacy
+        if: steps.codacy_status.outputs.status != 'analyzed' && env.CODACY_PROJECT_TOKEN != ''
+        uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: coverage.xml
