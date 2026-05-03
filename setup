@@ -884,6 +884,13 @@ build_codacy_managed_section() {
   printf 'export CODACY_ORGANIZATION_PROVIDER="%s"\n' "$provider"
   printf 'export CODACY_USERNAME="%s"\n' "$owner_escaped"
   printf 'export CODACY_PROJECT_NAME="%s"\n' "$repo_escaped"
+
+  # Include machine-level account token if it exists
+  local account_token_file="$HOME/.codacy/account-token"
+  if [[ -f "$account_token_file" ]]; then
+    printf 'export CODACY_ACCOUNT_TOKEN="$(cat "%s")"\n' "$account_token_file"
+  fi
+
   if [[ "$has_active_token" -eq 1 ]]; then
     printf 'export %s="$(cat "%s")"\n' "$token_var" "$token_ref"
   else
@@ -1089,7 +1096,7 @@ configure_machine_api_tokens() {
   while true; do
     echo
     echo "Machine-level API Authentication:"
-    local gh_status="Configure" hf_status="Configure"
+    local gh_status="Configure" hf_status="Configure" codacy_status="Configure"
 
     # Check status for display
     if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
@@ -1098,14 +1105,18 @@ configure_machine_api_tokens() {
     if [[ -f "$HOME/.cache/huggingface/token" ]]; then
       hf_status="Reconfigure"
     fi
+    if [[ -f "$HOME/.codacy/account-token" ]]; then
+      codacy_status="Reconfigure"
+    fi
 
     cat <<EOF
   1. $gh_status GitHub (gh) authentication
   2. $hf_status HuggingFace Hub access
-  3. Back to main menu
+  3. $codacy_status Codacy account token
+  4. Back to main menu
 EOF
 
-    printf "Choose [1-3]: "
+    printf "Choose [1-4]: "
     local choice
     if ! read -r -e choice; then
       echo
@@ -1115,7 +1126,8 @@ EOF
     case "$choice" in
       1) configure_gh_auth ;;
       2) configure_huggingface_global ;;
-      3|"") return 0 ;;
+      3) configure_codacy_account_token ;;
+      4|"") return 0 ;;
       *) echo "Unknown choice: $choice" >&2 ;;
     esac
   done
@@ -1170,6 +1182,36 @@ configure_huggingface_global() {
       echo "✓ HuggingFace token configured"
     fi
   fi
+}
+
+configure_codacy_account_token() {
+  local token_value token_dir token_file
+  echo
+  echo "Setting up Codacy account token..."
+  echo "Get your account token from: https://app.codacy.com/account/tokens"
+  echo
+  printf 'Paste Codacy account token (or press enter to skip): '
+  if ! read -r -s token_value; then
+    echo
+    echo "Codacy account token setup cancelled."
+    return 0
+  fi
+  echo
+
+  if [[ -z "$token_value" ]]; then
+    echo "No token provided. Codacy account token will not be configured."
+    return 0
+  fi
+
+  token_dir="$HOME/.codacy"
+  token_file="$token_dir/account-token"
+  mkdir -p "$token_dir" || return 1
+  chmod 700 "$token_dir"
+  printf '%s\n' "$token_value" > "$token_file" || return 1
+  chmod 600 "$token_file"
+
+  echo "✓ Codacy account token configured at $token_file"
+  echo "  This token will be automatically available in all projects via direnv."
 }
 
 optional_integrations_menu() {
