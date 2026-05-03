@@ -8,5 +8,7 @@
 __pycache__/
 *.pyc
 .claude/
+!.claude/skills/
+!.claude/skills/**
 .vscode/
 skills-lock.json
