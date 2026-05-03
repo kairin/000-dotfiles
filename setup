@@ -330,6 +330,151 @@ check_placeholders() {
   return 0
 }
 
+check_api_credentials() {
+  echo
+  echo "API credential status:"
+  echo "  Service              Status"
+  echo "  ---                  ---"
+
+  # Check gh CLI
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    echo "  GitHub (gh)          ✓ Authenticated"
+  else
+    echo "  GitHub (gh)          ✗ Not configured"
+  fi
+
+  # Check HuggingFace token
+  if [[ -n "${HF_TOKEN:-}" ]] || [[ -f "$HOME/.cache/huggingface/token" ]]; then
+    echo "  HuggingFace          ✓ Token found"
+  else
+    echo "  HuggingFace          ✗ Not configured"
+  fi
+
+  # Check Codacy token (account token or any project token)
+  if [[ -f "$HOME/.codacy/account-token" ]] || ls "$HOME/.codacy"/*.project-token >/dev/null 2>&1; then
+    echo "  Codacy               ✓ Token found"
+  else
+    echo "  Codacy               ✗ Not configured"
+  fi
+}
+
+check_mcp_servers() {
+  echo
+  echo "MCP server configuration:"
+  echo "  Server               Status"
+  echo "  ---                  ---"
+
+  local claude_json="$HOME/.claude.json"
+
+  if [[ ! -f "$claude_json" ]]; then
+    echo "  (none configured)    ✗ ~/.claude.json not found"
+    return
+  fi
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "  (validation)         ✗ python3 required for JSON validation"
+    return
+  fi
+
+  local servers
+  servers=$(python3 -c "
+import json
+try:
+  with open('$claude_json', 'r') as f:
+    data = json.load(f)
+    for name in data.get('mcpServers', {}).keys():
+      print(name)
+except:
+  pass
+" 2>/dev/null)
+
+  if [[ -z "$servers" ]]; then
+    echo "  (none defined)       ⚠ no user MCP servers in ~/.claude.json"
+    return
+  fi
+
+  local has_issues=0
+  for server in $servers; do
+    check_mcp_server_config "$server" || has_issues=1
+  done
+
+  return $has_issues
+}
+
+check_mcp_server_config() {
+  local server_name="$1"
+  local claude_json="$HOME/.claude.json"
+
+  local server_config
+  server_config=$(python3 << PYSCRIPT 2>/dev/null
+import json
+with open("$claude_json", 'r') as f:
+  data = json.load(f)
+  cfg = data.get('mcpServers', {}).get('$server_name')
+  if cfg:
+    print(json.dumps(cfg))
+PYSCRIPT
+)
+
+  if [[ -z "$server_config" ]]; then
+    echo "  $server_name         ✗ Not registered (run: claude mcp add --scope user)"
+    return 1
+  fi
+
+  local command env_vars
+  command=$(echo "$server_config" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('command',''))" 2>/dev/null)
+  env_vars=$(echo "$server_config" | python3 -c "import json,sys; d=json.load(sys.stdin); print(' '.join(d.get('env',{}).keys()))" 2>/dev/null)
+
+  if ! command -v "$command" >/dev/null 2>&1; then
+    echo "  $server_name         ⚠ Command '$command' not available"
+    return 1
+  fi
+
+  local all_env_ok=1
+  for env_var in $env_vars; do
+    if [[ -z "${!env_var:-}" ]]; then
+      if [[ -f "$HOME/.envrc.local" ]] && grep -q "$env_var" "$HOME/.envrc.local"; then
+        continue
+      else
+        all_env_ok=0
+      fi
+    fi
+  done
+
+  if [[ $all_env_ok -eq 0 ]]; then
+    echo "  $server_name         ⚠ Environment variables not set (source .envrc.local?)"
+    return 1
+  fi
+
+  echo "  $server_name         ✓ Configured"
+  return 0
+}
+
+ensure_mcp_servers() {
+  local claude_json="$HOME/.claude.json"
+  local registered
+  registered=$(python3 -c "
+import json
+try:
+  with open('$claude_json','r') as f:
+    print(' '.join(json.load(f).get('mcpServers',{}).keys()))
+except:
+  pass
+" 2>/dev/null)
+
+  if [[ "$registered" != *"github"* ]]; then
+    claude mcp add -e 'GITHUB_TOKEN=$GITHUB_TOKEN' --scope user github -- npx -y @modelcontextprotocol/server-github 2>/dev/null \
+      && echo "  github MCP server registered" \
+      || echo "  github MCP server registration failed (is claude CLI installed?)"
+  fi
+
+  if [[ "$registered" != *"codacy"* ]]; then
+    claude mcp add -e 'CODACY_ACCOUNT_TOKEN=$CODACY_ACCOUNT_TOKEN' --scope user codacy -- npx -y @codacy/codacy-mcp@latest 2>/dev/null \
+      && echo "  codacy MCP server registered" \
+      || echo "  codacy MCP server registration failed (is claude CLI installed?)"
+  fi
+}
+
 cmd_verify() {
   local project="" copilot=0
   while [[ $# -gt 0 ]]; do
@@ -396,6 +541,8 @@ cmd_verify() {
     return 1
   fi
   echo "Verification passed."
+  check_api_credentials
+  check_mcp_servers
   return 0
 }
 
@@ -510,18 +657,22 @@ run_machine_install_tools_with_confirm() {
   echo
   printf 'Apply tool install/update actions? [y/N]: '
   local confirm
-  if read -r confirm && [[ "$confirm" =~ ^[Yy]$ ]]; then
+  if read -r -e confirm && [[ "$confirm" =~ ^[Yy]$ ]]; then
     echo
     run_machine_install_tools_apply || return $?
+    return 2
   else
     echo "No tool changes applied."
+    return 2
   fi
 }
 
 run_machine_apply_with_message() {
   echo
   echo "Applying safe non-protected machine dotfiles and approved install/update recipes..."
-  run_machine_apply
+  run_machine_apply || return $?
+  ensure_mcp_servers
+  return 2
 }
 
 run_machine_summary() {
@@ -531,18 +682,14 @@ run_machine_summary() {
     --profile machine)
 }
 
-run_machine_menu_mode() {
-  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools.machine_summary \
-    --repo "$DOTFILES_REPO" \
-    --home "$HOME" \
-    --menu-mode)
-}
-
-run_machine_missing_tool_count() {
-  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools.machine_summary \
-    --repo "$DOTFILES_REPO" \
-    --home "$HOME" \
-    --missing-tool-count)
+extract_machine_recommendation() {
+  local summary_text="$1"
+  local recommendation_body
+  recommendation_body="$(printf '%s\n' "$summary_text" | sed -n 's/^Recommended next step: //p' | head -n1)"
+  if [[ -z "$recommendation_body" ]]; then
+    recommendation_body="5. Exit without writing - Setup is current and no write action is needed."
+  fi
+  printf '%s\n' "$recommendation_body"
 }
 
 run_machine_details() {
@@ -558,25 +705,34 @@ show_tool_auth_commands() {
 }
 
 machine_menu_loop() {
-  local header_line="$1"
+  local recommendation_body="$1"
   local rec_opt="$2"
   while true; do
     local opt1="  1. Install / update developer tools (preview, then apply)."
     local opt2="  2. Apply safe non-protected dotfiles and approved install/update recipes."
+    local opt3="  3. Show full technical details."
+    local opt4="  4. Show tool and sign-in guidance."
+    local opt5="  5. Configure API tokens (GitHub, HuggingFace, Codacy)."
+    local opt6="  6. Exit without writing."
     [[ "$rec_opt" == "1" ]] && opt1+=" [recommended]"
     [[ "$rec_opt" == "2" ]] && opt2+=" [recommended]"
+    [[ "$rec_opt" == "3" ]] && opt3+=" [recommended]"
+    [[ "$rec_opt" == "4" ]] && opt4+=" [recommended]"
+    [[ "$rec_opt" == "5" ]] && opt5+=" [recommended]"
+    [[ "$rec_opt" == "6" ]] && opt6+=" [recommended]"
     cat <<EOF
 
-${header_line}
+Recommended next step: ${recommendation_body}
 ${opt1}
 ${opt2}
-  3. Show full technical details.
-  4. Show tool and sign-in guidance.
-  5. Exit without writing.
+${opt3}
+${opt4}
+${opt5}
+${opt6}
 EOF
-    printf 'Choose [1-5]: '
+    printf 'Choose [1-6]: '
     local choice
-    if ! read -r choice; then
+    if ! read -r -e choice; then
       echo
       echo "No interactive selection received; no changes applied."
       return 0
@@ -586,34 +742,41 @@ EOF
       2) run_machine_apply_with_message; return $? ;;
       3) echo; run_machine_details ;;
       4) echo; show_tool_auth_commands ;;
-      5|"") echo "No changes applied."; return 0 ;;
+      5) echo; configure_machine_api_tokens ;;
+      6|"") echo "No changes applied."; return 0 ;;
       *) echo "Unknown choice: $choice" >&2 ;;
     esac
   done
 }
 
 machine_menu() {
-  local mode="${1:-tools_present}"
-  if [[ "$mode" == "tools_missing" ]]; then
-    local missing_count
-    missing_count="$(run_machine_missing_tool_count 2>/dev/null)" || missing_count="?"
-    [[ -z "$missing_count" ]] && missing_count="?"
-    machine_menu_loop "Next steps (${missing_count} developer tools missing):" "1"
-  else
-    machine_menu_loop "Next steps:" "2"
-  fi
+  local recommendation_body="${1:-5. Exit without writing - Setup is current and no write action is needed.}"
+  local rec_opt="${2:-5}"
+  machine_menu_loop "$recommendation_body" "$rec_opt"
 }
 
 cmd_machine_setup() {
   preflight_common
   echo "Preparing/checking this computer with profile: machine"
   echo
-  run_machine_summary
-  local mode
-  if ! mode="$(run_machine_menu_mode)" || [[ -z "$mode" ]]; then
-    mode="tools_present"
-  fi
-  machine_menu "$mode"
+  while true; do
+    local summary_output recommendation_body rec_opt menu_status
+    summary_output="$(run_machine_summary)"
+    printf '%s\n' "$summary_output"
+    recommendation_body="$(extract_machine_recommendation "$summary_output")"
+    rec_opt="${recommendation_body%%.*}"
+    [[ "$rec_opt" =~ ^[1-5]$ ]] || rec_opt="5"
+    if machine_menu "$recommendation_body" "$rec_opt"; then
+      menu_status=0
+    else
+      menu_status=$?
+    fi
+    if [[ "$menu_status" -eq 2 ]]; then
+      echo
+      continue
+    fi
+    return "$menu_status"
+  done
 }
 
 project_is_empty() {
@@ -627,6 +790,491 @@ show_project_vars() {
   sed -n '1,200p' "$vars"
 }
 
+CODACY_SECTION_BEGIN="# BEGIN DOTFILES CODACY"
+CODACY_SECTION_END="# END DOTFILES CODACY"
+
+codacy_safe_name() {
+  local raw="$1" out="" char
+  local i
+  for ((i = 0; i < ${#raw}; i++)); do
+    char="${raw:i:1}"
+    if [[ "$char" =~ [A-Za-z0-9._-] ]]; then
+      out+="$char"
+    else
+      out+="-"
+    fi
+  done
+  [[ -n "$out" ]] || out="project"
+  printf '%s' "$out"
+}
+
+escape_env_double_quoted() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//\$/\\$}"
+  value="${value//\`/\\\`}"
+  printf '%s' "$value"
+}
+
+detect_github_identity() {
+  local project="$1" url repo_part owner repo
+  if ! command -v git >/dev/null 2>&1; then
+    return 1
+  fi
+  url="$(git -C "$project" remote get-url origin 2>/dev/null || true)"
+  [[ -n "$url" ]] || return 1
+
+  case "$url" in
+    git@github.com:*)
+      repo_part="${url#git@github.com:}"
+      ;;
+    https://github.com/*)
+      repo_part="${url#https://github.com/}"
+      ;;
+    http://github.com/*)
+      repo_part="${url#http://github.com/}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  owner="${repo_part%%/*}"
+  repo="${repo_part#*/}"
+  repo="${repo%.git}"
+  [[ -n "$owner" && -n "$repo" && "$repo" != "$repo_part" ]] || {
+    [[ -n "$owner" && -n "$repo" && "$repo_part" == */* ]] || return 1
+  }
+  printf '%s\n%s\n' "$owner" "$repo"
+}
+
+prompt_value() {
+  local __resultvar="$1" label="$2" default="${3:-}" value
+  if [[ -n "$default" ]]; then
+    printf '%s [%s]: ' "$label" "$default"
+  else
+    printf '%s: ' "$label"
+  fi
+  if ! read -r -e value; then
+    echo
+    return 1
+  fi
+  [[ -n "$value" ]] || value="$default"
+  printf -v "$__resultvar" '%s' "$value"
+}
+
+build_envrc_content() {
+  local path="$1" content=""
+  if [[ -f "$path" ]]; then
+    content="$(cat "$path")"
+  fi
+  if [[ "$content" == *"source_env_if_exists .envrc.local"* ]]; then
+    printf '%s\n' "$content"
+    return 0
+  fi
+  if [[ -n "$content" ]]; then
+    printf '%s\n\nsource_env_if_exists .envrc.local\n' "$content"
+  else
+    printf 'source_env_if_exists .envrc.local\n'
+  fi
+}
+
+build_codacy_managed_section() {
+  local token_var="$1" token_ref="$2" owner="$3" repo="$4" has_active_token="$5"
+  local provider owner_escaped repo_escaped
+  provider="$(escape_env_double_quoted "gh")"
+  owner_escaped="$(escape_env_double_quoted "$owner")"
+  repo_escaped="$(escape_env_double_quoted "$repo")"
+
+  printf '%s\n' "$CODACY_SECTION_BEGIN"
+  printf 'export CODACY_ORGANIZATION_PROVIDER="%s"\n' "$provider"
+  printf 'export CODACY_USERNAME="%s"\n' "$owner_escaped"
+  printf 'export CODACY_PROJECT_NAME="%s"\n' "$repo_escaped"
+
+  # Include machine-level account token if it exists
+  local account_token_file="$HOME/.codacy/account-token"
+  if [[ -f "$account_token_file" ]]; then
+    printf 'export CODACY_ACCOUNT_TOKEN="$(cat "%s")"\n' "$account_token_file"
+  fi
+
+  if [[ "$has_active_token" -eq 1 ]]; then
+    printf 'export %s="$(cat "%s")"\n' "$token_var" "$token_ref"
+  else
+    printf '# %s not exported because no token file exists yet.\n' "$token_var"
+  fi
+  printf '%s\n' "$CODACY_SECTION_END"
+}
+
+build_envrc_local_content() {
+  local path="$1" block="$2" output="" in_managed=0 found=0 line
+  if [[ -f "$path" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      if [[ "$line" == "$CODACY_SECTION_BEGIN" ]]; then
+        if [[ "$found" -eq 0 ]]; then
+          output+="$block"$'\n'
+          found=1
+        fi
+        in_managed=1
+        continue
+      fi
+      if [[ "$line" == "$CODACY_SECTION_END" ]]; then
+        in_managed=0
+        continue
+      fi
+      [[ "$in_managed" -eq 1 ]] && continue
+      output+="$line"$'\n'
+    done < "$path"
+  fi
+
+  if [[ "$found" -eq 0 ]]; then
+    [[ -z "${output//[[:space:]]/}" ]] || output+=$'\n'
+    output+="$block"$'\n'
+  fi
+  printf '%s' "$output"
+}
+
+backup_existing_file() {
+  local path="$1" ts backup counter=0
+  ts="$(date +%Y%m%d%H%M%S)"
+  backup="${path}.bak.${ts}"
+  while [[ -e "$backup" ]]; do
+    counter=$((counter + 1))
+    backup="${path}.bak.${ts}.${counter}"
+  done
+  cp -p "$path" "$backup"
+}
+
+write_file_if_changed() {
+  local path="$1" content="$2" mode="$3" tmp
+  tmp="$(mktemp "${TMPDIR:-/tmp}/dotfiles-write.XXXXXX")" || return 1
+  printf '%s' "$content" > "$tmp"
+  if [[ -f "$path" ]] && cmp -s "$tmp" "$path"; then
+    rm -f "$tmp"
+    chmod "$mode" "$path"
+    return 0
+  fi
+  if [[ -f "$path" ]]; then
+    backup_existing_file "$path"
+    chmod u+w "$path" 2>/dev/null || true
+  fi
+  cp "$tmp" "$path"
+  rm -f "$tmp"
+  chmod "$mode" "$path"
+}
+
+configure_codacy_env() {
+  local project="$1" mode_choice mode_label token_var token_name token_prompt
+  while true; do
+    cat <<EOF
+
+Codacy API access:
+  1. Repository token (CODACY_PROJECT_TOKEN).
+  2. Account token (CODACY_API_TOKEN).
+  3. Back to optional integrations.
+EOF
+    printf 'Choose [1-3]: '
+    if ! read -r -e mode_choice; then
+      echo
+      echo "Codacy setup cancelled; returning to optional integrations."
+      return 0
+    fi
+    case "$mode_choice" in
+      1)
+        mode_label="repository token"
+        token_var="CODACY_PROJECT_TOKEN"
+        token_name="project"
+        token_prompt="Paste Codacy repository token"
+        break
+        ;;
+      2)
+        mode_label="account token"
+        token_var="CODACY_API_TOKEN"
+        token_name="account"
+        token_prompt="Paste Codacy account token"
+        break
+        ;;
+      3|"")
+        echo "Codacy setup cancelled; returning to optional integrations."
+        return 0
+        ;;
+      *) echo "Unknown choice: $mode_choice" >&2 ;;
+    esac
+  done
+
+  local detected_owner="" detected_repo="" detected identity_lines
+  if detected="$(detect_github_identity "$project")"; then
+    identity_lines=($detected)
+    detected_owner="${identity_lines[0]:-}"
+    detected_repo="${identity_lines[1]:-}"
+  fi
+
+  local owner repo
+  prompt_value owner "GitHub owner" "$detected_owner" || {
+    echo "Codacy setup cancelled before repository identity was confirmed."
+    return 0
+  }
+  prompt_value repo "GitHub repository" "$detected_repo" || {
+    echo "Codacy setup cancelled before repository identity was confirmed."
+    return 0
+  }
+  if [[ -z "$owner" || -z "$repo" ]]; then
+    echo "Owner and repository are required for Codacy environment metadata."
+    return 0
+  fi
+
+  local token_dir="$HOME/.codacy" token_basename token_file token_ref
+  if [[ "$token_name" == "account" ]]; then
+    token_basename="account-token"
+  else
+    token_basename="$(codacy_safe_name "$owner")-$(codacy_safe_name "$repo").project-token"
+  fi
+  token_file="$token_dir/$token_basename"
+  token_ref="\$HOME/.codacy/$token_basename"
+
+  printf '%s (leave blank to reuse an existing token file): ' "$token_prompt"
+  local token_value=""
+  if ! read -r -s token_value; then
+    echo
+    echo "Codacy setup cancelled before token input completed."
+    return 0
+  fi
+  echo
+
+  local has_active_token=0 token_action
+  if [[ -n "$token_value" ]]; then
+    has_active_token=1
+    if [[ -f "$token_file" ]]; then
+      token_action="update"
+    else
+      token_action="create"
+    fi
+  elif [[ -f "$token_file" ]]; then
+    has_active_token=1
+    token_action="reuse"
+  else
+    token_action="not configured"
+  fi
+
+  local envrc="$project/.envrc" envrc_local="$project/.envrc.local"
+  local block envrc_content envrc_local_content
+  block="$(build_codacy_managed_section "$token_var" "$token_ref" "$owner" "$repo" "$has_active_token")"
+  envrc_content="$(build_envrc_content "$envrc")"
+  envrc_local_content="$(build_envrc_local_content "$envrc_local" "$block")"
+
+  cat <<EOF
+
+Codacy environment preview:
+  - Mode: $mode_label
+  - Repository metadata: provider=gh owner=$owner project=$repo
+  - Project env file: $envrc
+  - Local env bridge: $envrc_local
+  - Token storage path: $token_ref ($token_action)
+  - Token values will not be printed or written into project files.
+EOF
+  if [[ "$has_active_token" -eq 0 ]]; then
+    echo "  - A Codacy token is required before activation."
+  fi
+  printf 'Apply Codacy environment changes? [y/N]: '
+  local confirm
+  if ! read -r -e confirm || [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    echo "No Codacy environment changes applied."
+    return 0
+  fi
+
+  if [[ -n "$token_value" ]]; then
+    mkdir -p "$token_dir"
+    chmod 700 "$token_dir"
+    printf '%s\n' "$token_value" > "$token_file"
+    chmod 600 "$token_file"
+  fi
+
+  write_file_if_changed "$envrc" "$envrc_content" 444
+  write_file_if_changed "$envrc_local" "$envrc_local_content" 600
+
+  echo "Codacy $mode_label environment prepared."
+  if [[ "$has_active_token" -eq 0 ]]; then
+    echo "A Codacy token is required before activation."
+  fi
+
+  # Auto-run direnv allow since user already approved the changes
+  if command -v direnv >/dev/null 2>&1; then
+    if direnv allow "$project" 2>/dev/null; then
+      echo "✓ direnv allowed for $project"
+      echo "  Environment will load automatically when you cd into the project."
+    else
+      echo "Note: Run 'direnv allow \"$project\"' manually to activate the environment."
+    fi
+  else
+    echo "Note: direnv not installed. Install via './setup' (machine setup)."
+    echo "Once installed, run: direnv allow \"$project\""
+  fi
+}
+
+configure_machine_api_tokens() {
+  while true; do
+    echo
+    echo "Machine-level API Authentication:"
+    local gh_status="Configure" hf_status="Configure" codacy_status="Configure"
+
+    # Check status for display
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+      gh_status="Reconfigure"
+    fi
+    if [[ -f "$HOME/.cache/huggingface/token" ]]; then
+      hf_status="Reconfigure"
+    fi
+    if [[ -f "$HOME/.codacy/account-token" ]]; then
+      codacy_status="Reconfigure"
+    fi
+
+    cat <<EOF
+  1. $gh_status GitHub (gh) authentication
+  2. $hf_status HuggingFace Hub access
+  3. $codacy_status Codacy account token
+  4. Back to main menu
+EOF
+
+    printf "Choose [1-4]: "
+    local choice
+    if ! read -r -e choice; then
+      echo
+      return 0
+    fi
+
+    case "$choice" in
+      1) configure_gh_auth ;;
+      2) configure_huggingface_global ;;
+      3) configure_codacy_account_token ;;
+      4|"") return 0 ;;
+      *) echo "Unknown choice: $choice" >&2 ;;
+    esac
+  done
+}
+
+configure_gh_auth() {
+  echo
+  echo "Setting up GitHub (gh) authentication..."
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "gh CLI not found."
+    printf "Install gh with apt? [Y/n]: "
+    local install_choice
+    if read -r -e install_choice && [[ "$install_choice" =~ ^[Yy]?$ ]]; then
+      echo "Installing gh via apt..."
+      if sudo apt install -y gh; then
+        echo "✓ gh installed"
+      else
+        echo "✗ Failed to install gh. See: https://github.com/cli/cli#installation"
+        return 1
+      fi
+    else
+      echo "Skipped gh installation. See: https://github.com/cli/cli#installation"
+      return 10
+    fi
+  fi
+
+  if command -v gh >/dev/null 2>&1; then
+    gh auth login
+    if gh auth status >/dev/null 2>&1; then
+      echo "✓ GitHub authentication configured"
+    fi
+  fi
+}
+
+configure_huggingface_global() {
+  echo
+  echo "Setting up HuggingFace Hub..."
+  if ! command -v hf >/dev/null 2>&1; then
+    echo "hf CLI not found. Installing via uv..."
+    if uv tool install huggingface-hub; then
+      echo "✓ huggingface-hub installed"
+      refresh_uv_path
+    else
+      echo "✗ Failed to install huggingface-hub"
+      return 1
+    fi
+  fi
+
+  if command -v hf >/dev/null 2>&1; then
+    hf auth login
+    if [[ -f "$HOME/.cache/huggingface/token" ]]; then
+      echo "✓ HuggingFace token configured"
+    fi
+  fi
+}
+
+configure_codacy_account_token() {
+  local token_value token_dir token_file
+  echo
+  echo "Setting up Codacy account token..."
+  echo "Get your account token from: https://app.codacy.com/account/tokens"
+  echo
+  printf 'Paste Codacy account token (or press enter to skip): '
+  if ! read -r -s token_value; then
+    echo
+    echo "Codacy account token setup cancelled."
+    return 0
+  fi
+  echo
+
+  if [[ -z "$token_value" ]]; then
+    echo "No token provided. Codacy account token will not be configured."
+    return 0
+  fi
+
+  token_dir="$HOME/.codacy"
+  token_file="$token_dir/account-token"
+  mkdir -p "$token_dir" || return 1
+  chmod 700 "$token_dir"
+  printf '%s\n' "$token_value" > "$token_file" || return 1
+  chmod 600 "$token_file"
+
+  echo "✓ Codacy account token configured at $token_file"
+  echo "  This token will be automatically available in all projects via direnv."
+}
+
+optional_integrations_menu() {
+  local project="$1"
+  while true; do
+    local choice_count=1 gh_num="" codacy_num="" back_num=""
+
+    # Check which services need configuration
+    if ! (command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1); then
+      gh_num="$choice_count"
+      ((choice_count++))
+    fi
+
+    codacy_num="$choice_count"
+    ((choice_count++))
+    back_num="$choice_count"
+
+    echo
+    echo "Optional integrations and APIs:"
+    [[ -n "$gh_num" ]] && echo "  $gh_num. Manage GitHub (gh) API access."
+    echo "  $codacy_num. Manage Codacy API access."
+    echo "  $back_num. Back to project setup."
+
+    printf "Choose [1-%s]: " "$back_num"
+    local choice
+    if ! read -r -e choice; then
+      echo
+      echo "No optional integration selection received; project files were not changed."
+      return 10
+    fi
+
+    if [[ -z "$choice" || "$choice" == "$back_num" ]]; then
+      echo "No optional integration selection received; project files were not changed."
+      return 10
+    elif [[ -n "$gh_num" && "$choice" == "$gh_num" ]]; then
+      configure_gh_auth
+    elif [[ "$choice" == "$codacy_num" ]]; then
+      configure_codacy_env "$project"
+    else
+      echo "Unknown choice: $choice" >&2
+    fi
+  done
+}
+
 empty_project_menu() {
   local project="$1" vars="$2"
   while true; do
@@ -635,12 +1283,13 @@ empty_project_menu() {
 Project setup options:
   1. Bootstrap AGENTS.md plus CLAUDE.md/GEMINI.md symlinks.
   2. Bootstrap agent docs plus Copilot instructions.
-  3. Show inferred project metadata.
-  4. Exit.
+  3. Open optional integrations and APIs.
+  4. Show inferred project metadata.
+  5. Exit.
 EOF
-    printf 'Choose [1-4]: '
+    printf 'Choose [1-5]: '
     local choice
-    if ! read -r choice; then
+    if ! read -r -e choice; then
       echo
       echo "No interactive selection received; project files were not changed."
       return 0
@@ -648,8 +1297,9 @@ EOF
     case "$choice" in
       1) cmd_init --project "$project" --vars "$vars" --yes; return $? ;;
       2) cmd_init --project "$project" --vars "$vars" --copilot --yes; return $? ;;
-      3) show_project_vars "$vars" ;;
-      4|"") echo "Project files were not changed."; return 0 ;;
+      3) if optional_integrations_menu "$project"; then :; else return 0; fi ;;
+      4) show_project_vars "$vars" ;;
+      5|"") echo "Project files were not changed."; return 0 ;;
       *) echo "Unknown choice: $choice" >&2 ;;
     esac
   done
@@ -664,12 +1314,13 @@ Project setup options:
   1. Verify agent docs.
   2. Repair/bootstrap AGENTS.md plus CLAUDE.md/GEMINI.md symlinks.
   3. Add or refresh Copilot instructions.
-  4. Show project metadata.
-  5. Exit.
+  4. Open optional integrations and APIs.
+  5. Show project metadata.
+  6. Exit.
 EOF
-    printf 'Choose [1-5]: '
+    printf 'Choose [1-6]: '
     local choice
-    if ! read -r choice; then
+    if ! read -r -e choice; then
       echo
       echo "No interactive selection received; project files were not changed."
       return 0
@@ -678,8 +1329,9 @@ EOF
       1) cmd_verify --project "$project" || true ;;
       2) cmd_init --project "$project" --vars "$vars" --yes; return $? ;;
       3) cmd_init --project "$project" --vars "$vars" --copilot --yes; return $? ;;
-      4) show_project_vars "$vars" ;;
-      5|"") echo "Project files were not changed."; return 0 ;;
+      4) if optional_integrations_menu "$project"; then :; else return 0; fi ;;
+      5) show_project_vars "$vars" ;;
+      6|"") echo "Project files were not changed."; return 0 ;;
       *) echo "Unknown choice: $choice" >&2 ;;
     esac
   done

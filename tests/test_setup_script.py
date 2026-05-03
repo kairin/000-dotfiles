@@ -47,12 +47,16 @@ class SetupScriptTests(DotfilesTestCase):
         "mktemp",
         "grep",
         "sed",
+        "head",
         "find",
         "mkdir",
         "cp",
+        "cmp",
         "rm",
         "cat",
         "chmod",
+        "date",
+        "git",
         "python",
     )
 
@@ -67,9 +71,16 @@ class SetupScriptTests(DotfilesTestCase):
                 target = shutil.which("python3")
             self.assertIsNotNone(target, f"required command not found for test PATH: {name}")
             (bin_dir / name).symlink_to(target)
+        # Provide a fake gh that always reports authenticated so optional_integrations_menu
+        # omits the gh option and Codacy remains option 1 (matching test input sequences).
+        if not (bin_dir / "gh").exists():
+            self.write_executable(
+                bin_dir / "gh",
+                "#!/usr/bin/env bash\n[[ \"${1:-}\" == auth && \"${2:-}\" == status ]] && exit 0\nexit 1\n",
+            )
         return bin_dir
 
-    def env_for(self, bin_dir: Path, home: Path) -> dict[str, str]:
+    def env_for(self, bin_dir: Path, home: Path, *, machine_summary_output: str | None = None) -> dict[str, str]:
         env = os.environ.copy()
         env["PATH"] = str(bin_dir)
         env["HOME"] = str(home)
@@ -78,6 +89,8 @@ class SetupScriptTests(DotfilesTestCase):
         # so option numbers stay stable. Tests that need the fresh-box flow
         # explicitly override this.
         env["DOTFILES_TOOL_PLATFORM"] = "darwin"
+        if machine_summary_output is not None:
+            env["FAKE_MACHINE_SUMMARY_OUTPUT"] = machine_summary_output
         return env
 
     def write_executable(self, path: Path, text: str) -> None:
@@ -107,12 +120,28 @@ if [[ "${{1:-}}" == "self" && "${{2:-}}" == "update" ]]; then
 fi
 if [[ "${{1:-}}" == "run" ]]; then
   shift
+  if [[ -n "${{FAKE_MACHINE_SUMMARY_OUTPUT:-}}" && "${{1:-}}" == "python" && "${{2:-}}" == "-m" && "${{3:-}}" == "dotfiles_tools.machine_summary" ]]; then
+    printf '%s' "$FAKE_MACHINE_SUMMARY_OUTPUT"
+    exit 0
+  fi
   exec "$@"
 fi
 echo "fake uv unsupported: $*" >&2
 exit 64
 """,
         )
+
+    def machine_summary_output(self, option_number: int, label: str, reason: str, *lines: str) -> str:
+        output_lines = [
+            "Machine setup summary",
+            "Repo: /tmp/fake-repo",
+            "Home: /tmp/fake-home",
+            "Profile: machine",
+            "",
+            f"Recommended next step: {option_number}. {label} - {reason}",
+            *lines,
+        ]
+        return "\n".join(output_lines) + "\n"
 
     def write_uv_installer(self, installer_path: Path, *, version: str) -> None:
         installer_path.write_text(
@@ -146,27 +175,45 @@ cat "{installer_path}"
 """,
         )
 
+    def assert_no_codacy_files(self, project: Path, home: Path) -> None:
+        self.assertFalse((project / ".envrc").exists())
+        self.assertFalse((project / ".envrc.local").exists())
+        self.assertFalse((home / ".codacy").exists())
+        self.assertFalse(list(project.glob(".envrc.bak.*")))
+        self.assertFalse(list(project.glob(".envrc.local.bak.*")))
+
+    def run_project_setup(
+        self,
+        project: Path,
+        input_text: str,
+        *,
+        home: Path | None = None,
+    ) -> tuple[subprocess.CompletedProcess, Path]:
+        actual_home = home or self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, actual_home / "uv.log")
+        result = run_setup(str(project), env=self.env_for(bin_dir, actual_home), input_text=input_text)
+        return result, actual_home
+
     def test_no_args_runs_machine_doctor_plan_after_uv_bootstrap(self) -> None:
         home = self.make_home()
         bin_dir = self.make_command_path()
         log_path = home / "uv.log"
         self.write_fake_uv(bin_dir, log_path)
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="6\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("uv found at", result.stdout)
         self.assertIn("uv self update completed.", result.stdout)
         self.assertIn("Machine setup summary", result.stdout)
-        self.assertIn("Option 2 will:", result.stdout)
+        self.assertIn("Recommended next step: 1. Install / update developer tools - Developer tools should be installed or updated first.", result.stdout)
         self.assertIn("Fonts:", result.stdout)
         self.assertIn("Create missing files:", result.stdout)
         self.assertIn("1. Install / update developer tools", result.stdout)
         self.assertIn("3. Show full technical details.", result.stdout)
-        # tools_present: option 2 (apply) is recommended, not option 1 (install tools)
-        self.assertIn("2. Apply safe non-protected dotfiles", result.stdout)
-        self.assertRegex(result.stdout, r"2\..*\[recommended\]")
-        self.assertNotRegex(result.stdout, r"1\..*\[recommended\]")
+        self.assertIn("1. Install / update developer tools (preview, then apply). [recommended]", result.stdout)
+        self.assertNotRegex(result.stdout, r"2\..*\[recommended\]")
         self.assertNotIn("entries:", result.stdout)
         self.assertNotIn("operations:", result.stdout)
         self.assertIn("No changes applied.", result.stdout)
@@ -219,11 +266,8 @@ cat "{installer_path}"
         self.assertIn("Machine setup summary", result.stdout)
         self.assertIn("WARN: uv self update failed", result.stderr)
 
-    def test_no_arg_apply_writes_only_non_protected_config_with_backups(self) -> None:
+    def test_no_arg_apply_writes_only_non_protected_config(self) -> None:
         home = self.make_home()
-        drifted = home / ".claude" / "settings.json"
-        drifted.parent.mkdir(parents=True)
-        drifted.write_text('{"drift": true}')
         bin_dir = self.make_command_path()
         self.write_fake_uv(bin_dir, home / "uv.log")
 
@@ -235,17 +279,23 @@ cat "{installer_path}"
         self.assertTrue((home / ".config" / "fish" / "functions" / "direnv.fish").exists())
         self.assertFalse((home / ".config" / "git" / "config").exists())
         self.assertTrue((home / ".config" / "fish" / "conf.d" / "000-dotfiles-pixel-avf-prompt.fish").exists())
-        self.assertTrue(any(path.is_file() for path in (home / ".dotfiles-backups").rglob("*")))
 
     def test_no_arg_tool_guidance_choice_prints_status(self) -> None:
         home = self.make_home()
         bin_dir = self.make_command_path()
         self.write_fake_uv(bin_dir, home / "uv.log")
+        summary = self.machine_summary_output(
+            4,
+            "Show tool and sign-in guidance",
+            "Sign-in guidance is the useful next step.",
+            "  - Tool and sign-in guidance: gh auth status.",
+        )
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="4\n5\n")
+        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="4\n5\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("Show tool and sign-in guidance.", result.stdout)
+        self.assertIn("Recommended next step: 4. Show tool and sign-in guidance - Sign-in guidance is the useful next step.", result.stdout)
+        self.assertIn("4. Show tool and sign-in guidance. [recommended]", result.stdout)
         self.assertIn("Tool status:", result.stdout)
         self.assertIn("Missing tools:", result.stdout)
         self.assertIn("Sign-in checks unavailable until the tool is installed:", result.stdout)
@@ -255,16 +305,44 @@ cat "{installer_path}"
         home = self.make_home()
         bin_dir = self.make_command_path()
         self.write_fake_uv(bin_dir, home / "uv.log")
+        summary = self.machine_summary_output(
+            3,
+            "Show full technical details",
+            "The audit is incomplete.",
+            "  - The audit is incomplete; inspect the full technical details.",
+        )
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="3\n5\n")
+        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="3\n5\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Recommended next step: 3. Show full technical details - The audit is incomplete.", result.stdout)
+        self.assertIn("3. Show full technical details. [recommended]", result.stdout)
         self.assertIn("Full machine doctor:", result.stdout)
         self.assertIn("doctor:", result.stdout)
         self.assertIn("Full machine plan:", result.stdout)
         self.assertIn("font actions:", result.stdout)
         self.assertIn("operations:", result.stdout)
         self.assertIn("Show full technical details.", result.stdout)
+
+    def test_no_arg_install_choice_refreshes_summary_after_cancel(self) -> None:
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+        summary = self.machine_summary_output(
+            1,
+            "Install / update developer tools",
+            "Developer tools should be installed or updated first.",
+            "  - 2 developer tools are missing or unverified.",
+            "    - gh: install gh",
+        )
+
+        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="1\nn\n5\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertGreaterEqual(result.stdout.count("Machine setup summary"), 2)
+        self.assertGreaterEqual(result.stdout.count("Recommended next step: 1. Install / update developer tools - Developer tools should be installed or updated first."), 2)
+        self.assertGreaterEqual(result.stdout.count("1. Install / update developer tools (preview, then apply). [recommended]"), 2)
+        self.assertIn("No tool changes applied.", result.stdout)
 
     def test_help_subcommand(self) -> None:
         result = run_setup("help")
@@ -410,6 +488,187 @@ cat "{installer_path}"
         self.assertTrue((project / ".dotfiles" / "project-vars.json").exists())
         self.assertFalse((project / "AGENTS.md").exists())
         self.assertIn("Project folder is empty", result.stdout)
+
+    def test_empty_project_menu_uses_optional_integrations_entry(self) -> None:
+        project = self.make_project()
+        result, _home = self.run_project_setup(project, "5\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("3. Open optional integrations and APIs.", result.stdout)
+        self.assertIn("1. Bootstrap AGENTS.md plus CLAUDE.md/GEMINI.md symlinks.", result.stdout)
+        self.assertIn("2. Bootstrap agent docs plus Copilot instructions.", result.stdout)
+        self.assertNotIn("Manage Codacy API access", result.stdout)
+        self.assertNotRegex(result.stdout, r"Open optional integrations.*\[recommended\]")
+
+    def test_existing_project_menu_uses_optional_integrations_entry(self) -> None:
+        project = self.make_project()
+        write_clean_project(project)
+        result, _home = self.run_project_setup(project, "6\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("4. Open optional integrations and APIs.", result.stdout)
+        self.assertIn("1. Verify agent docs.", result.stdout)
+        self.assertIn("2. Repair/bootstrap AGENTS.md plus CLAUDE.md/GEMINI.md symlinks.", result.stdout)
+        self.assertIn("3. Add or refresh Copilot instructions.", result.stdout)
+        self.assertNotIn("Manage Codacy API access", result.stdout)
+        self.assertNotRegex(result.stdout, r"Open optional integrations.*\[recommended\]")
+
+    def test_optional_integrations_back_and_eof_do_not_write_codacy_files(self) -> None:
+        project = self.make_project()
+        result, home = self.run_project_setup(project, "3\n2\n5\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Manage Codacy API access", result.stdout)
+        self.assertIn("Back to project setup", result.stdout)
+        self.assert_no_codacy_files(project, home)
+
+        eof_project = self.make_project()
+        eof_result, eof_home = self.run_project_setup(eof_project, "3\n")
+
+        self.assertEqual(eof_result.returncode, 0, eof_result.stdout + eof_result.stderr)
+        self.assertIn("No optional integration selection received", eof_result.stdout)
+        self.assert_no_codacy_files(eof_project, eof_home)
+
+    def test_codacy_repository_token_mode_writes_secret_safe_bridge(self) -> None:
+        project = self.make_project()
+        secret = "repo-token-value"
+        result, home = self.run_project_setup(
+            project,
+            f"3\n1\n1\nkairin\n000-dotfiles\n{secret}\ny\n2\n5\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        token_file = home / ".codacy" / "kairin-000-dotfiles.project-token"
+        envrc = project / ".envrc"
+        envrc_local = project / ".envrc.local"
+        self.assertTrue(token_file.exists())
+        self.assertEqual(token_file.read_text(), secret + "\n")
+        self.assertEqual(oct(token_file.stat().st_mode & 0o777), "0o600")
+        self.assertEqual(oct(envrc.stat().st_mode & 0o777), "0o444")
+        self.assertEqual(oct(envrc_local.stat().st_mode & 0o777), "0o600")
+        self.assertIn("source_env_if_exists .envrc.local", envrc.read_text())
+        local_text = envrc_local.read_text()
+        self.assertIn("CODACY_PROJECT_TOKEN", local_text)
+        self.assertIn('CODACY_ORGANIZATION_PROVIDER="gh"', local_text)
+        self.assertIn('CODACY_USERNAME="kairin"', local_text)
+        self.assertIn('CODACY_PROJECT_NAME="000-dotfiles"', local_text)
+        self.assertNotIn(secret, local_text)
+        self.assertNotIn(secret, result.stdout)
+        self.assertNotIn(secret, result.stderr)
+
+    def test_codacy_account_token_mode_writes_secret_safe_bridge(self) -> None:
+        project = self.make_project()
+        secret = "account-token-value"
+        result, home = self.run_project_setup(
+            project,
+            f"3\n1\n2\nkairin\n000-dotfiles\n{secret}\ny\n2\n5\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        token_file = home / ".codacy" / "account-token"
+        self.assertTrue(token_file.exists())
+        self.assertEqual(token_file.read_text(), secret + "\n")
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn("CODACY_API_TOKEN", local_text)
+        self.assertIn('CODACY_ORGANIZATION_PROVIDER="gh"', local_text)
+        self.assertIn('CODACY_USERNAME="kairin"', local_text)
+        self.assertIn('CODACY_PROJECT_NAME="000-dotfiles"', local_text)
+        self.assertNotIn(secret, local_text)
+        self.assertNotIn(secret, result.stdout)
+        self.assertNotIn(secret, result.stderr)
+
+    def test_codacy_mode_cancel_returns_to_optional_menu_without_writes(self) -> None:
+        project = self.make_project()
+        result, home = self.run_project_setup(project, "3\n1\n3\n2\n5\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Codacy setup cancelled; returning to optional integrations.", result.stdout)
+        self.assertIn("2. Back to project setup.", result.stdout)
+        self.assert_no_codacy_files(project, home)
+
+    def test_codacy_identity_fallback_prompts_for_owner_and_repository(self) -> None:
+        project = self.make_project()
+        result, _home = self.run_project_setup(
+            project,
+            "3\n1\n1\nfallback-owner\nfallback-repo\nrepo-token\ny\n2\n5\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("GitHub owner", result.stdout)
+        self.assertIn("GitHub repository", result.stdout)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn('CODACY_USERNAME="fallback-owner"', local_text)
+        self.assertIn('CODACY_PROJECT_NAME="fallback-repo"', local_text)
+
+    def test_codacy_declined_confirmation_creates_no_files_or_backups(self) -> None:
+        project = self.make_project()
+        secret = "declined-token"
+        result, home = self.run_project_setup(
+            project,
+            f"3\n1\n1\nkairin\n000-dotfiles\n{secret}\nn\n2\n5\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("No Codacy environment changes applied.", result.stdout)
+        self.assert_no_codacy_files(project, home)
+        self.assertNotIn(secret, result.stdout)
+        self.assertNotIn(secret, result.stderr)
+
+    def test_codacy_blank_token_without_existing_file_writes_no_active_token_export(self) -> None:
+        project = self.make_project()
+        result, home = self.run_project_setup(
+            project,
+            "3\n1\n1\nkairin\n000-dotfiles\n\ny\n2\n5\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((home / ".codacy" / "kairin-000-dotfiles.project-token").exists())
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn("CODACY_PROJECT_TOKEN not exported", local_text)
+        self.assertNotIn("export CODACY_PROJECT_TOKEN=", local_text)
+        self.assertIn("A Codacy token is required before activation.", result.stdout)
+
+    def test_codacy_existing_env_files_are_backed_up_before_changes(self) -> None:
+        project = self.make_project()
+        (project / ".envrc").write_text("# user envrc\n")
+        (project / ".envrc.local").write_text("# user local env\n")
+        result, _home = self.run_project_setup(
+            project,
+            "4\n1\n1\nkairin\n000-dotfiles\nrepo-token\ny\n2\n6\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        envrc_backups = list(project.glob(".envrc.bak.*"))
+        local_backups = list(project.glob(".envrc.local.bak.*"))
+        self.assertEqual(len(envrc_backups), 1)
+        self.assertEqual(len(local_backups), 1)
+        self.assertEqual(envrc_backups[0].read_text(), "# user envrc\n")
+        self.assertEqual(local_backups[0].read_text(), "# user local env\n")
+        self.assertIn("# user envrc", (project / ".envrc").read_text())
+        self.assertIn("# user local env", (project / ".envrc.local").read_text())
+
+    def test_codacy_repeat_setup_keeps_one_managed_section_and_preserves_content(self) -> None:
+        project = self.make_project()
+        result, home = self.run_project_setup(
+            project,
+            "3\n1\n1\nkairin\n000-dotfiles\nrepo-token\ny\n2\n5\n",
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        local_file = project / ".envrc.local"
+        local_file.write_text(local_file.read_text() + "\n# user managed line\n")
+        second_result, _home = self.run_project_setup(
+            project,
+            "4\n1\n1\nkairin\n000-dotfiles\n\ny\n2\n6\n",
+            home=home,
+        )
+
+        self.assertEqual(second_result.returncode, 0, second_result.stdout + second_result.stderr)
+        local_text = local_file.read_text()
+        self.assertEqual(local_text.count("# BEGIN DOTFILES CODACY"), 1)
+        self.assertEqual(local_text.count("# END DOTFILES CODACY"), 1)
+        self.assertIn("# user managed line", local_text)
+        self.assertEqual((home / ".codacy" / "kairin-000-dotfiles.project-token").read_text(), "repo-token\n")
 
 
 if __name__ == "__main__":

@@ -66,7 +66,40 @@ Use this document as the checklist for applying the same pattern to other repos.
      GitHub secret and use the action's `api-token` input plus the required
      provider, owner, and repository metadata.
    - Do not commit the token to any file.
-5. Use the repository-token input in the workflow.
+5. If local LLM agents need Codacy API access for the target project, run:
+
+   ```bash
+   ./setup /path/to/project
+   ```
+
+   - Choose `Optional integrations and APIs`.
+   - Choose `Manage Codacy API access`.
+   - Choose `repository token` for one repository or `account token` for
+     broader Codacy API access.
+   - Repository-token mode exposes `CODACY_PROJECT_TOKEN`.
+   - Account-token mode exposes `CODACY_API_TOKEN`.
+   - Both modes expose `CODACY_ORGANIZATION_PROVIDER`, `CODACY_USERNAME`, and
+     `CODACY_PROJECT_NAME`.
+   - Token values are stored outside the repo under `~/.codacy/`.
+   - Setup shows a token-free preview, requires final confirmation, and creates
+     backups before changing existing `.envrc` or `.envrc.local` files.
+   - Run the activation step shown by setup, for example `direnv allow`.
+
+   **For agents: Codacy MCP server**
+
+   The Codacy MCP server (`mcp__codacy__*` tool prefix) provides direct API access
+   for agents. Key tools for coverage workflows:
+
+   - `codacy_get_file_coverage` — per-file coverage data for a repository
+   - `codacy_get_pull_request_files_coverage` — coverage on a PR's changed files
+   - `codacy_list_repository_issues` — list code quality and coverage issues
+
+   The MCP server authenticates with `CODACY_ACCOUNT_TOKEN` (the machine-level
+   account token), not `CODACY_PROJECT_TOKEN`. Set it up via
+   `./setup /path/to/project` → "Optional integrations and APIs" →
+   "Manage Codacy API access" → account token.
+
+6. Use the repository-token input in the workflow.
    - Required workflow shape:
      ```yaml
      env:
@@ -79,9 +112,9 @@ Use this document as the checklist for applying the same pattern to other repos.
          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
          coverage-reports: coverage.xml
      ```
-6. Commit through a pull request.
+7. Commit through a pull request.
    - Let the target repo's normal branch protection and Codacy static analysis run.
-7. After merge, verify the push workflow.
+8. After merge, verify the push workflow.
    - Example:
      ```bash
      gh run list --repo OWNER/REPO --workflow "Dotfiles Validation" --branch main --limit 5
@@ -91,20 +124,20 @@ Use this document as the checklist for applying the same pattern to other repos.
      - test run
      - coverage XML generation
      - Codacy coverage upload
-8. Check Codacy's coverage page.
+9. Check Codacy's coverage page.
    - Confirm the report is received for the expected commit and branch.
    - Expected status after processing: `Processed`.
-9. Open or update a pull request and confirm Codacy emits the coverage checks.
+10. Open or update a pull request and confirm Codacy emits the coverage checks.
    - Required check names for the coverage-enabled profile:
      - `Codacy Static Code Analysis`
      - `Codacy Coverage Variation`
      - `Codacy Diff Coverage`
-10. Configure Codacy gates for the target repo.
+11. Configure Codacy gates for the target repo.
     - Static analysis gates should match the repo's quality policy.
     - Coverage gates only block when thresholds are set in Codacy.
     - Coverage percentage and file coverage goals are reporting signals until
       coverage gates are configured.
-11. Apply GitHub protection after the checks are visible.
+12. Apply GitHub protection after the checks are visible.
     - Use `gh/codacy-branch-protection.md`.
     - Require all active Codacy contexts in classic branch protection.
     - Require the same contexts in the active default-branch ruleset.

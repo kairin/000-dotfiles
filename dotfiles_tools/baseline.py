@@ -195,6 +195,25 @@ TOOL_BASELINE = (
             },
         ),
     },
+    {
+        "id": "huggingface",
+        "label": "HuggingFace Hub",
+        "command": "hf",
+        "bootstrap": True,
+        "install_method": "uv_tool",
+        "install_args": {
+            "package": "huggingface-hub",
+        },
+        "requires_sudo": False,
+        "install_hint": "Installed by the setup tool-install menu option (uv tool install huggingface-hub).",
+        "post_install": (
+            {
+                "kind": "guidance",
+                "label": "Sign in to HuggingFace",
+                "command_template": ("hf", "auth", "login"),
+            },
+        ),
+    },
 )
 
 
@@ -247,6 +266,12 @@ AUTH_GUIDANCE = (
         "tool": "copilot",
         "command": "copilot /login",
         "guidance": "Run when GitHub Copilot CLI is installed and needs user authentication.",
+    },
+    {
+        "id": "huggingface",
+        "tool": "hf",
+        "command": "hf auth status",
+        "guidance": "Run 'hf auth login' to authenticate with the HuggingFace Hub.",
     },
 )
 
