@@ -2,8 +2,22 @@
 
 **Feature Branch**: `20260504-setup-optional-integrations`
 **Created**: 2026-05-02
-**Status**: Draft
+**Status**: COMPLETED — 2026-05
 **Input**: User description: "The `./setup` single entrypoint needs a non-critical optional menu that opens multiple secondary options. One secondary option is managing Codacy API access. The Codacy flow must preserve the current token behavior while fitting cleanly into the project setup flow."
+
+## Implementation Notes
+
+The following functions were added to `setup` as part of this feature:
+
+- `configure_codacy_account_token()` (line 1206) — stores an account token in `~/.codacy/account-token` (user-private, outside any project) and writes a managed section to the project `.envrc.local` that exports `CODACY_API_TOKEN` by sourcing that file.
+- `check_mcp_servers()` (line 361) — audits MCP server configuration in `.mcp.json`; calls `check_mcp_server_config()` per server.
+- `ensure_mcp_servers()` (line 453) — auto-registers GitHub and Codacy MCP servers after `apply`; runs as a post-apply step (line 674).
+- `fish/conf.d/direnv.fish` — auto-sources the direnv hook in fish shell sessions; installed by the machine setup flow.
+
+### Known gaps (future work)
+
+- `codacy_setup_repository` MCP call is not yet wired into `./setup init-project`; per-repository Codacy setup from the project init flow remains a TODO.
+- `GITHUB_TOKEN` is silently empty if `gh` is not authenticated; this is a known limitation, not a bug.
 
 ## User Scenarios & Testing *(mandatory)*
 

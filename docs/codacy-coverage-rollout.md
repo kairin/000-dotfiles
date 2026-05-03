@@ -84,6 +84,21 @@ Use this document as the checklist for applying the same pattern to other repos.
    - Setup shows a token-free preview, requires final confirmation, and creates
      backups before changing existing `.envrc` or `.envrc.local` files.
    - Run the activation step shown by setup, for example `direnv allow`.
+
+   **For agents: Codacy MCP server**
+
+   The Codacy MCP server (`mcp__codacy__*` tool prefix) provides direct API access
+   for agents. Key tools for coverage workflows:
+
+   - `codacy_get_file_coverage` — per-file coverage data for a repository
+   - `codacy_get_pull_request_files_coverage` — coverage on a PR's changed files
+   - `codacy_list_repository_issues` — list code quality and coverage issues
+
+   The MCP server authenticates with `CODACY_ACCOUNT_TOKEN` (the machine-level
+   account token), not `CODACY_PROJECT_TOKEN`. Set it up via
+   `./setup /path/to/project` → "Optional integrations and APIs" →
+   "Manage Codacy API access" → account token.
+
 6. Use the repository-token input in the workflow.
    - Required workflow shape:
      ```yaml
