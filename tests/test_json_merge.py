@@ -11,8 +11,10 @@ class JsonMergeDetectionTests(DotfilesTestCase):
         """Verify merge_strategy field is recognized in manifest."""
         from dotfiles_tools.manifest import load_manifest
         manifest = load_manifest(REPO_ROOT)
-        merge_entries = [e for e in manifest.entries if getattr(e, "merge_strategy", None) == "json_merge"]
-        self.assertEqual(merge_entries, [], "No json_merge entries remain after MCP server registration moved to claude CLI")
+        mcp_entries = [e for e in manifest.entries if getattr(e, "merge_strategy", None) == "json_merge"]
+        self.assertGreater(len(mcp_entries), 0, "MCP server entries should use json_merge strategy")
+        mcp_ids = {e.id for e in mcp_entries}
+        self.assertIn("claude.mcp-servers", mcp_ids)
 
 
 class JsonMergeOperationTests(DotfilesTestCase):

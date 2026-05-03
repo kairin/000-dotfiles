@@ -7,13 +7,13 @@ from tests.helpers import DotfilesTestCase, REPO_ROOT
 class DoctorReportTests(DotfilesTestCase):
     def test_json_report_contains_target_states(self):
         home = self.make_home()
-        target = home / ".claude" / "settings.json"
+        target = home / ".claude" / ".mcp.json"
         target.parent.mkdir(parents=True)
-        target.write_text('{"drift": true}')
+        target.write_text('{"mcpServers": {}}')
         report = run_doctor(REPO_ROOT, home)
         data = json.loads(report.to_json())
         states = {entry["entry_id"]: entry["state"] for entry in data["entries"]}
-        self.assertEqual(states["claude.settings"], "current")
+        self.assertEqual(states["claude.mcp-servers"], "needs_merge")
         self.assertEqual(states["git.config"], "protected")
         self.assertIn("summary", data)
 

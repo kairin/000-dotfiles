@@ -1,3 +1,4 @@
+import json
 from dotfiles_tools.installer import build_plan
 from tests.helpers import DotfilesTestCase, REPO_ROOT
 
@@ -9,5 +10,5 @@ class PlanOperationTests(DotfilesTestCase):
         op_types = [op["type"] for op in report.operations]
         self.assertIn("mkdir", op_types)
         self.assertIn("copy", op_types)
-        self.assertLess(op_types.index("mkdir"), op_types.index("copy"))
         self.assertIn("refuse", op_types)
+        self.assertLess(op_types.index("mkdir"), op_types.index("copy"))
