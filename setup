@@ -350,8 +350,8 @@ check_api_credentials() {
     echo "  HuggingFace          ✗ Not configured"
   fi
 
-  # Check Codacy token
-  if [[ -f "$HOME/.codacy/project-token" ]] || [[ -f "$HOME/.codacy/account-token" ]]; then
+  # Check Codacy token (account token or any project token)
+  if [[ -f "$HOME/.codacy/account-token" ]] || ls "$HOME/.codacy"/*.project-token >/dev/null 2>&1; then
     echo "  Codacy               ✓ Token found"
   else
     echo "  Codacy               ✗ Not configured"
@@ -856,7 +856,7 @@ prompt_value() {
   else
     printf '%s: ' "$label"
   fi
-  if ! read -r value; then
+  if ! read -r -e value; then
     echo
     return 1
   fi
@@ -974,7 +974,7 @@ Codacy API access:
   3. Back to optional integrations.
 EOF
     printf 'Choose [1-3]: '
-    if ! read -r mode_choice; then
+    if ! read -r -e mode_choice; then
       echo
       echo "Codacy setup cancelled; returning to optional integrations."
       return 0
@@ -1157,7 +1157,7 @@ configure_gh_auth() {
   echo "Setting up GitHub (gh) authentication..."
   if ! command -v gh >/dev/null 2>&1; then
     echo "gh CLI not found."
-    printf "Install gh with uv? [Y/n]: "
+    printf "Install gh with apt? [Y/n]: "
     local install_choice
     if read -r -e install_choice && [[ "$install_choice" =~ ^[Yy]?$ ]]; then
       echo "Installing gh via apt..."

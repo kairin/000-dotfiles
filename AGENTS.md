@@ -61,7 +61,7 @@ Key tools: `codacy_list_repository_issues`, `codacy_get_file_issues`, `codacy_ge
 ## Template Convention
 
 - Files ending in `.template` are copy-and-customize — never source or execute from this path.
-- Placeholders follow the pattern `{ {UPPER_SNAKE_CASE} }` (double-braces with no spaces) and must all be replaced before use.
+- Placeholders follow the pattern `{{UPPER_SNAKE_CASE}}` (double-braces, no spaces) and must all be replaced before use.
 - No secrets, tokens, or API keys are stored anywhere in this repo. Auth files are excluded by `.gitignore` and the global git ignore.
 
 ## Symlink Convention
