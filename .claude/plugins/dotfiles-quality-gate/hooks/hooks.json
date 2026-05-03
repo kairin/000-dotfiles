@@ -1,14 +1,13 @@
 {
-  "description": "Setup hooks for dotfiles-quality-gate plugin: guides recommended plugin installation",
+  "description": "Setup hooks for dotfiles-quality-gate plugin: guides recommended plugin installation and validates environment",
   "hooks": {
     "SessionStart": [
       {
         "matcher": "*",
         "hooks": [
           {
-            "type": "command",
-            "command": "bash -c 'cat <<EOF\n📦 dotfiles-quality-gate plugin loaded\n\nRecommended plugins (install with: claude plugin install <name>):\n  • superpowers — TDD, debugging, code review\n  • plugin-dev — Plugin development tools\n  • mcp-server-dev — MCP server development\n  • desktop-commander — File operations\n\nSkills ready to use:\n  /quality-pipeline, /setup-claude-code, /dotfiles-apply\nEOF'",
-            "timeout": 5
+            "type": "prompt",
+            "prompt": "User just started Claude Code with dotfiles-quality-gate plugin installed. Check which recommended plugins are missing: superpowers, plugin-dev, mcp-server-dev, desktop-commander. For each missing plugin, provide install command: `claude plugin install <plugin-name>`. Keep it brief (2-3 sentences max) and don't block the session."
           }
         ]
       }
