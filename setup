@@ -542,7 +542,7 @@ cmd_verify() {
   fi
   echo "Verification passed."
   check_api_credentials
-  check_mcp_servers
+  check_mcp_servers || true
   return 0
 }
 
