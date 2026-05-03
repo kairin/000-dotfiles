@@ -679,11 +679,41 @@ run_machine_install_tools_with_confirm() {
   fi
 }
 
+ensure_project_envrc_local() {
+  local project="${1:-.}"
+  local envrc_local="$project/.envrc.local"
+  local content=""
+
+  # Build content with GitHub and Codacy tokens
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    content+='export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"'$'\n'
+  fi
+
+  if [[ -f "$HOME/.codacy/account-token" ]]; then
+    content+=$'\n# Codacy account token'$'\n'
+    content+='export CODACY_ACCOUNT_TOKEN="$(cat "$HOME/.codacy/account-token")"'$'\n'
+  fi
+
+  if [[ -z "$content" ]]; then
+    return 0
+  fi
+
+  # Write only if not present or needs updating
+  if [[ ! -f "$envrc_local" ]]; then
+    printf '%s' "$content" > "$envrc_local"
+    chmod 600 "$envrc_local"
+    if command -v direnv >/dev/null 2>&1; then
+      direnv allow "$project" 2>/dev/null || true
+    fi
+  fi
+}
+
 run_machine_apply_with_message() {
   echo
   echo "Applying safe non-protected machine dotfiles and approved install/update recipes..."
   run_machine_apply || return $?
   ensure_mcp_servers
+  ensure_project_envrc_local "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
   return 2
 }
 

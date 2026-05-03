@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
+  coverage:
     runs-on: ubuntu-latest
     env:
       CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
@@ -32,3 +32,31 @@ jobs:
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           coverage-reports: coverage.xml
+
+  codacy-static-analysis:
+    runs-on: ubuntu-latest
+    env:
+      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+      CODACY_COMMIT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
+
+      - name: Set up Codacy CLI
+        run: bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh)
+
+      - name: Initialize Codacy config
+        run: codacy-cli init
+
+      - name: Install Codacy tools
+        run: codacy-cli install
+
+      - name: Run Codacy pylint analysis
+        run: codacy-cli analyze --tool pylint --format sarif -o pylint.sarif
+
+      - name: Upload pylint SARIF to Codacy
+        if: ${{ env.CODACY_PROJECT_TOKEN != '' }}
+        run: codacy-cli upload -s pylint.sarif -c "${CODACY_COMMIT_SHA}" -t "${CODACY_PROJECT_TOKEN}"

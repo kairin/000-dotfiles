@@ -159,6 +159,7 @@ Supported platforms: Ubuntu-style Linux, WSL (with Windows host font install), R
 ## Going deeper
 
 - **[Getting Started](docs/getting-started.md)** — Step-by-step first-time setup, ongoing maintenance, AI agent doc scaffolding, troubleshooting
+- **[GitHub Actions usage baseline](docs/operations/github-actions-usage-baseline.md)** — Live repo-level Actions history for comparing GitHub-hosted and local-runner usage
 - **[Setup script reference](#setup-script-reference)** (below) — All commands and options
 - **[Direct CLI reference](#direct-cli-advanced)** (below) — Stable commands for automation
 - **[Protected files](#protected-files)** — Which files are never auto-overwritten

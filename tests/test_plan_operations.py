@@ -1,4 +1,3 @@
-import json
 from dotfiles_tools.installer import build_plan
 from tests.helpers import DotfilesTestCase, REPO_ROOT
 

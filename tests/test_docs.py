@@ -9,6 +9,7 @@ class DocsTests(DotfilesTestCase):
         self.assertIn("uv run python -m unittest discover -s tests", readme)
         self.assertIn("coverage xml", readme)
         self.assertIn("docs/codacy-coverage-rollout.md", readme)
+        self.assertIn("docs/operations/github-actions-usage-baseline.md", readme)
 
     def test_docs_cover_optional_codacy_environment_flow(self):
         getting_started = (REPO_ROOT / "docs" / "getting-started.md").read_text()
