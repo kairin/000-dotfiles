@@ -1178,17 +1178,17 @@ configure_huggingface_global() {
 }
 
 configure_codacy_account_token() {
+  local token_value token_dir token_file
   echo
   echo "Setting up Codacy API access..."
   echo "Get your account token from: https://app.codacy.com/account/tokens"
   echo
   printf 'Paste Codacy account token (or press enter to skip): '
-  local token_value=""
-  if ! read -r -s token_value; then
+  read -r -s token_value || {
     echo
     echo "Codacy setup cancelled."
     return 0
-  fi
+  }
   echo
 
   if [[ -z "$token_value" ]]; then
@@ -1196,10 +1196,11 @@ configure_codacy_account_token() {
     return 0
   fi
 
-  local token_dir="$HOME/.codacy" token_file="$token_dir/account-token"
-  mkdir -p "$token_dir"
+  token_dir="$HOME/.codacy"
+  token_file="$token_dir/account-token"
+  mkdir -p "$token_dir" || return 1
   chmod 700 "$token_dir"
-  printf '%s\n' "$token_value" > "$token_file"
+  printf '%s\n' "$token_value" > "$token_file" || return 1
   chmod 600 "$token_file"
 
   echo "✓ Codacy account token configured at $token_file"
