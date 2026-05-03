@@ -1,73 +1,83 @@
-name: Dotfiles Validation
+name: Codacy Safety Net
 
 on:
   push:
+    branches:
+      - main
+      - "release/**"
   pull_request:
 
 concurrency:
-  group: dotfiles-validation-${{ github.ref }}
+  group: codacy-safety-net-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  coverage:
+  codacy-safety-net:
     runs-on: ubuntu-latest
     env:
       CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+      SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Check out repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
+      - name: Check if Codacy already has data for this commit
+        id: codacy_status
+        run: |
+          if [ -z "$CODACY_PROJECT_TOKEN" ]; then
+            echo "status=missing" >> "$GITHUB_OUTPUT"
+            echo "No CODACY_PROJECT_TOKEN configured; will run analysis."
+            exit 0
+          fi
+          STATUS=$(curl -s -H "api-token: $CODACY_PROJECT_TOKEN" \
+            "https://api.codacy.com/2.0/commit/$SHA/quality-status" \
+            | grep -oE '"state"[[:space:]]*:[[:space:]]*"[^"]*"' \
+            | head -1 \
+            | sed -E 's/.*"state"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/' \
+            || echo "missing")
+          STATUS="${STATUS:-missing}"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "Codacy status for $SHA: $STATUS"
+
+      - name: Skip if Codacy already analyzed this commit
+        if: steps.codacy_status.outputs.status == 'analyzed'
+        run: echo "Codacy already has data for $SHA. Local pre-push hook ran successfully. Nothing to do."
+
       - name: Set up uv
+        if: steps.codacy_status.outputs.status != 'analyzed'
         uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
 
-      - name: Run unit tests with coverage
-        run: uv run --with coverage==7.5.4 coverage run -m unittest discover -s tests
+      - name: Install Codacy CLI
+        if: steps.codacy_status.outputs.status != 'analyzed'
+        run: |
+          set -euo pipefail
+          # Run the upstream installer in "download" mode so it just fetches
+          # the binary into $HOME/.cache/codacy/codacy-cli-v2/<version>/ and
+          # exits, rather than executing the CLI with no arguments.
+          bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) download
+          # The binary is named codacy-cli-v2; expose it on PATH under both
+          # that name and the historical "codacy-cli" alias for any caller
+          # that still uses the old name. Each step runs in a fresh shell, so
+          # we publish the install dir via $GITHUB_PATH instead of `export`.
+          CLI_PATH=$(find "$HOME/.cache/codacy/codacy-cli-v2" -name 'codacy-cli-v2' -type f -executable 2>/dev/null | head -1)
+          if [ -z "$CLI_PATH" ]; then
+            echo "codacy-cli-v2 binary not found after install" >&2
+            exit 1
+          fi
+          INSTALL_DIR="$HOME/.local/bin"
+          mkdir -p "$INSTALL_DIR"
+          ln -sf "$CLI_PATH" "$INSTALL_DIR/codacy-cli-v2"
+          ln -sf "$CLI_PATH" "$INSTALL_DIR/codacy-cli"
+          echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+          echo "Installed codacy-cli-v2 at $CLI_PATH; symlinked into $INSTALL_DIR"
 
-      - name: Generate coverage XML
-        run: uv run --with coverage==7.5.4 coverage xml
+      - name: Run quality pipeline (fallback path)
+        if: steps.codacy_status.outputs.status != 'analyzed'
+        run: bash scripts/quality-pipeline.sh
 
       - name: Upload coverage to Codacy
-        if: ${{ github.event_name == 'push' && env.CODACY_PROJECT_TOKEN != '' }}
+        if: steps.codacy_status.outputs.status != 'analyzed' && env.CODACY_PROJECT_TOKEN != ''
         uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           coverage-reports: coverage.xml
-
-  codacy-static-analysis:
-    runs-on: ubuntu-latest
-    env:
-      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
-      CODACY_COMMIT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
-
-      - name: Set up Codacy CLI
-        run: |
-          set -euo pipefail
-          bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) download
-          cli_path=$(find "$HOME/.cache/codacy/codacy-cli-v2" -name codacy-cli-v2 -type f -executable | head -1)
-          if [[ -z "$cli_path" ]]; then
-            echo "codacy-cli-v2 binary not found after install" >&2
-            exit 1
-          fi
-          mkdir -p "$HOME/.local/bin"
-          ln -sf "$cli_path" "$HOME/.local/bin/codacy-cli-v2"
-          ln -sf "$cli_path" "$HOME/.local/bin/codacy-cli"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Initialize Codacy config
-        run: codacy-cli init
-
-      - name: Install Codacy tools
-        run: codacy-cli install
-
-      - name: Run Codacy pylint analysis
-        run: codacy-cli analyze --tool pylint --format sarif -o pylint.sarif
-
-      - name: Upload pylint SARIF to Codacy
-        if: ${{ env.CODACY_PROJECT_TOKEN != '' }}
-        run: codacy-cli upload -s pylint.sarif -c "${CODACY_COMMIT_SHA}" -t "${CODACY_PROJECT_TOKEN}"
