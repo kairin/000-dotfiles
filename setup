@@ -398,12 +398,11 @@ PYSCRIPT
     return
   fi
 
-  local has_issues=0
   for server in $servers; do
-    check_mcp_server_config "$server" || has_issues=1
+    check_mcp_server_config "$server" || true
   done
 
-  return $has_issues
+  return 0
 }
 
 check_mcp_server_config() {

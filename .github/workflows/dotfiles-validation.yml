@@ -46,7 +46,18 @@ jobs:
         uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
 
       - name: Set up Codacy CLI
-        run: bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) install
+        run: |
+          set -euo pipefail
+          bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) download
+          cli_path=$(find "$HOME/.cache/codacy/codacy-cli-v2" -name codacy-cli-v2 -type f -executable | head -1)
+          if [[ -z "$cli_path" ]]; then
+            echo "codacy-cli-v2 binary not found after install" >&2
+            exit 1
+          fi
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$cli_path" "$HOME/.local/bin/codacy-cli-v2"
+          ln -sf "$cli_path" "$HOME/.local/bin/codacy-cli"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Initialize Codacy config
         run: codacy-cli init

@@ -6,6 +6,8 @@ class WorkflowTests(DotfilesTestCase):
         workflow = (REPO_ROOT / ".github/workflows/dotfiles-validation.yml").read_text()
         self.assertIn("coverage:", workflow)
         self.assertIn("codacy-static-analysis:", workflow)
+        self.assertIn("codacy-cli-v2/main/codacy-cli.sh) download", workflow)
+        self.assertIn('ln -sf "$cli_path" "$HOME/.local/bin/codacy-cli"', workflow)
         self.assertIn("codacy-cli analyze --tool pylint --format sarif -o pylint.sarif", workflow)
         self.assertIn("codacy-cli upload -s pylint.sarif", workflow)
         self.assertIn("CODACY_COMMIT_SHA", workflow)
