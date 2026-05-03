@@ -9,7 +9,6 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-REMOTE_BRANCH="origin/$BRANCH"
 
 # Colors
 BLUE='\033[0;34m'
