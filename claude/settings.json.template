@@ -15,14 +15,5 @@
     ]
   },
   "skipAutoPermissionPrompt": false,
-  "enabledPlugins": {},
-  "mcpServers": {
-    "codacy": {
-      "command": "npx",
-      "args": ["-y", "@codacy/codacy-mcp@latest"],
-      "env": {
-        "CODACY_ACCOUNT_TOKEN": "$CODACY_ACCOUNT_TOKEN"
-      }
-    }
-  }
+  "enabledPlugins": {}
 }
