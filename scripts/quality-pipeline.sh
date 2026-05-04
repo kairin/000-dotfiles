@@ -109,12 +109,30 @@ else
   # Robustly resolve the base branch for multi-commit uploads.
   # On GitHub Actions, GITHUB_BASE_REF is set for pull requests.
   TARGET_BRANCH="${GITHUB_BASE_REF:-main}"
-  BASE_REF="origin/$TARGET_BRANCH"
-  if ! git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
-    BASE_REF="$TARGET_BRANCH"
-  fi
+  BASE_REF="refs/remotes/origin/$TARGET_BRANCH"
 
-  BASE_SHA="$(git merge-base HEAD "$BASE_REF" 2>/dev/null || git rev-parse "$BASE_REF" 2>/dev/null || echo "")"
+  resolve_base_sha() {
+    local target_branch="$1"
+    BASE_REF="refs/remotes/origin/$target_branch"
+
+    if ! git check-ref-format --branch "$target_branch" >/dev/null 2>&1; then
+      echo -e "${RED}✗ Invalid target branch for merge-base: $target_branch${NC}" >&2
+      return 1
+    fi
+
+    echo -e "${CYAN}Fetching origin/$target_branch for merge-base...${NC}" >&2
+    if ! git fetch --no-tags origin "+refs/heads/$target_branch:$BASE_REF" >/dev/null 2>&1; then
+      echo -e "${RED}✗ Failed to fetch origin/$target_branch for merge-base.${NC}" >&2
+      return 1
+    fi
+
+    git merge-base HEAD "$BASE_REF"
+  }
+
+  BASE_SHA="$(resolve_base_sha "$TARGET_BRANCH")" || {
+    echo -e "${RED}✗ Unable to resolve merge-base for origin/$TARGET_BRANCH.${NC}" >&2
+    exit 1
+  }
 
   upload_with_retry() {
     local sha="$1"
@@ -122,10 +140,8 @@ else
 
     # Validation: Codacy API requires a full 40-character hex SHA.
     if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
-      echo -e "${YELLOW}⚠ Skipping upload for invalid SHA: '$sha' (expected 40-character hex).${NC}"
-      # If this is the HEAD upload, we might want to fail, but if it's the 
-      # merge-base and we can't find it, we just warn and continue.
-      return 0
+      echo -e "${RED}✗ Invalid SHA for Codacy upload: '$sha' (expected 40-character hex).${NC}"
+      return 1
     fi
 
     for attempt in 1 2; do

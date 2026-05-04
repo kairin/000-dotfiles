@@ -18,6 +18,7 @@ from tests.test_tool_installer import FakeRunner
 CODACY_ENTRY_ID = "tools.codacy-cli"
 CODACY_INSTALL_URL = "https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh"
 CODACY_SCRIPT_NAME = "codacy-cli.sh"
+CODACY_WRAPPER = Path(__file__).resolve().parents[1] / ".codacy" / "cli.sh"
 
 
 class CodacyCliBaselineEntryTests(DotfilesTestCase):
@@ -185,3 +186,23 @@ class CodacyCliVerifyTests(DotfilesTestCase):
         results = run_post_install_actions(home, runner=runner, env={})
         codacy_results = [r for r in results if r.get("tool") == "codacy-cli"]
         self.assertEqual(codacy_results, [], "no post_install actions expected for codacy-cli")
+
+
+class CodacyCliWrapperTests(DotfilesTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.wrapper_text = CODACY_WRAPPER.read_text()
+
+    def test_wrapper_keeps_pipefail_enabled(self) -> None:
+        self.assertIn("set -euo pipefail", self.wrapper_text)
+        self.assertNotIn("set -e +o pipefail", self.wrapper_text)
+
+    def test_wrapper_defines_fatal(self) -> None:
+        self.assertIn("fatal()", self.wrapper_text)
+
+    def test_wrapper_executes_command_without_eval(self) -> None:
+        self.assertIn('exec "$run_command" "$@"', self.wrapper_text)
+        self.assertNotIn('eval "$run_command $*"', self.wrapper_text)
+
+    def test_wrapper_rejects_empty_latest_version(self) -> None:
+        self.assertIn('could not determine the latest Codacy CLI version', self.wrapper_text)

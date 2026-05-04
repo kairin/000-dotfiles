@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 # Tests execute only the repo-local setup script.
 import subprocess  # nosec B404
 from pathlib import Path
@@ -279,6 +280,54 @@ cat "{installer_path}"
         self.assertTrue((home / ".config" / "fish" / "functions" / "direnv.fish").exists())
         self.assertFalse((home / ".config" / "git" / "config").exists())
         self.assertTrue((home / ".config" / "fish" / "conf.d" / "000-dotfiles-pixel-avf-prompt.fish").exists())
+
+    def test_no_arg_apply_repairs_stale_claude_mcp_env_references(self) -> None:
+        home = self.make_home()
+        bin_dir = self.make_command_path("python3")
+        claude_log = home / "claude.log"
+        self.write_fake_uv(bin_dir, home / "uv.log")
+        self.write_executable(
+            bin_dir / "claude",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "{claude_log}"
+exit 0
+""",
+        )
+        (home / ".claude.json").write_text(
+            json.dumps(
+                {
+                    "mcpServers": {
+                        "github": {
+                            "command": "npx",
+                            "args": ["-y", "@modelcontextprotocol/server-github"],
+                            "env": {"GITHUB_TOKEN": "old-gh-token"},
+                        },
+                        "codacy": {
+                            "command": "npx",
+                            "args": ["-y", "@codacy/codacy-mcp@latest"],
+                        },
+                    }
+                }
+            )
+        )
+
+        env = self.env_for(bin_dir, home)
+        env["DOTFILES_PLATFORM"] = "pixel-avf"
+        env["GITHUB_TOKEN"] = "fresh-gh-token"
+        env["CODACY_ACCOUNT_TOKEN"] = "fresh-codacy-token"
+        result = run_setup(env=env, input_text="2\n6\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(claude_log.exists(), result.stdout + result.stderr)
+        log_text = claude_log.read_text()
+        self.assertIn("mcp remove --scope user github", log_text)
+        self.assertIn("mcp add -e GITHUB_TOKEN=$GITHUB_TOKEN --scope user github -- npx -y @modelcontextprotocol/server-github", log_text)
+        self.assertIn("mcp remove --scope user codacy", log_text)
+        self.assertIn("mcp add -e CODACY_ACCOUNT_TOKEN=$CODACY_ACCOUNT_TOKEN --scope user codacy -- npx -y @codacy/codacy-mcp@latest", log_text)
+        self.assertNotIn("old-gh-token", log_text)
+        self.assertNotIn("fresh-gh-token", log_text)
+        self.assertNotIn("fresh-codacy-token", log_text)
 
     def test_no_arg_tool_guidance_choice_prints_status(self) -> None:
         home = self.make_home()

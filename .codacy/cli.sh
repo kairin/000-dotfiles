@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 
 
-set -e +o pipefail
+set -euo pipefail
+
+fatal() {
+    echo "$1" >&2
+    exit 1
+}
 
 # Set up paths first
 bin_name="codacy-cli-v2"
@@ -56,6 +61,9 @@ get_latest_version() {
 
     handle_rate_limit "$response"
     local version=$(echo "$response" | grep -m 1 tag_name | cut -d'"' -f4)
+    if [ -z "$version" ]; then
+        fatal "Error: could not determine the latest Codacy CLI version."
+    fi
     echo "$version"
 }
 
@@ -145,5 +153,5 @@ fi
 if [ "$#" -eq 1 ] && [ "$1" = "download" ]; then
     echo "Codacy cli v2 download succeeded"
 else
-    eval "$run_command $*"
+    exec "$run_command" "$@"
 fi

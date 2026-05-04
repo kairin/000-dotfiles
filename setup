@@ -457,30 +457,104 @@ PYSCRIPT
   return 0
 }
 
-ensure_mcp_servers() {
-  local claude_json="$HOME/.claude.json"
-  local registered
-  registered=$(python3 - "$claude_json" <<'PYSCRIPT' 2>/dev/null
-import json, sys
+json_python() {
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s\n' python3
+  elif command -v python >/dev/null 2>&1; then
+    printf '%s\n' python
+  else
+    return 1
+  fi
+}
+
+claude_mcp_server_state() {
+  local server_name="$1" env_var="$2"
+  shift 2
+
+  local python_bin
+  python_bin="$(json_python)" || {
+    printf '%s\n' unknown
+    return 0
+  }
+
+  "$python_bin" - "$HOME/.claude.json" "$server_name" "$env_var" "$@" <<'PYSCRIPT' 2>/dev/null
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+server_name = sys.argv[2]
+env_var = sys.argv[3]
+expected_command = sys.argv[4] if len(sys.argv) > 4 else ""
+expected_args = sys.argv[5:]
+
 try:
-  with open(sys.argv[1], 'r') as f:
-    print(' '.join(json.load(f).get('mcpServers', {}).keys()))
+    data = json.loads(path.read_text())
 except Exception:
-  pass
+    print("missing")
+    raise SystemExit
+
+cfg = data.get("mcpServers", {}).get(server_name)
+if not cfg:
+    print("missing")
+    raise SystemExit
+
+if cfg.get("command") != expected_command or list(cfg.get("args", [])) != expected_args:
+    print("custom")
+    raise SystemExit
+
+env = cfg.get("env") or {}
+if env.get(env_var) == f"${env_var}":
+    print("ok")
+else:
+    print("repair")
 PYSCRIPT
-)
+}
 
-  if [[ "$registered" != *"github"* ]]; then
-    claude mcp add -e 'GITHUB_TOKEN=$GITHUB_TOKEN' --scope user github -- npx -y @modelcontextprotocol/server-github 2>/dev/null \
-      && echo "  github MCP server registered" \
-      || echo "  github MCP server registration failed (is claude CLI installed?)"
+register_claude_mcp_server() {
+  local server_name="$1" env_var="$2"
+  shift 2
+
+  local env_assignment="${env_var}=\$${env_var}"
+  claude mcp add -e "$env_assignment" --scope user "$server_name" -- "$@" 2>/dev/null \
+    && echo "  $server_name MCP server registered" \
+    || echo "  $server_name MCP server registration failed (is claude CLI installed?)"
+}
+
+ensure_claude_mcp_server() {
+  local server_name="$1" env_var="$2"
+  shift 2
+
+  if ! command -v claude >/dev/null 2>&1; then
+    echo "  $server_name MCP server registration skipped (claude CLI not installed?)"
+    return 0
   fi
 
-  if [[ "$registered" != *"codacy"* ]]; then
-    claude mcp add -e 'CODACY_ACCOUNT_TOKEN=$CODACY_ACCOUNT_TOKEN' --scope user codacy -- npx -y @codacy/codacy-mcp@latest 2>/dev/null \
-      && echo "  codacy MCP server registered" \
-      || echo "  codacy MCP server registration failed (is claude CLI installed?)"
-  fi
+  local state
+  state="$(claude_mcp_server_state "$server_name" "$env_var" "$@")"
+  case "$state" in
+    ok)
+      echo "  $server_name MCP server already uses $env_var from shell"
+      ;;
+    missing)
+      register_claude_mcp_server "$server_name" "$env_var" "$@"
+      ;;
+    repair)
+      claude mcp remove --scope user "$server_name" >/dev/null 2>&1 || true
+      register_claude_mcp_server "$server_name" "$env_var" "$@"
+      ;;
+    custom)
+      echo "  $server_name MCP server registered with custom command; leaving unchanged"
+      ;;
+    *)
+      echo "  $server_name MCP server state could not be validated; leaving unchanged"
+      ;;
+  esac
+}
+
+ensure_mcp_servers() {
+  ensure_claude_mcp_server github GITHUB_TOKEN npx -y @modelcontextprotocol/server-github
+  ensure_claude_mcp_server codacy CODACY_ACCOUNT_TOKEN npx -y @codacy/codacy-mcp@latest
 }
 
 cmd_verify() {

@@ -34,6 +34,10 @@ class WorkflowTests(DotfilesTestCase):
         # SARIF must be uploaded for both HEAD and merge-base so Codacy can
         # diff the PR; without the base upload, the GH App posts nothing.
         self.assertIn("upload_with_retry", pipeline)
-        self.assertIn("git merge-base HEAD origin/main", pipeline)
+        self.assertIn('git fetch --no-tags origin "+refs/heads/$target_branch:$BASE_REF"', pipeline)
+        self.assertIn('git merge-base HEAD "$BASE_REF"', pipeline)
+        self.assertIn('BASE_SHA="$(resolve_base_sha "$TARGET_BRANCH")"', pipeline)
+        self.assertIn("Invalid SHA for Codacy upload", pipeline)
+        self.assertNotIn("Skipping upload for invalid SHA", pipeline)
         self.assertNotIn("CODACY_ACCOUNT_TOKEN", pipeline)
         self.assertNotIn("GITHUB_TOKEN", pipeline)
