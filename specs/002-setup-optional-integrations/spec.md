@@ -16,7 +16,6 @@ The following functions were added to `setup` as part of this feature:
 
 ### Known gaps (future work)
 
-- `codacy_setup_repository` MCP call is not yet wired into `./setup init-project`; per-repository Codacy setup from the project init flow remains a TODO.
 - `GITHUB_TOKEN` is silently empty if `gh` is not authenticated; this is a known limitation, not a bug.
 
 ## User Scenarios & Testing *(mandatory)*
