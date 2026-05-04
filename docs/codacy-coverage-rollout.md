@@ -138,7 +138,7 @@ Use this document as the checklist for applying the same pattern to other repos.
     - Coverage percentage and file coverage goals are reporting signals until
       coverage gates are configured.
 12. Apply GitHub protection after the checks are visible.
-    - Use `gh/codacy-branch-protection.md`.
+    - Use `docs/codacy-branch-protection.md`.
     - Require all active Codacy contexts in classic branch protection.
     - Require the same contexts in the active default-branch ruleset.
     - Keep both protection layers on strict status checks.
