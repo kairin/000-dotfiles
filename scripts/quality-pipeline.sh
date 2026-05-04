@@ -88,20 +88,13 @@ SARIF="/tmp/pylint-$$.sarif"
 codacy-cli analyze --tool pylint --format sarif -o "$SARIF"
 
 # ----------------------------------------------------------------------------
-# Stage 4: coverage upload (skipped in --codacy-only mode and when no token)
+# Stage 4: coverage upload — handled by .github/workflows/dotfiles-validation.yml
+# via codacy/codacy-coverage-reporter-action. We do NOT upload coverage here:
+# `codacy-cli upload` accepts only SARIF, not coverage.xml, and would die with
+# "invalid character '<'", killing the pipeline before SARIF upload runs.
+# Local push: the workflow uploads coverage on its own schedule.
 # ----------------------------------------------------------------------------
 HEAD_SHA="$(git rev-parse HEAD)"
-
-if (( CODACY_ONLY == 0 )); then
-  echo -e "\n${CYAN}[STAGE 4/7] Uploading coverage to Codacy (commit $HEAD_SHA)...${NC}"
-  if [[ -z "$TOKEN" ]]; then
-    echo -e "${YELLOW}⚠ CODACY_PROJECT_TOKEN not set — skipping coverage upload.${NC}"
-  elif [[ "${SKIP_CODACY_UPLOAD:-0}" = "1" ]]; then
-    echo -e "${YELLOW}⚠ SKIP_CODACY_UPLOAD=1 — skipping coverage upload by request.${NC}"
-  else
-    codacy-cli upload -s coverage.xml -c "$HEAD_SHA" -t "$TOKEN"
-  fi
-fi
 
 # ----------------------------------------------------------------------------
 # Stages 5-6: SARIF upload for HEAD and merge-base (with retry)
