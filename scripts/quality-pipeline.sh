@@ -55,13 +55,14 @@ echo "[2/5] Generating coverage..."
 uv run --with coverage==7.5.4 coverage run -m unittest discover -s tests
 uv run --with coverage==7.5.4 coverage xml
 
-echo "[3/5] Running pylint analysis..."
+echo "[3/4] Running pylint analysis..."
 codacy-cli analyze --tool pylint --format sarif -o pylint.sarif
 
-echo "[4/5] Uploading coverage to Codacy (commit $SHA)..."
-codacy-cli upload -s coverage.xml -c "$SHA" -t "$TOKEN"
+# Coverage upload is handled by the workflow's codacy-coverage-reporter-action
+# step (see .github/workflows/dotfiles-validation.yml). codacy-cli upload only
+# accepts SARIF, not coverage XML — passing coverage.xml here always failed.
 
-echo "[5/5] Uploading pylint analysis to Codacy (commit $SHA)..."
+echo "[4/4] Uploading pylint analysis to Codacy (commit $SHA)..."
 codacy-cli upload -s pylint.sarif -c "$SHA" -t "$TOKEN"
 
 echo ""
