@@ -721,23 +721,40 @@ cmd_ship() {
       || _ship_die "could not create worktree at $_ship_wt for $head_oid"
 
     echo "[ship] step 4d: running codacy-cli analyze (pylint)"
-    if [[ ! -f "$_ship_wt/.codacy/codacy.yaml" && -f "$repo_root/.codacy/codacy.yaml" ]]; then
+    if [[ ! -f "$_ship_wt/.codacy/codacy.yaml" ]]; then
       mkdir -p "$_ship_wt/.codacy"
-      cp "$repo_root/.codacy/codacy.yaml" "$_ship_wt/.codacy/codacy.yaml"
-      [[ -f "$repo_root/.codacy/cli.sh" ]] && cp "$repo_root/.codacy/cli.sh" "$_ship_wt/.codacy/cli.sh"
+      local codacy_src=""
+      local candidate
+      for candidate in "$repo_root/.codacy/codacy.yaml" "$DOTFILES_REPO/.codacy/codacy.yaml"; do
+        if [[ -f "$candidate" ]]; then codacy_src="${candidate%/codacy.yaml}"; break; fi
+      done
+      if [[ -n "$codacy_src" ]]; then
+        cp "$codacy_src/codacy.yaml" "$_ship_wt/.codacy/codacy.yaml"
+        [[ -f "$codacy_src/cli.sh" ]] && cp "$codacy_src/cli.sh" "$_ship_wt/.codacy/cli.sh"
+      else
+        cat >"$_ship_wt/.codacy/codacy.yaml" <<'YAML'
+runtimes:
+    - python@3.11.11
+tools:
+    - pylint@3.3.6
+YAML
+      fi
     fi
+    rm -f "$_ship_sarif"
     ( cd "$_ship_wt" && codacy-cli analyze --tool pylint --format sarif -o "$_ship_sarif" ) \
       || _ship_die "codacy-cli analyze failed in $_ship_wt"
+    [[ -s "$_ship_sarif" ]] \
+      || _ship_die "codacy-cli analyze produced no SARIF at $_ship_sarif (check .codacy/codacy.yaml in the worktree)"
 
     echo "[ship] step 4e: uploading SARIF for HEAD ($head_oid)"
-    codacy-cli upload -s "$_ship_sarif" -c "$head_oid" -t "$CODACY_PROJECT_TOKEN" \
+    ( cd "$_ship_wt" && codacy-cli upload -s "$_ship_sarif" -c "$head_oid" -t "$CODACY_PROJECT_TOKEN" ) \
       || _ship_die "codacy-cli upload (HEAD) failed"
 
     local base_sha
     base_sha="$(gh api "repos/${repo}/commits/main" --jq .sha 2>/dev/null)" \
       || _ship_die "could not fetch origin/main HEAD via gh api"
     echo "[ship] step 4f: uploading SARIF for base ($base_sha)"
-    codacy-cli upload -s "$_ship_sarif" -c "$base_sha" -t "$CODACY_PROJECT_TOKEN" \
+    ( cd "$_ship_wt" && codacy-cli upload -s "$_ship_sarif" -c "$base_sha" -t "$CODACY_PROJECT_TOKEN" ) \
       || _ship_die "codacy-cli upload (base) failed"
 
     echo "[ship] step 4g: polling required checks (up to 5min)"
