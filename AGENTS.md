@@ -95,7 +95,8 @@ Finalizing a PR: `./setup ship` is the canonical way to merge. It re-runs
 the Codacy SARIF upload after `gh pr update-branch` (the SHA churn is what
 breaks the required `Codacy Static Code Analysis` check on every merge),
 polls the four required Codacy checks, and squash-merges only when the PR
-is `CLEAN`. Requires `CODACY_PROJECT_TOKEN` and an authenticated `gh`.
+is `CLEAN` or `UNSTABLE` after required checks are green. Requires
+`CODACY_PROJECT_TOKEN` and an authenticated `gh`.
 
 Runtime validation tooling uses Python standard library modules and uv-managed
 developer commands:
