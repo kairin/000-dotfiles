@@ -133,10 +133,10 @@ def _json_merge_target_state(
 
 
 def _missing_json_keys(source: Any, target: Any) -> list[str]:
-    if not isinstance(source, dict) or not isinstance(target, dict):
+    if not isinstance(source, dict):
         return []
     missing: list[str] = []
-    _walk_missing(source, target, "", missing)
+    _walk_missing(source, target if isinstance(target, dict) else {}, "", missing)
     return sorted(missing)
 
 
