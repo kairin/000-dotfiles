@@ -1,4 +1,5 @@
 {
+  "_comment": "env blocks below are required for MCP server auth (CODACY_ACCOUNT_TOKEN, GITHUB_TOKEN). Do not strip — doctor will flag and apply re-merges.",
   "mcpServers": {
     "github": {
       "command": "npx",

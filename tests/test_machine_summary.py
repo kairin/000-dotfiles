@@ -4,7 +4,14 @@ from pathlib import Path
 
 from unittest import mock
 
-from dotfiles_tools.machine_summary import render_menu_mode, render_missing_tool_count, render_reports
+from dotfiles_tools.machine_summary import (
+    _action_summary,
+    _group_entries,
+    _recommendation,
+    render_menu_mode,
+    render_missing_tool_count,
+    render_reports,
+)
 from dotfiles_tools.reports import Report
 from tests.helpers import DotfilesTestCase, REPO_ROOT
 
@@ -295,6 +302,42 @@ class MachineSummaryTests(DotfilesTestCase):
             count = render_missing_tool_count(REPO_ROOT, home)
         self.assertEqual(mode, "tools_missing")
         self.assertGreater(count, 0)
+
+    def test_fonts_entries_excluded_from_file_change_groups(self) -> None:
+        nerd = nerd_font("missing")
+        apt = apt_font("missing")
+        entries = [
+            manifest_entry("claude.settings", "drifted"),
+            manifest_entry("codex.config", "missing"),
+            font_entry(nerd),
+            font_entry(apt),
+        ]
+
+        groups = _group_entries(entries)
+
+        font_ids = {nerd["entry_id"], apt["entry_id"]}
+        for bucket in ("updates", "creates", "protected", "blocked"):
+            bucket_ids = {entry.get("entry_id") for entry in groups[bucket]}
+            self.assertFalse(
+                bucket_ids & font_ids,
+                f"font entries leaked into groups[{bucket!r}]: {bucket_ids & font_ids}",
+            )
+        self.assertNotIn("fonts", groups)
+        self.assertEqual({entry["entry_id"] for entry in groups["updates"]}, {"claude.settings"})
+        self.assertEqual({entry["entry_id"] for entry in groups["creates"]}, {"codex.config"})
+
+    def test_recommendation_falls_through_to_current_when_nothing_pending(self) -> None:
+        home = self.make_home()
+        plan_report = plan(home)
+        doctor_report = doctor(home)
+        groups = _group_entries(plan_report.entries)
+        action_summary = _action_summary(doctor_report, plan_report, groups)
+
+        rec = _recommendation(doctor_report, plan_report, action_summary, groups)
+
+        self.assertEqual(rec.option_number, 5)
+        self.assertEqual(rec.state_category, "current")
+        self.assertEqual(rec.label, "Exit without writing")
 
     def test_menu_mode_returns_tools_present_when_platform_unsupported(self) -> None:
         home = self.make_home()
