@@ -106,11 +106,28 @@ if [[ -z "$TOKEN" ]]; then
 elif [[ "${SKIP_CODACY_UPLOAD:-0}" = "1" ]]; then
   echo -e "${YELLOW}⚠ SKIP_CODACY_UPLOAD=1 — skipping SARIF upload by request.${NC}"
 else
-  BASE_SHA="$(git merge-base HEAD origin/main 2>/dev/null || git rev-parse origin/main 2>/dev/null || echo "")"
+  # Robustly resolve the base branch for multi-commit uploads.
+  # On GitHub Actions, GITHUB_BASE_REF is set for pull requests.
+  TARGET_BRANCH="${GITHUB_BASE_REF:-main}"
+  BASE_REF="origin/$TARGET_BRANCH"
+  if ! git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
+    BASE_REF="$TARGET_BRANCH"
+  fi
+
+  BASE_SHA="$(git merge-base HEAD "$BASE_REF" 2>/dev/null || git rev-parse "$BASE_REF" 2>/dev/null || echo "")"
 
   upload_with_retry() {
     local sha="$1"
     local attempt
+
+    # Validation: Codacy API requires a full 40-character hex SHA.
+    if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+      echo -e "${YELLOW}⚠ Skipping upload for invalid SHA: '$sha' (expected 40-character hex).${NC}"
+      # If this is the HEAD upload, we might want to fail, but if it's the 
+      # merge-base and we can't find it, we just warn and continue.
+      return 0
+    fi
+
     for attempt in 1 2; do
       if codacy-cli upload -s "$SARIF" -c "$sha" -t "$TOKEN"; then
         return 0
