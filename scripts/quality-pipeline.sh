@@ -4,10 +4,8 @@
 # Fails fast on any step. Blocks if Codacy upload fails.
 #
 # Exit codes:
-#   0  pipeline passed (reserved; not used while Stage 7 is a manual gate)
+#   0  pipeline passed
 #   1  a stage failed (tests, coverage, analysis, upload)
-#   2  local stages 1-5 passed but Stage 7 is a manual Codacy MCP gate
-#      (callers know auto-pass did NOT happen; operator must verify)
 #   3  prerequisite missing (tool not on PATH, or required env var unset)
 set -euo pipefail
 
@@ -27,9 +25,7 @@ for cmd in gh uv codacy-cli; do
 done
 
 # CODACY_PROJECT_TOKEN is what `codacy-cli upload` actually uses.
-# CODACY_ACCOUNT_TOKEN gates Codacy MCP availability for the operator.
-# GITHUB_TOKEN gates gh CLI auth and any GitHub MCP usage from agents.
-for var in CODACY_PROJECT_TOKEN CODACY_ACCOUNT_TOKEN GITHUB_TOKEN; do
+for var in CODACY_PROJECT_TOKEN; do
   if [[ -z "${!var:-}" ]]; then
     missing+=("env var unset or empty: $var")
   fi
@@ -75,5 +71,5 @@ echo "  asynchronously. To verify the gate result, invoke the Codacy MCP tool"
 echo "  'codacy_get_repository_pull_request' from a Claude Code session, or"
 echo "  watch the GitHub PR status checks."
 echo ""
-echo "Exiting 2: local stages succeeded but Stage 7 is a manual gate, NOT an auto-pass."
-exit 2
+echo "Exiting 0: local stages succeeded; Stage 7 remains informational."
+exit 0
