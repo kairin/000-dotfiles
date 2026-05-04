@@ -132,36 +132,27 @@ def _json_merge_target_state(
     return _state(result, "needs_merge", f"missing entries: {missing_str}")
 
 
-def _check_missing_key(key: str, source_value: Any, target: dict[str, Any], missing: list[str]) -> None:
-    if not isinstance(source_value, dict):
-        if key not in target:
-            missing.append(key)
-        return
-    _missing_nested_keys(key, source_value, target, missing)
-
-
-def _missing_nested_keys(
-    key: str,
-    source_value: dict[str, Any],
-    target: dict[str, Any],
-    missing: list[str],
-) -> None:
-    target_sub = target.get(key, {})
-    if not isinstance(target_sub, dict):
-        missing.append(key)
-        return
-    for sub_key in source_value:
-        if sub_key not in target_sub:
-            missing.append(f"{key}.{sub_key}")
-
-
 def _missing_json_keys(source: Any, target: Any) -> list[str]:
     if not isinstance(source, dict) or not isinstance(target, dict):
         return []
     missing: list[str] = []
-    for key, source_value in source.items():
-        _check_missing_key(key, source_value, target, missing)
+    _walk_missing(source, target, "", missing)
     return sorted(missing)
+
+
+def _walk_missing(source: dict[str, Any], target: dict[str, Any], prefix: str, missing: list[str]) -> None:
+    for key, source_value in source.items():
+        path = f"{prefix}.{key}" if prefix else key
+        if key not in target:
+            missing.append(path)
+            continue
+        if not isinstance(source_value, dict):
+            continue
+        target_value = target[key]
+        if not isinstance(target_value, dict):
+            missing.append(path)
+            continue
+        _walk_missing(source_value, target_value, path, missing)
 
 
 def _base_result(entry: ManifestEntry, source_path: Path, target_path: Path) -> dict[str, Any]:
