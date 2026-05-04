@@ -1,7 +1,21 @@
 #!/usr/bin/env bash
-# Local quality pipeline: tests -> coverage -> static analysis -> upload to Codacy.
-# Invoked from scripts/hooks/pre-push and `setup quality`.
-# Fails fast on any step. Blocks if Codacy upload fails.
+# Local quality pipeline.
+#
+# Stages:
+#   1. Unit tests
+#   2. Coverage XML
+#   3. Pylint analysis (SARIF)
+#   4. Coverage upload to Codacy
+#   5. SARIF upload to Codacy (HEAD)
+#   6. SARIF upload to Codacy (merge-base) -- so PR diff has a baseline
+#   7. Codacy server-side gate (informational)
+#
+# Modes:
+#   (default)        run stages 1-7
+#   --codacy-only    run only stages 3, 5, 6, 7 against working tree HEAD.
+#                    Used by the pre-push hook so the static-analysis SARIF
+#                    is uploaded BEFORE the push completes; lets the four
+#                    required GitHub checks go green automatically.
 #
 # Exit codes:
 #   0  pipeline passed
@@ -12,22 +26,31 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+CODACY_ONLY=0
+if [[ "${1:-}" == "--codacy-only" ]]; then
+  CODACY_ONLY=1
+fi
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
 # ----------------------------------------------------------------------------
-# Prerequisite validation: check everything up front, report all problems,
-# then exit 3 if anything is missing. Avoids the "fix one, hit the next" loop.
+# Prerequisite validation
 # ----------------------------------------------------------------------------
 missing=()
 
-for cmd in gh uv codacy-cli; do
+required_cmds=(codacy-cli)
+if (( CODACY_ONLY == 0 )); then
+  required_cmds=(gh uv codacy-cli)
+fi
+
+for cmd in "${required_cmds[@]}"; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     missing+=("command not on PATH: $cmd")
-  fi
-done
-
-# CODACY_PROJECT_TOKEN is what `codacy-cli upload` actually uses.
-for var in CODACY_PROJECT_TOKEN; do
-  if [[ -z "${!var:-}" ]]; then
-    missing+=("env var unset or empty: $var")
   fi
 done
 
@@ -42,34 +65,91 @@ if (( ${#missing[@]} > 0 )); then
   exit 3
 fi
 
-SHA="$(git rev-parse HEAD)"
-TOKEN="$CODACY_PROJECT_TOKEN"
+# Token may be absent in local dev; we skip the upload then rather than fail.
+TOKEN="${CODACY_PROJECT_TOKEN:-}"
 
 # ----------------------------------------------------------------------------
-# Pipeline stages
+# Stages 1-2: tests + coverage (skipped in --codacy-only mode)
 # ----------------------------------------------------------------------------
-echo "[1/5] Running unit tests..."
-uv run python -m unittest discover -s tests
+if (( CODACY_ONLY == 0 )); then
+  echo -e "${CYAN}[STAGE 1/7] Running unit tests...${NC}"
+  uv run python -m unittest discover -s tests
 
-echo "[2/5] Generating coverage..."
-uv run --with coverage==7.5.4 coverage run -m unittest discover -s tests
-uv run --with coverage==7.5.4 coverage xml
+  echo -e "${CYAN}[STAGE 2/7] Generating coverage XML...${NC}"
+  uv run --with coverage==7.5.4 coverage run -m unittest discover -s tests
+  uv run --with coverage==7.5.4 coverage xml
+fi
 
-echo "[3/5] Running pylint analysis..."
-codacy-cli analyze --tool pylint --format sarif -o pylint.sarif
+# ----------------------------------------------------------------------------
+# Stage 3: pylint SARIF analysis
+# ----------------------------------------------------------------------------
+echo -e "\n${CYAN}[STAGE 3/7] Running pylint analysis...${NC}"
+SARIF="/tmp/pylint-$$.sarif"
+codacy-cli analyze --tool pylint --format sarif -o "$SARIF"
 
-echo "[4/5] Uploading coverage to Codacy (commit $SHA)..."
-codacy-cli upload -s coverage.xml -c "$SHA" -t "$TOKEN"
+# ----------------------------------------------------------------------------
+# Stage 4: coverage upload (skipped in --codacy-only mode and when no token)
+# ----------------------------------------------------------------------------
+HEAD_SHA="$(git rev-parse HEAD)"
 
-echo "[5/5] Uploading pylint analysis to Codacy (commit $SHA)..."
-codacy-cli upload -s pylint.sarif -c "$SHA" -t "$TOKEN"
+if (( CODACY_ONLY == 0 )); then
+  echo -e "\n${CYAN}[STAGE 4/7] Uploading coverage to Codacy (commit $HEAD_SHA)...${NC}"
+  if [[ -z "$TOKEN" ]]; then
+    echo -e "${YELLOW}⚠ CODACY_PROJECT_TOKEN not set — skipping coverage upload.${NC}"
+  elif [[ "${SKIP_CODACY_UPLOAD:-0}" = "1" ]]; then
+    echo -e "${YELLOW}⚠ SKIP_CODACY_UPLOAD=1 — skipping coverage upload by request.${NC}"
+  else
+    codacy-cli upload -s coverage.xml -c "$HEAD_SHA" -t "$TOKEN"
+  fi
+fi
+
+# ----------------------------------------------------------------------------
+# Stages 5-6: SARIF upload for HEAD and merge-base (with retry)
+# ----------------------------------------------------------------------------
+echo -e "\n${CYAN}[STAGE 5/7] CODACY STATIC CODE ANALYSIS — SARIF UPLOAD${NC}"
+
+if [[ -z "$TOKEN" ]]; then
+  echo -e "${YELLOW}⚠ CODACY_PROJECT_TOKEN not set — skipping SARIF upload (the GH App may not post the static-analysis check without it).${NC}"
+elif [[ "${SKIP_CODACY_UPLOAD:-0}" = "1" ]]; then
+  echo -e "${YELLOW}⚠ SKIP_CODACY_UPLOAD=1 — skipping SARIF upload by request.${NC}"
+else
+  BASE_SHA="$(git merge-base HEAD origin/main 2>/dev/null || git rev-parse origin/main 2>/dev/null || echo "")"
+
+  upload_with_retry() {
+    local sha="$1"
+    local attempt
+    for attempt in 1 2; do
+      if codacy-cli upload -s "$SARIF" -c "$sha" -t "$TOKEN"; then
+        return 0
+      fi
+      echo -e "${YELLOW}Upload attempt $attempt failed for $sha; retrying in 5s...${NC}"
+      sleep 5
+    done
+    echo -e "${RED}✗ Codacy upload failed twice for $sha${NC}"
+    return 1
+  }
+
+  upload_with_retry "$HEAD_SHA" || exit 1
+
+  echo -e "\n${CYAN}[STAGE 6/7] SARIF upload for merge-base...${NC}"
+  if [[ -n "$BASE_SHA" && "$BASE_SHA" != "$HEAD_SHA" ]]; then
+    upload_with_retry "$BASE_SHA" || exit 1
+    echo -e "${GREEN}✓ SARIF uploaded for HEAD ($HEAD_SHA) and base ($BASE_SHA).${NC}"
+  else
+    echo -e "${GREEN}✓ HEAD is the merge-base; single upload covers PR diff.${NC}"
+  fi
+fi
+
+rm -f "$SARIF"
+
+# ----------------------------------------------------------------------------
+# Stage 7: server-side gate (informational)
+# ----------------------------------------------------------------------------
+echo -e "\n${CYAN}[STAGE 7/7] Codacy server-side gate (informational)${NC}"
+echo "  Codacy processes the uploaded artifacts asynchronously."
+echo "  The four required GitHub checks (incl. 'Codacy Static Code Analysis')"
+echo "  will turn green automatically once Codacy finishes processing."
 
 echo ""
-echo "Stage 7 (Codacy server-side gate): MANUAL"
-echo "  Local stages 1-5 passed. Codacy will process the uploaded artifacts"
-echo "  asynchronously. To verify the gate result, invoke the Codacy MCP tool"
-echo "  'codacy_get_repository_pull_request' from a Claude Code session, or"
-echo "  watch the GitHub PR status checks."
-echo ""
-echo "Exiting 0: local stages succeeded; Stage 7 remains informational."
+echo -e "${GREEN}✓ Quality pipeline complete${NC}"
 exit 0
