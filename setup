@@ -859,17 +859,24 @@ cmd_ship() {
 
   (( all_green == 1 )) || die "required Codacy checks did not all reach success after 3 attempts"
 
-  echo "[ship] step 5: confirming mergeStateStatus is CLEAN"
+  echo "[ship] step 5: confirming PR is mergeable"
   local final_state waited=0
   final_state="$(gh pr view "$pr" -R "$repo" --json mergeStateStatus --jq .mergeStateStatus 2>/dev/null || true)"
-  while (( waited < 60 )) && [[ "$final_state" != "CLEAN" ]]; do
+  while (( waited < 60 )) && [[ "$final_state" != "CLEAN" && "$final_state" != "UNSTABLE" ]]; do
     echo "[ship] mergeStateStatus is '$final_state'; waiting (${waited}s elapsed)"
     sleep 5
     waited=$(( waited + 5 ))
     final_state="$(gh pr view "$pr" -R "$repo" --json mergeStateStatus --jq .mergeStateStatus 2>/dev/null || true)"
   done
-  [[ "$final_state" == "CLEAN" ]] \
-    || die "PR mergeStateStatus is '$final_state'; refusing to merge"
+  case "$final_state" in
+    CLEAN) ;;
+    UNSTABLE)
+      echo "[ship] required checks are green but mergeStateStatus is UNSTABLE; proceeding with merge"
+      ;;
+    *)
+      die "PR mergeStateStatus is '$final_state'; refusing to merge"
+      ;;
+  esac
 
   echo "[ship] step 6: squash-merging PR #$pr"
   gh pr merge "$pr" -R "$repo" --squash \

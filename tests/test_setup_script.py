@@ -341,7 +341,7 @@ JSON
         ;;
       view)
         if [[ " $* " == *" --jq .mergeStateStatus "* ]]; then
-          echo CLEAN
+          echo "${{FAKE_GH_FINAL_MERGE_STATE:-CLEAN}}"
           exit 0
         fi
         if [[ " $* " == *" --jq .state "* ]]; then
@@ -952,6 +952,8 @@ exit 64
         bin_dir = self.make_command_path()
         self.write_fake_ship_gh(bin_dir, home / "gh.log", head_sha=head_sha)
         self.write_fake_ship_codacy_cli(bin_dir, home / "codacy.log")
+        (bin_dir / "sleep").unlink()
+        self.write_executable(bin_dir / "sleep", "#!/usr/bin/env bash\nexit 0\n")
 
         env = self.env_for(bin_dir, home)
         env["CODACY_PROJECT_TOKEN"] = "project-token"
@@ -1039,6 +1041,23 @@ exit 64
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Codacy Static Code Analysis: missing", result.stdout)
         self.assertIn("Codacy Static Code Analysis: success", result.stdout)
+        self.assertIn("PR #17 is MERGED", result.stdout)
+
+    def test_ship_merges_unstable_pr_when_required_checks_are_green(self) -> None:
+        repo, _base_sha, head_sha = self.make_ship_repo()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_ship_gh(bin_dir, home / "gh.log", head_sha=head_sha)
+        self.write_fake_ship_codacy_cli(bin_dir, home / "codacy.log")
+
+        env = self.env_for(bin_dir, home)
+        env["CODACY_PROJECT_TOKEN"] = "project-token"
+        env["FAKE_GH_FINAL_MERGE_STATE"] = "UNSTABLE"
+
+        result = run_setup("ship", "17", cwd=repo, executable=repo / "setup", env=env)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("required checks are green but mergeStateStatus is UNSTABLE", result.stdout)
         self.assertIn("PR #17 is MERGED", result.stdout)
 
 
