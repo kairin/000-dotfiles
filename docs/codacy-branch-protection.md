@@ -9,9 +9,8 @@ Codacy tokens, private repository names, or one-off local paths.
 This is a runbook, not a deployable template. Before running the snippets
 below, replace each `<...>` placeholder (`<GITHUB_OWNER>`, `<GITHUB_REPO>`,
 `<PR_NUMBER>`, `<RUN_ID>`) with the values for the repository and pull
-request you are working on. The `${{ secrets.CODACY_COVERAGE_API_TOKEN }}`
-references inside the YAML block are GitHub Actions syntax and must be left
-as-is.
+request you are working on. All `${{ ... }}` references inside the YAML block
+are GitHub Actions syntax and must be left as-is.
 
 ## Goal
 
