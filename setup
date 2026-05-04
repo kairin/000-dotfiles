@@ -799,21 +799,46 @@ cmd_ship() {
     ( cd "$_ship_base_wt" && codacy-cli upload -s "$_ship_base_sarif" -c "$base_sha" -t "$CODACY_PROJECT_TOKEN" ) \
       || die "codacy-cli upload (base) failed"
 
-    echo "[ship] step 4j: polling required checks (up to 5min)"
-    local elapsed=0 interval=15 timeout=300
+    local interval="${SHIP_CHECK_INTERVAL:-15}" timeout="${SHIP_CHECK_TIMEOUT:-900}"
+    [[ "$interval" =~ ^[0-9]+$ && "$interval" -gt 0 ]] \
+      || die "SHIP_CHECK_INTERVAL must be a positive integer number of seconds"
+    [[ "$timeout" =~ ^[0-9]+$ && "$timeout" -gt 0 ]] \
+      || die "SHIP_CHECK_TIMEOUT must be a positive integer number of seconds"
+    echo "[ship] step 4j: polling required checks (up to ${timeout}s)"
+    local elapsed=0 last_status_report=""
     while (( elapsed < timeout )); do
       local checks
       checks="$(gh api "repos/${repo}/commits/${head_oid}/check-runs" --paginate \
         --jq '.check_runs[] | "\(.name)\t\(.conclusion // .status)"' 2>/dev/null || true)"
-      local pending=0 failed=0 check line
+      local pending=0 failed=0 check line status_report="" status_line
       for check in "${required_checks[@]}"; do
         line="$(printf '%s\n' "$checks" | awk -F '\t' -v n="$check" '$1==n {print $2; exit}')"
         case "$line" in
-          success) ;;
-          failure|cancelled|timed_out) failed=1 ;;
-          *) pending=1 ;;
+          success)
+            status_report+="$check: success"$'\n'
+            ;;
+          failure|cancelled|timed_out|action_required|startup_failure|stale|skipped)
+            failed=1
+            status_report+="$check: $line"$'\n'
+            ;;
+          "")
+            pending=1
+            status_report+="$check: missing"$'\n'
+            ;;
+          *)
+            pending=1
+            status_report+="$check: $line"$'\n'
+            ;;
         esac
       done
+      status_report="${status_report%$'\n'}"
+      if [[ "$status_report" != "$last_status_report" ]]; then
+        echo "[ship] required check status (${elapsed}s elapsed):"
+        while IFS= read -r status_line; do
+          echo "[ship]   $status_line"
+        done <<<"$status_report"
+        last_status_report="$status_report"
+      fi
       if (( failed == 1 )); then
         echo "[ship] one or more required checks failed; will retry SARIF upload"
         break
@@ -823,7 +848,7 @@ cmd_ship() {
         all_green=1
         break
       fi
-      printf '[ship]   waiting (%ds elapsed)...\n' "$elapsed"
+      printf '[ship]   waiting for required checks (%ds elapsed)...\n' "$elapsed"
       sleep "$interval"
       elapsed=$(( elapsed + interval ))
     done

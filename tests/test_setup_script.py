@@ -367,6 +367,14 @@ JSON
     path="${{1:-}}"
     case "$path" in
       repos/kairin/000-dotfiles/commits/{head_sha}/check-runs)
+        if [[ "${{FAKE_GH_CHECK_MODE:-}}" == "missing-static" ]]; then
+          cat <<'JSON'
+Codacy Coverage Variation	success
+Codacy Diff Coverage	success
+codacy-safety-net	success
+JSON
+          exit 0
+        fi
         cat <<'JSON'
 Codacy Static Code Analysis	success
 Codacy Coverage Variation	success
@@ -977,6 +985,26 @@ exit 64
         self.assertTrue(any(line.startswith("pr view 17 ") for line in gh_lines))
         self.assertTrue(any(line.startswith("api repos/kairin/000-dotfiles/commits/") and "/check-runs" in line for line in gh_lines))
         self.assertTrue(any(line.startswith("pr merge 17 ") for line in gh_lines))
+
+    def test_ship_reports_missing_required_checks_by_name(self) -> None:
+        repo, _base_sha, head_sha = self.make_ship_repo()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_ship_gh(bin_dir, home / "gh.log", head_sha=head_sha)
+        self.write_fake_ship_codacy_cli(bin_dir, home / "codacy.log")
+        (bin_dir / "sleep").unlink()
+        self.write_executable(bin_dir / "sleep", "#!/usr/bin/env bash\nexit 0\n")
+
+        env = self.env_for(bin_dir, home)
+        env["CODACY_PROJECT_TOKEN"] = "project-token"
+        env["FAKE_GH_CHECK_MODE"] = "missing-static"
+        env["SHIP_CHECK_TIMEOUT"] = "30"
+
+        result = run_setup("ship", "17", cwd=repo, executable=repo / "setup", env=env)
+
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("Codacy Static Code Analysis: missing", result.stdout)
+        self.assertIn("required Codacy checks did not all reach success after 3 attempts", result.stderr)
 
 
 if __name__ == "__main__":

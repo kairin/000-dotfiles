@@ -249,6 +249,9 @@ BEHIND `main`, re-uploads the Codacy SARIF for the new HEAD and base SHA so the
 diff comparison is fresh, then polls the four required checks
 (`Codacy Static Code Analysis`, `Codacy Coverage Variation`,
 `Codacy Diff Coverage`, `codacy-safety-net`) before squash-merging.
+The default check polling window is 15 minutes; override with
+`SHIP_CHECK_TIMEOUT=<seconds>` or `SHIP_CHECK_INTERVAL=<seconds>` only when
+debugging.
 
 ---
 
