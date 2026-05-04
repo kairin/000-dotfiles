@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 # Tests execute only the repo-local setup script.
 import subprocess  # nosec B404
 import unittest
@@ -47,6 +48,11 @@ class CmdQualityTests(DotfilesTestCase):
         )
         return repo
 
+    def make_nested_dir(self, repo: Path) -> Path:
+        nested = repo / "subdir" / "deeper"
+        nested.mkdir(parents=True, exist_ok=True)
+        return nested
+
     def write_pipeline_stub(
         self,
         repo: Path,
@@ -71,17 +77,26 @@ class CmdQualityTests(DotfilesTestCase):
 
     def test_quality_succeeds_when_pipeline_is_executable(self) -> None:
         repo = self.make_fake_repo()
+        cwd = self.make_nested_dir(repo)
         marker = repo / "ran.txt"
         self.write_pipeline_stub(
             repo,
-            f"#!/usr/bin/env bash\necho \"ran pipeline\"\ntouch {marker}\nexit 0\n",
+            f"#!/usr/bin/env bash\necho \"ran pipeline\"\ntouch {shlex.quote(str(marker))}\nexit 0\n",
         )
 
-        result = run_setup_quality(cwd=repo, env=self.env_with_path())
+        result = run_setup_quality(cwd=cwd, env=self.env_with_path())
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("ran pipeline", result.stdout)
         self.assertTrue(marker.exists(), "stub pipeline did not run")
+
+    def test_quality_fails_outside_git_repository(self) -> None:
+        cwd = self.make_project()
+
+        result = run_setup_quality(cwd=cwd, env=self.env_with_path())
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("must run inside a git repository", result.stderr)
 
     def test_quality_fails_when_pipeline_script_missing(self) -> None:
         repo = self.make_fake_repo()
@@ -133,7 +148,7 @@ class CmdQualityTests(DotfilesTestCase):
         log = repo / "args.log"
         self.write_pipeline_stub(
             repo,
-            f"#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > {log}\nexit 0\n",
+            f"#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > {shlex.quote(str(log))}\nexit 0\n",
         )
 
         result = run_setup_quality("123", "extra", cwd=repo, env=self.env_with_path())
