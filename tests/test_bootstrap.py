@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import io
 import subprocess
+import zipfile
 from pathlib import Path
 
+from dotfiles_tools.font_catalog import NERD_FONT_CATALOG, EXPECTED_TTF
 from dotfiles_tools.bootstrap import (
     WARNING_STATES,
     FAILED_STATES,
@@ -27,9 +30,24 @@ class FakeRunner:
     def which(self, command: str) -> str | None:
         return self.which_map.get(command)
 
+    def fetch_json(self, url: str) -> dict:
+        return {
+            "tag_name": "v3.4.0",
+            "assets": [
+                {"name": item.asset_name, "browser_download_url": f"https://example/{item.asset_name}", "size": 12}
+                for item in NERD_FONT_CATALOG
+            ],
+        }
+
     def download(self, url: str, target: Path) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("#!/bin/sh\necho fake\n")
+        if target.suffix.lower() == ".zip":
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w") as zf:
+                zf.writestr(EXPECTED_TTF, b"fake-font-bytes")
+            target.write_bytes(buf.getvalue())
+        else:
+            target.write_text("#!/bin/sh\necho fake\n")
 
     def run(
         self,
