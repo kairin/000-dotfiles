@@ -24,3 +24,5 @@ __pycache__/
 !.agents/skills/**
 .vscode/
 skills-lock.json
+.codacy/
+*.sarif
