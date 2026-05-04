@@ -305,6 +305,26 @@ class ToolInstallExecuteTests(DotfilesTestCase):
         execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
         self.assertEqual(runner.commands[-1][0], "/usr/bin/bash")
 
+    def test_curl_installer_raises_when_download_leaves_no_script(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"bash": "/bin/bash"})
+        runner.download = lambda url, target: runner.downloads.append((url, target))  # type: ignore[assignment]
+        cache_dir = home / ".cache" / "tool-installers"
+        op = {
+            "entry_id": "tools.claude",
+            "recipe": "tool_installs",
+            "type": "tool_install_curl",
+            "url": "https://claude.ai/install.sh",
+            "script_name": "claude-install.sh",
+            "interpreter": "bash",
+            "requires_sudo": False,
+            "cache_dir": str(cache_dir),
+        }
+        with self.assertRaisesRegex(RuntimeError, r"failed to download installer from https://claude\.ai/install\.sh"):
+            execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
+        self.assertEqual(op["result"], "failed to download installer from https://claude.ai/install.sh")
+        self.assertFalse(any(cmd and cmd[0] == "/bin/bash" for cmd in runner.commands))
+
     def test_curl_installer_honors_interpreter_override(self) -> None:
         home = self.make_home()
         runner = FakeRunner(which={"python3": "/usr/bin/python3"})

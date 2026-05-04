@@ -508,8 +508,9 @@ def _execute_curl(op: dict[str, Any], runner: CommandRunner, cache_dir: Path) ->
     script = cache_dir / op["script_name"]
     runner.download(op["url"], script)
     if not script.exists():
-        op["result"] = f"failed to download installer from {op['url']}"
-        return 0
+        message = f"failed to download installer from {op['url']}"
+        op["result"] = message
+        raise RuntimeError(message)
     script.chmod(0o755)
     prefix = _sudo_prefix() if op.get("requires_sudo") else []
     runner.run([*prefix, interpreter, str(script)])

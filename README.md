@@ -195,7 +195,7 @@ A good dotfiles repo should:
 | `claude/` | `~/.claude/` | `settings.json`, `keybindings.json`, global `CLAUDE.md` |
 | `codex/` | `~/.codex/` | `config.toml`, `rules/default.rules` |
 | `gemini/` | `~/.gemini/` | `settings.json`, global `GEMINI.md` |
-| `gh/` | `~/.config/gh/` | `config.yml`, Codacy branch-protection checklist |
+| `gh/` | `~/.config/gh/` | `config.yml` |
 | `fish/` | `~/.config/fish/` | `fish_plugins`, `conf.d/direnv.fish` (auto-installs direnv hook), `functions/direnv.fish`, `env.fish` |
 | `git/` | `~/.config/git/` | `config` |
 | `dotfiles_tools/` | — | Python validation/setup CLI (`python -m dotfiles_tools …`) |
