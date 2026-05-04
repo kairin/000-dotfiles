@@ -1,7 +1,3 @@
-import json
-from pathlib import Path
-
-from dotfiles_tools.doctor import run_doctor
 from dotfiles_tools.installer import build_plan, apply_plan
 from tests.helpers import DotfilesTestCase, REPO_ROOT
 
@@ -32,11 +28,11 @@ class JsonMergeOperationTests(DotfilesTestCase):
 
     def test_merge_preserves_user_server_configuration(self):
         """Placeholder: json_merge strategy is not currently used (MCP servers managed via claude CLI)."""
-        pass
+        self.skipTest("json_merge strategy is not currently used")
 
     def test_merge_produces_valid_json_output(self):
         """Placeholder: json_merge strategy is not currently used (MCP servers managed via claude CLI)."""
-        pass
+        self.skipTest("json_merge strategy is not currently used")
 
     def test_missing_target_creates_copy_not_merge(self):
         """When settings.json is missing, a copy operation is planned."""

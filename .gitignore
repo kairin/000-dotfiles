@@ -4,7 +4,6 @@
 *.token
 .DS_Store
 .specify/
-.agents/
 __pycache__/
 *.pyc
 .coverage
@@ -25,3 +24,5 @@ __pycache__/
 !.agents/skills/**
 .vscode/
 skills-lock.json
+.codacy/
+*.sarif
