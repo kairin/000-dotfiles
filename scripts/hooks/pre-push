@@ -21,11 +21,21 @@ FAILED=0
 # ----------------------------------------------------------------------------
 # 1. UNIT TESTS (Hard requirement)
 # ----------------------------------------------------------------------------
+# `git push` feeds the list of refs to the hook on stdin; some children read
+# that stdin and behave incorrectly. Redirect stdin to /dev/null up-front.
+exec </dev/null
+
 echo -e "\n${YELLOW}[1/5] Running unit tests...${NC}"
-if uv run python -m unittest discover -s tests; then
+# `git push` exports GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE for the hook;
+# subprocess-based tests that shell out to git inherit those and resolve to
+# this repo even when chdir'd elsewhere. Unset them for the test run only.
+if env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX \
+        -u GIT_REFLOG_ACTION -u GIT_EXEC_PATH \
+        uv run python -m unittest discover -s tests; then
     echo -e "${GREEN}✓ All unit tests passed${NC}"
 else
-    echo -e "${RED}✗ Unit tests failed - BLOCKING${NC}"
+    rc=$?
+    echo -e "${RED}✗ Unit tests failed (exit $rc) - BLOCKING${NC}"
     FAILED=1
 fi
 
