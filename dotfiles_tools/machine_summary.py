@@ -78,6 +78,9 @@ def _recommendation(
     action_summary: dict[str, int | bool],
     groups: dict[str, list[dict[str, Any]]],
 ) -> Recommendation:
+    # Walk the conditional candidates; the chain ends with
+    # _recommendation_for_current(), which always returns a non-None
+    # Recommendation, so this function always returns.
     for candidate in (
         _recommendation_for_audit_failure(doctor, plan),
         _recommendation_for_blockers(action_summary),
@@ -85,11 +88,10 @@ def _recommendation(
         _recommendation_for_safe_changes(action_summary),
         _recommendation_for_auth_guidance(doctor),
         _recommendation_for_manual_only(action_summary, groups),
-        _recommendation_for_current(),
     ):
         if candidate is not None:
             return candidate
-    raise AssertionError("unreachable recommendation state")
+    return _recommendation_for_current()
 
 
 def _recommendation_for_audit_failure(doctor: Report, plan: Report) -> Recommendation | None:
@@ -286,6 +288,9 @@ def _group_entries(entries: list[dict[str, Any]]) -> dict[str, list[dict[str, An
 
 
 def _entry_group(entry: dict[str, Any]) -> str | None:
+    # Fonts use install/needs-update/manual semantics, not file-drift, and are
+    # rendered separately by _extend_font_summary; excluding them avoids
+    # double-counting in _action_summary["file_changes"].
     if entry.get("recipe") == "fonts":
         return None
     state = entry.get("state")
