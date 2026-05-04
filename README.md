@@ -217,6 +217,8 @@ Files ending in `.template` are copy-and-customize sources. Placeholders follow 
 | `./setup init [--project PATH] [--vars FILE] [--copilot] --yes` | Render `AGENTS.md` + `CLAUDE.md`/`GEMINI.md` symlinks; auto-discovers `project-vars.json` or `.dotfiles/project-vars.json` and infers defaults from `package.json`/`pyproject.toml`/`Cargo.toml`/`go.mod`/Makefile when missing |
 | `./setup verify [--project PATH] [--copilot]` | Read-only check: requires no `uv`, suitable for CI |
 | `./setup doctor [--home PATH] [--profile NAME]` | Read-only machine audit (wraps `dotfiles_tools doctor`) |
+| `./setup quality` | Run the local quality pipeline (`scripts/quality-pipeline.sh`): tests, coverage, Codacy upload |
+| `./setup ship [<pr-number>]` | Finalize a PR: refresh branch, re-upload Codacy SARIF, poll required checks, squash-merge |
 
 Menu options during `./setup`:
 - **Option 1:** Install or update developer tools
@@ -230,6 +232,23 @@ Install on `PATH`:
 ln -s /path/to/000-dotfiles/setup ~/.local/bin/dotfiles-setup
 dotfiles-setup verify --project ~/code/my-app
 ```
+
+### Finalizing a PR
+
+Once a PR is open, `./setup ship` drives it to merged:
+
+```bash
+# After your PR is open:
+./setup ship              # ships the PR for the current branch
+./setup ship 183          # ships PR #183 explicitly
+```
+
+`setup ship` requires `CODACY_PROJECT_TOKEN` to be exported and `gh` to be
+authenticated. It runs `gh pr update-branch` automatically when the branch is
+BEHIND `main`, re-uploads the Codacy SARIF for the new HEAD and base SHA so the
+diff comparison is fresh, then polls the four required checks
+(`Codacy Static Code Analysis`, `Codacy Coverage Variation`,
+`Codacy Diff Coverage`, `codacy-safety-net`) before squash-merging.
 
 ---
 

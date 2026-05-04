@@ -1,7 +1,30 @@
+import re
+
 from tests.helpers import DotfilesTestCase, REPO_ROOT
 
 
 class WorkflowTests(DotfilesTestCase):
+    def test_third_party_actions_are_pinned_to_full_commit_shas(self):
+        mutable_refs = []
+        action_ref = re.compile(r"^\s*uses:\s*['\"]?([^'\"\s#]+)")
+
+        for workflow in sorted((REPO_ROOT / ".github/workflows").glob("*.yml")):
+            for line_number, line in enumerate(workflow.read_text().splitlines(), 1):
+                match = action_ref.match(line)
+                if not match:
+                    continue
+
+                uses = match.group(1)
+                if uses.startswith("./") or uses.startswith("actions/"):
+                    continue
+
+                _, _, ref = uses.partition("@")
+                if not re.fullmatch(r"[0-9a-f]{40}", ref):
+                    relative = workflow.relative_to(REPO_ROOT)
+                    mutable_refs.append(f"{relative}:{line_number}: {uses}")
+
+        self.assertEqual([], mutable_refs)
+
     def test_workflow_is_thin_codacy_safety_net(self):
         workflow = (REPO_ROOT / ".github/workflows/dotfiles-validation.yml").read_text()
         self.assertIn("name: Codacy Safety Net", workflow)

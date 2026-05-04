@@ -26,3 +26,6 @@ __pycache__/
 skills-lock.json
 .codacy/
 *.sarif
+
+.gemini/
+gha-creds-*.json
