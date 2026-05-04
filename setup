@@ -637,12 +637,27 @@ cmd_quality() {
 }
 
 cmd_ship() {
-  local repo="kairin/000-dotfiles"
-  local pr="${1:-}"
+  local pr=""
+  while (($#)); do
+    case "$1" in
+      -h|--help)
+        usage
+        return 0
+        ;;
+      -*)
+        die "unknown flag for ship: $1"
+        ;;
+      *)
+        [[ -z "$pr" ]] || die "ship accepts at most one PR number"
+        pr="$1"
+        ;;
+    esac
+    shift
+  done
 
   echo "[ship] step 1: verifying CODACY_PROJECT_TOKEN"
   [[ -n "${CODACY_PROJECT_TOKEN:-}" ]] \
-    || die "CODACY_PROJECT_TOKEN is not set; export it (cat ~/.codacy/<repo>.project-token) before running ./setup ship"
+    || die "CODACY_PROJECT_TOKEN is not set; export it (cat ~/.codacy/<owner>-<repo>.project-token) before running ./setup ship"
 
   echo "[ship] step 2: verifying required CLIs (codacy-cli gh git jq)"
   local missing=()
@@ -654,7 +669,16 @@ cmd_ship() {
 
   local repo_root
   repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" \
-    || die "setup ship must run inside a git checkout of $repo"
+    || die "setup ship must run inside a git checkout"
+  local detected_identity
+  detected_identity="$(detect_github_identity "$repo_root")" \
+    || die "setup ship must run inside a git checkout with a GitHub origin remote"
+  local -a detected_identity_lines=()
+  mapfile -t detected_identity_lines <<<"$detected_identity"
+  local repo_owner="${detected_identity_lines[0]:-}" repo_name="${detected_identity_lines[1]:-}"
+  local repo="${repo_owner}/${repo_name}"
+  [[ -n "$repo_owner" && -n "$repo_name" ]] \
+    || die "could not determine GitHub owner/repository from origin remote"
 
   echo "[ship] step 3: resolving PR number"
   if [[ -z "$pr" ]]; then
@@ -663,101 +687,119 @@ cmd_ship() {
       || die "could not determine current branch"
     [[ "$branch" != "HEAD" ]] \
       || die "detached HEAD; pass an explicit PR number: ./setup ship <pr-number>"
-    pr="$(gh pr list --head "$branch" -R "$repo" --json number --jq '.[0].number' 2>/dev/null || true)"
-    [[ -n "$pr" && "$pr" != "null" ]] \
-      || die "no PR found for branch '$branch' on $repo"
+    local pr_rows pr_count
+    pr_rows="$(gh pr list --head "$repo_owner:$branch" -R "$repo" --state open --json number 2>/dev/null || true)"
+    pr_count="$(printf '%s' "$pr_rows" | jq 'length')"
+    case "$pr_count" in
+      1) pr="$(printf '%s' "$pr_rows" | jq -r '.[0].number')" ;;
+      0) die "no open PR found for branch '$branch' on $repo; pass an explicit PR number" ;;
+      *) die "multiple open PRs match branch '$branch' on $repo; pass an explicit PR number" ;;
+    esac
   fi
+  [[ "$pr" =~ ^[0-9]+$ ]] || die "PR number must be numeric: $pr"
   echo "[ship] PR #$pr on $repo"
 
-  local _ship_wt _ship_sarif _ship_repo_root
+  local _ship_tmpdir="" _ship_head_wt="" _ship_base_wt="" _ship_head_sarif="" _ship_base_sarif="" _ship_repo_root
   _ship_repo_root="$repo_root"
   _ship_cleanup() {
-    [[ -n "${_ship_wt:-}" ]] && git -C "$_ship_repo_root" worktree remove "$_ship_wt" --force >/dev/null 2>&1 || true
-    [[ -n "${_ship_sarif:-}" ]] && rm -f "$_ship_sarif" 2>/dev/null || true
+    [[ -n "${_ship_head_wt:-}" ]] && git -C "$_ship_repo_root" worktree remove "$_ship_head_wt" --force >/dev/null 2>&1 || true
+    [[ -n "${_ship_base_wt:-}" ]] && git -C "$_ship_repo_root" worktree remove "$_ship_base_wt" --force >/dev/null 2>&1 || true
+    [[ -n "${_ship_tmpdir:-}" ]] && rm -rf "$_ship_tmpdir" 2>/dev/null || true
   }
-  _ship_die() { _ship_cleanup; die "$@"; }
+  trap _ship_cleanup EXIT
+  trap 'exit 130' INT TERM
 
-  _ship_sarif="/tmp/setup-ship-pr${pr}.sarif"
-  _ship_wt="/tmp/setup-ship-pr${pr}"
-  local required_checks=(
-    "Codacy Static Code Analysis"
-    "Codacy Coverage Variation"
-    "Codacy Diff Coverage"
-    "codacy-safety-net"
-  )
+  local required_checks=()
+  if [[ -n "${SHIP_REQUIRED_CHECKS:-}" ]]; then
+    local check
+    while IFS= read -r check; do
+      [[ -n "$check" ]] && required_checks+=("$check")
+    done <<<"$SHIP_REQUIRED_CHECKS"
+  else
+    required_checks=(
+      "Codacy Static Code Analysis"
+      "Codacy Coverage Variation"
+      "Codacy Diff Coverage"
+      "codacy-safety-net"
+    )
+  fi
 
   local attempt
   local all_green=0
   for attempt in 1 2 3; do
     echo "[ship] attempt $attempt/3"
+    _ship_cleanup
+    _ship_tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/setup-ship.XXXXXX")" \
+      || die "could not create a temporary workspace for ship"
+    _ship_head_wt="$_ship_tmpdir/head"
+    _ship_base_wt="$_ship_tmpdir/base"
+    _ship_head_sarif="$_ship_tmpdir/head.sarif"
+    _ship_base_sarif="$_ship_tmpdir/base.sarif"
 
     echo "[ship] step 4a: fetching PR state"
-    local pr_state head_oid merge_state
-    pr_state="$(gh pr view "$pr" -R "$repo" --json mergeable,mergeStateStatus,headRefOid 2>/dev/null)" \
-      || _ship_die "gh pr view failed for PR #$pr"
+    local pr_state head_oid merge_state base_ref_name base_sha
+    pr_state="$(gh pr view "$pr" -R "$repo" --json mergeable,mergeStateStatus,headRefOid,baseRefName 2>/dev/null)" \
+      || die "gh pr view failed for PR #$pr"
     head_oid="$(printf '%s' "$pr_state" | jq -r '.headRefOid')"
     merge_state="$(printf '%s' "$pr_state" | jq -r '.mergeStateStatus')"
-    echo "[ship] head=$head_oid mergeStateStatus=$merge_state"
+    base_ref_name="$(printf '%s' "$pr_state" | jq -r '.baseRefName')"
+    [[ -n "$head_oid" && "$head_oid" != "null" ]] || die "gh pr view returned no headRefOid for PR #$pr"
+    [[ -n "$base_ref_name" && "$base_ref_name" != "null" ]] || die "gh pr view returned no baseRefName for PR #$pr"
+    echo "[ship] head=$head_oid base=$base_ref_name mergeStateStatus=$merge_state"
 
     if [[ "$merge_state" == "BEHIND" ]]; then
-      echo "[ship] step 4b: branch BEHIND main; running gh pr update-branch"
+      echo "[ship] step 4b: branch BEHIND $base_ref_name; running gh pr update-branch"
       gh pr update-branch "$pr" -R "$repo" \
-        || _ship_die "gh pr update-branch failed for PR #$pr"
+        || die "gh pr update-branch failed for PR #$pr"
       sleep 3
-      pr_state="$(gh pr view "$pr" -R "$repo" --json mergeable,mergeStateStatus,headRefOid 2>/dev/null)" \
-        || _ship_die "gh pr view (refetch) failed for PR #$pr"
+      pr_state="$(gh pr view "$pr" -R "$repo" --json mergeable,mergeStateStatus,headRefOid,baseRefName 2>/dev/null)" \
+        || die "gh pr view (refetch) failed for PR #$pr"
       head_oid="$(printf '%s' "$pr_state" | jq -r '.headRefOid')"
       merge_state="$(printf '%s' "$pr_state" | jq -r '.mergeStateStatus')"
-      echo "[ship] new head=$head_oid mergeStateStatus=$merge_state"
+      base_ref_name="$(printf '%s' "$pr_state" | jq -r '.baseRefName')"
+      [[ -n "$head_oid" && "$head_oid" != "null" ]] || die "gh pr view returned no headRefOid for PR #$pr"
+      [[ -n "$base_ref_name" && "$base_ref_name" != "null" ]] || die "gh pr view returned no baseRefName for PR #$pr"
+      echo "[ship] new head=$head_oid base=$base_ref_name mergeStateStatus=$merge_state"
     fi
 
-    echo "[ship] step 4c: preparing tmp worktree at $_ship_wt"
-    if [[ -d "$_ship_wt" ]]; then
-      git -C "$repo_root" worktree remove "$_ship_wt" --force >/dev/null 2>&1 || rm -rf "$_ship_wt"
-    fi
-    # Fetch the PR's head ref (works for forks too) so the SHA is reachable locally.
+    echo "[ship] step 4c: preparing tmp worktree at $_ship_head_wt"
     git -C "$repo_root" fetch origin "pull/${pr}/head:refs/remotes/origin/pr/${pr}" >/dev/null 2>&1 || true
-    git -C "$repo_root" worktree add --detach "$_ship_wt" "$head_oid" \
-      || _ship_die "could not create worktree at $_ship_wt for $head_oid"
+    git -C "$repo_root" worktree add --detach "$_ship_head_wt" "$head_oid" \
+      || die "could not create worktree at $_ship_head_wt for $head_oid"
+    ship_prepare_codacy_worktree "$_ship_head_wt" "$repo_root"
 
-    echo "[ship] step 4d: running codacy-cli analyze (pylint)"
-    if [[ ! -f "$_ship_wt/.codacy/codacy.yaml" ]]; then
-      mkdir -p "$_ship_wt/.codacy"
-      local codacy_src=""
-      local candidate
-      for candidate in "$repo_root/.codacy/codacy.yaml" "$DOTFILES_REPO/.codacy/codacy.yaml"; do
-        if [[ -f "$candidate" ]]; then codacy_src="${candidate%/codacy.yaml}"; break; fi
-      done
-      if [[ -n "$codacy_src" ]]; then
-        cp "$codacy_src/codacy.yaml" "$_ship_wt/.codacy/codacy.yaml"
-        [[ -f "$codacy_src/cli.sh" ]] && cp "$codacy_src/cli.sh" "$_ship_wt/.codacy/cli.sh"
-      else
-        cat >"$_ship_wt/.codacy/codacy.yaml" <<'YAML'
-runtimes:
-    - python@3.11.11
-tools:
-    - pylint@3.3.6
-YAML
-      fi
-    fi
-    rm -f "$_ship_sarif"
-    ( cd "$_ship_wt" && codacy-cli analyze --tool pylint --format sarif -o "$_ship_sarif" ) \
-      || _ship_die "codacy-cli analyze failed in $_ship_wt"
-    [[ -s "$_ship_sarif" ]] \
-      || _ship_die "codacy-cli analyze produced no SARIF at $_ship_sarif (check .codacy/codacy.yaml in the worktree)"
+    echo "[ship] step 4d: running codacy-cli analyze (head)"
+    rm -f "$_ship_head_sarif"
+    ( cd "$_ship_head_wt" && codacy-cli analyze --tool pylint --format sarif -o "$_ship_head_sarif" ) \
+      || die "codacy-cli analyze failed in $_ship_head_wt"
+    [[ -s "$_ship_head_sarif" ]] \
+      || die "codacy-cli analyze produced no SARIF at $_ship_head_sarif (check .codacy/codacy.yaml in the head worktree)"
 
     echo "[ship] step 4e: uploading SARIF for HEAD ($head_oid)"
-    ( cd "$_ship_wt" && codacy-cli upload -s "$_ship_sarif" -c "$head_oid" -t "$CODACY_PROJECT_TOKEN" ) \
-      || _ship_die "codacy-cli upload (HEAD) failed"
+    ( cd "$_ship_head_wt" && codacy-cli upload -s "$_ship_head_sarif" -c "$head_oid" -t "$CODACY_PROJECT_TOKEN" ) \
+      || die "codacy-cli upload (HEAD) failed"
 
-    local base_sha
-    base_sha="$(gh api "repos/${repo}/commits/main" --jq .sha 2>/dev/null)" \
-      || _ship_die "could not fetch origin/main HEAD via gh api"
-    echo "[ship] step 4f: uploading SARIF for base ($base_sha)"
-    ( cd "$_ship_wt" && codacy-cli upload -s "$_ship_sarif" -c "$base_sha" -t "$CODACY_PROJECT_TOKEN" ) \
-      || _ship_die "codacy-cli upload (base) failed"
+    echo "[ship] step 4f: fetching base branch origin/$base_ref_name"
+    git -C "$repo_root" fetch origin "$base_ref_name" >/dev/null 2>&1 \
+      || die "could not fetch origin/$base_ref_name"
+    base_sha="$(git -C "$repo_root" rev-parse "origin/$base_ref_name" 2>/dev/null)" \
+      || die "could not resolve origin/$base_ref_name after fetch"
+    echo "[ship] step 4g: preparing base worktree at $_ship_base_wt ($base_sha)"
+    git -C "$repo_root" worktree add --detach "$_ship_base_wt" "$base_sha" \
+      || die "could not create worktree at $_ship_base_wt for $base_sha"
+    ship_prepare_codacy_worktree "$_ship_base_wt" "$repo_root"
+    echo "[ship] step 4h: running codacy-cli analyze (base)"
+    rm -f "$_ship_base_sarif"
+    ( cd "$_ship_base_wt" && codacy-cli analyze --tool pylint --format sarif -o "$_ship_base_sarif" ) \
+      || die "codacy-cli analyze failed in $_ship_base_wt"
+    [[ -s "$_ship_base_sarif" ]] \
+      || die "codacy-cli analyze produced no SARIF at $_ship_base_sarif (check .codacy/codacy.yaml in the base worktree)"
 
-    echo "[ship] step 4g: polling required checks (up to 5min)"
+    echo "[ship] step 4i: uploading SARIF for base ($base_sha)"
+    ( cd "$_ship_base_wt" && codacy-cli upload -s "$_ship_base_sarif" -c "$base_sha" -t "$CODACY_PROJECT_TOKEN" ) \
+      || die "codacy-cli upload (base) failed"
+
+    echo "[ship] step 4j: polling required checks (up to 5min)"
     local elapsed=0 interval=15 timeout=300
     while (( elapsed < timeout )); do
       local checks
@@ -790,7 +832,7 @@ YAML
     echo "[ship] retrying after re-upload (attempt $attempt complete)"
   done
 
-  (( all_green == 1 )) || _ship_die "required Codacy checks did not all reach success after 3 attempts"
+  (( all_green == 1 )) || die "required Codacy checks did not all reach success after 3 attempts"
 
   echo "[ship] step 5: confirming mergeStateStatus is CLEAN"
   local final_state waited=0
@@ -802,20 +844,21 @@ YAML
     final_state="$(gh pr view "$pr" -R "$repo" --json mergeStateStatus --jq .mergeStateStatus 2>/dev/null || true)"
   done
   [[ "$final_state" == "CLEAN" ]] \
-    || _ship_die "PR mergeStateStatus is '$final_state'; refusing to merge"
+    || die "PR mergeStateStatus is '$final_state'; refusing to merge"
 
   echo "[ship] step 6: squash-merging PR #$pr"
   gh pr merge "$pr" -R "$repo" --squash \
-    || _ship_die "gh pr merge failed for PR #$pr"
+    || die "gh pr merge failed for PR #$pr"
 
   local merged_state
   merged_state="$(gh pr view "$pr" -R "$repo" --json state --jq .state 2>/dev/null || true)"
   [[ "$merged_state" == "MERGED" ]] \
-    || _ship_die "PR #$pr final state is '$merged_state', expected MERGED"
+    || die "PR #$pr final state is '$merged_state', expected MERGED"
   echo "[ship] PR #$pr is MERGED"
 
   echo "[ship] step 7: cleaning up"
   _ship_cleanup
+  trap - EXIT INT TERM
   echo "[ship] done"
 }
 
@@ -1057,7 +1100,10 @@ detect_github_identity() {
   if ! command -v git >/dev/null 2>&1; then
     return 1
   fi
-  url="$(git -C "$project" remote get-url origin 2>/dev/null || true)"
+  url="$(git -C "$project" config --get remote.origin.url 2>/dev/null || true)"
+  if [[ -z "$url" ]]; then
+    url="$(git -C "$project" remote get-url origin 2>/dev/null || true)"
+  fi
   [[ -n "$url" ]] || return 1
 
   case "$url" in
@@ -1082,6 +1128,30 @@ detect_github_identity() {
     [[ -n "$owner" && -n "$repo" && "$repo_part" == */* ]] || return 1
   }
   printf '%s\n%s\n' "$owner" "$repo"
+}
+
+ship_prepare_codacy_worktree() {
+  local worktree="$1" repo_root="$2" codacy_src="" candidate
+  if [[ ! -f "$worktree/.codacy/codacy.yaml" ]]; then
+    mkdir -p "$worktree/.codacy"
+    for candidate in "$repo_root/.codacy/codacy.yaml" "$DOTFILES_REPO/.codacy/codacy.yaml"; do
+      if [[ -f "$candidate" ]]; then
+        codacy_src="${candidate%/codacy.yaml}"
+        break
+      fi
+    done
+    if [[ -n "$codacy_src" ]]; then
+      cp "$codacy_src/codacy.yaml" "$worktree/.codacy/codacy.yaml"
+      [[ -f "$codacy_src/cli.sh" ]] && cp "$codacy_src/cli.sh" "$worktree/.codacy/cli.sh"
+    else
+      cat >"$worktree/.codacy/codacy.yaml" <<'YAML'
+runtimes:
+    - python@3.11.11
+tools:
+    - pylint@3.3.6
+YAML
+    fi
+  fi
 }
 
 prompt_value() {
