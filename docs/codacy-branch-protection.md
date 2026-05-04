@@ -6,6 +6,12 @@ branch protection so Codacy reports the default branch as fully protected.
 This document stores command patterns only. It must not contain GitHub tokens,
 Codacy tokens, private repository names, or one-off local paths.
 
+This is a runbook, not a deployable template. Before running the snippets
+below, replace each `<...>` placeholder (`<GITHUB_OWNER>`, `<GITHUB_REPO>`,
+`<PR_NUMBER>`, `<RUN_ID>`) with the values for the repository and pull
+request you are working on. All `${{ ... }}` references inside the YAML block
+are GitHub Actions syntax and must be left as-is.
+
 ## Goal
 
 For each repository, the default branch should be protected by both:
@@ -81,8 +87,8 @@ contexts in both classic branch protection and the default-branch ruleset.
 Set these per repository:
 
 ```bash
-OWNER="{{GITHUB_OWNER}}"
-REPO="{{GITHUB_REPO}}"
+OWNER="<GITHUB_OWNER>"
+REPO="<GITHUB_REPO>"
 BRANCH="$(gh repo view "$OWNER/$REPO" --json defaultBranchRef --jq '.defaultBranchRef.name')"
 CODACY_APP_ID="56611"
 RULESET_NAME="Protect default branch"
@@ -175,7 +181,7 @@ For a recent pull request, verify the exact Codacy check names before adding
 them to protection:
 
 ```bash
-PR_NUMBER="{{PR_NUMBER}}"
+PR_NUMBER="<PR_NUMBER>"
 
 gh pr view "$PR_NUMBER" --repo "$OWNER/$REPO" \
   --json statusCheckRollup \
@@ -188,7 +194,7 @@ For a push workflow, verify coverage upload passed:
 gh run list --repo "$OWNER/$REPO" --branch "$BRANCH" --limit 5 \
   --json databaseId,headSha,status,conclusion,url
 
-RUN_ID="{{RUN_ID}}"
+RUN_ID="<RUN_ID>"
 
 gh run view "$RUN_ID" --repo "$OWNER/$REPO" --json conclusion,jobs
 ```

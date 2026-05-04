@@ -19,7 +19,7 @@ jobs:
       SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Check if Codacy already has data for this commit
         id: codacy_status
@@ -45,7 +45,10 @@ jobs:
 
       - name: Set up uv
         if: steps.codacy_status.outputs.status != 'analyzed'
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          cache-dependency-glob: |
+            scripts/quality-pipeline.sh
 
       - name: Install Codacy CLI
         if: steps.codacy_status.outputs.status != 'analyzed'
