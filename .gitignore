@@ -24,5 +24,9 @@ __pycache__/
 !.agents/skills/**
 .vscode/
 skills-lock.json
-.codacy/
+.codacy/*
+!.codacy/.gitignore
+!.codacy/codacy.yaml
+!.codacy/cli.sh
+!.codacy/cli-config.yaml
 *.sarif
