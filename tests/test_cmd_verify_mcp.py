@@ -31,22 +31,12 @@ class CmdVerifyMcpTests(DotfilesTestCase):
     """Validate that `setup verify` is not gated by `check_mcp_servers`."""
 
     def _sandbox_env(self, home: Path) -> dict[str, str]:
-        """Return a minimal env that points HOME at a sandbox without leaking
-        real MCP credentials. Inherits PATH so bash / python3 / coreutils are
-        available, but scrubs every variable that the user's MCP servers might
-        consume so a stale token cannot mask a regression."""
-        env = {
+        """Return a minimal env that points HOME at a sandbox."""
+        return {
             "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
             "HOME": str(home),
             "LANG": os.environ.get("LANG", "C.UTF-8"),
         }
-        # Strip any MCP-related credentials that the parent process may have
-        # exported. The script reads these via ${!env_var:-} from inside
-        # check_mcp_server_config; leaving them set would mask the failure
-        # path we are trying to exercise.
-        for var in ("GITHUB_TOKEN", "CODACY_ACCOUNT_TOKEN", "HF_TOKEN"):
-            env.pop(var, None)
-        return env
 
     def _run_verify(self, project: Path, home: Path) -> subprocess.CompletedProcess:
         # Fixed executable path, test-controlled args, shell=False.
@@ -62,7 +52,7 @@ class CmdVerifyMcpTests(DotfilesTestCase):
     def _write_mcp_with_unset_env(self, home: Path) -> None:
         """Create ~/.claude.json declaring an MCP server whose required env
         var is guaranteed to be unset, forcing check_mcp_server_config to
-        return 1 and therefore check_mcp_servers to return non-zero."""
+        return 1 and therefore check_mcp_servers to emit a warning."""
         claude_json = home / ".claude.json"
         claude_json.write_text(
             json.dumps(
@@ -77,6 +67,11 @@ class CmdVerifyMcpTests(DotfilesTestCase):
                 }
             )
         )
+
+    def test_verify_contains_non_blocking_mcp_guard(self) -> None:
+        """Keep the cmd_verify `check_mcp_servers || true` guard in place."""
+        setup_text = SETUP.read_text()
+        self.assertIn("check_mcp_servers || true", setup_text)
 
     def test_verify_exit_zero_when_github_token_unset(self) -> None:
         """When GITHUB_TOKEN is unset and an MCP server depends on it,
