@@ -26,6 +26,14 @@ class WorkflowTests(DotfilesTestCase):
     def test_quality_pipeline_is_non_blocking_and_uses_local_prereqs(self):
         pipeline = (REPO_ROOT / "scripts/quality-pipeline.sh").read_text()
         self.assertIn("exit 0", pipeline)
-        self.assertIn("Stage 7 (Codacy server-side gate): MANUAL", pipeline)
+        # Stage 7 is the server-side Codacy gate; it stays informational so a
+        # missing CODACY_PROJECT_TOKEN does not break local pre-push runs.
+        self.assertIn("[STAGE 7/7] Codacy server-side gate", pipeline)
+        # --codacy-only is the entry point used by the pre-push hook.
+        self.assertIn("--codacy-only", pipeline)
+        # SARIF must be uploaded for both HEAD and merge-base so Codacy can
+        # diff the PR; without the base upload, the GH App posts nothing.
+        self.assertIn("upload_with_retry", pipeline)
+        self.assertIn("git merge-base HEAD origin/main", pipeline)
         self.assertNotIn("CODACY_ACCOUNT_TOKEN", pipeline)
         self.assertNotIn("GITHUB_TOKEN", pipeline)
