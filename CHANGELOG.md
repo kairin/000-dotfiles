@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [0.1.x] — 2026-05-04
+
+### Added
+
+- feat(setup): add `ship` subcommand for local-driven PR finalization (handles gh pr update-branch SHA churn automatically; polls four required Codacy checks before merging)
+
 ## [0.1.x] — 2026-05-03
 
 ### Added
