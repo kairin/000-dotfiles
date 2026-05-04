@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import subprocess  # nosec B404
+import urllib.error
 import zipfile
 
 from dotfiles_tools.bootstrap import build_bootstrap_plan
+from dotfiles_tools.font_assets import pixel_avf_prompt_text
+from dotfiles_tools.font_catalog import FONT_MARKER_NAME
 from dotfiles_tools.fonts import (
     APT_FONT_CATALOG,
     EXPECTED_TTF,
@@ -159,9 +163,12 @@ class FontCatalogTests(DotfilesTestCase):
 
     def test_linux_font_install_reuses_cached_archives_extracts_installs_and_verifies_mono_faces(self) -> None:
         home = self.make_home()
+        cache_root = home / ".cache/000-dotfiles/fonts"
         for item in NERD_FONT_CATALOG:
-            archive = home / ".cache/000-dotfiles/fonts" / item.asset_name
+            archive = cache_root / item.asset_name
             write_font_zip(archive, item.expected_regular)
+        cache_root.mkdir(parents=True, exist_ok=True)
+        (cache_root / "nerd-fonts.latest.json").write_text(json.dumps(release_inventory()))
         runner = FakeRunner(which={"fc-cache": "/usr/bin/fc-cache", "fc-match": "/usr/bin/fc-match"}, fail_fetch=True)
         plan = build_font_plan(home, env={"DOTFILES_PLATFORM": "linux"}, path="", runner=runner)
 
@@ -298,3 +305,154 @@ class FontCatalogTests(DotfilesTestCase):
         for key in ("family", "source_type", "state", "installed_version", "target", "terminal_face"):
             self.assertIn(key, first)
         self.assertIn("font_download", {op["type"] for op in data["operations"]})
+
+
+class FontReturnSemanticsTests(DotfilesTestCase):
+    def test_install_linux_returns_zero_when_marker_and_files_already_match(self) -> None:
+        home = self.make_home()
+        source = home / "src"
+        target = home / "target"
+        source.mkdir()
+        target.mkdir()
+        (source / EXPECTED_TTF).write_bytes(b"font-bytes")
+        version = {"tag_name": "v9.9.9"}
+        version_source = home / "version.json"
+        version_source.write_text(json.dumps(version))
+        op = {"type": "font_install_linux", "source": str(source), "target": str(target), "version_source": str(version_source)}
+
+        first = execute_font_operation(op, runner=FakeRunner())
+        second = execute_font_operation(op, runner=FakeRunner())
+
+        self.assertEqual(first, 1)
+        self.assertEqual(second, 0)
+        self.assertEqual((target / FONT_MARKER_NAME).read_text().strip(), json.dumps(version, indent=2, sort_keys=True))
+
+    def test_install_linux_returns_one_when_marker_differs(self) -> None:
+        home = self.make_home()
+        source = home / "src"
+        target = home / "target"
+        source.mkdir()
+        target.mkdir()
+        (source / EXPECTED_TTF).write_bytes(b"font-bytes")
+        (target / EXPECTED_TTF).write_bytes(b"font-bytes")
+        (target / FONT_MARKER_NAME).write_text(json.dumps({"tag_name": "v0.0.1"}, indent=2, sort_keys=True) + "\n")
+        version_source = home / "version.json"
+        version_source.write_text(json.dumps({"tag_name": "v9.9.9"}))
+        op = {"type": "font_install_linux", "source": str(source), "target": str(target), "version_source": str(version_source)}
+
+        result = execute_font_operation(op, runner=FakeRunner())
+
+        self.assertEqual(result, 1)
+
+    def test_pixel_avf_prompt_returns_zero_when_already_current(self) -> None:
+        home = self.make_home()
+        target = home / "fish-prompt.fish"
+        target.write_text(pixel_avf_prompt_text())
+        op = {"type": "font_pixel_avf_prompt", "target": str(target)}
+
+        result = execute_font_operation(op, runner=FakeRunner())
+
+        self.assertEqual(result, 0)
+
+    def test_pixel_avf_prompt_returns_one_on_first_write(self) -> None:
+        home = self.make_home()
+        target = home / "fish-prompt.fish"
+        op = {"type": "font_pixel_avf_prompt", "target": str(target)}
+
+        result = execute_font_operation(op, runner=FakeRunner())
+
+        self.assertEqual(result, 1)
+        self.assertEqual(target.read_text(), pixel_avf_prompt_text())
+
+    def test_systemd_returns_one_to_record_state_change(self) -> None:
+        runner = FakeRunner(which={"systemctl": "/usr/bin/systemctl"})
+        op = {"type": "font_systemd_daemon_reload", "target": "systemd"}
+
+        result = execute_font_operation(op, runner=runner)
+
+        self.assertEqual(result, 1)
+        self.assertTrue(any("systemctl" in arg for arg in runner.commands[0]))
+
+    def test_ttyd_html_and_service_return_one(self) -> None:
+        home = self.make_home()
+        source = home / "src"
+        source.mkdir()
+        (source / EXPECTED_TTF).write_bytes(b"font-bytes")
+        cache = home / "cache"
+        target_html = home / "fake-ttyd-index.html"
+        target_service = home / "fake-ttyd.service"
+
+        html_result = execute_font_operation(
+            {
+                "type": "font_ttyd_write_html",
+                "source": str(source),
+                "target": str(target_html),
+                "cache_dir": str(cache),
+                "entry_id": "test",
+            },
+            runner=FakeRunner(),
+            backups=[],
+        )
+        service_result = execute_font_operation(
+            {
+                "type": "font_ttyd_write_service",
+                "target": str(target_service),
+                "cache_dir": str(cache),
+                "entry_id": "test",
+            },
+            runner=FakeRunner(),
+            backups=[],
+        )
+
+        self.assertEqual(html_result, 1)
+        self.assertEqual(service_result, 1)
+
+
+class FontReleaseMetadataTests(DotfilesTestCase):
+    def test_release_lookup_failure_with_cache_attaches_error_kind(self) -> None:
+        home = self.make_home()
+        cache_root = home / ".cache/000-dotfiles/fonts"
+        cache_root.mkdir(parents=True)
+        (cache_root / "nerd-fonts.latest.json").write_text(json.dumps(release_inventory("v1.2.3")))
+        runner = FakeRunner(fail_fetch=True)
+
+        plan = build_font_plan(home, env={"DOTFILES_PLATFORM": "linux"}, path="", runner=runner)
+        nerd_summary = next(item for item in plan["fonts"] if item["source_type"] == "nerd_font_release")
+
+        self.assertEqual(nerd_summary["latest_version"], "v1.2.3")
+
+    def test_release_lookup_failure_without_cache_raises_font_error(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(fail_fetch=True)
+
+        with self.assertRaises(FontError):
+            build_font_plan(home, env={"DOTFILES_PLATFORM": "linux"}, path="", runner=runner)
+
+    def test_release_lookup_classifies_url_error_as_network(self) -> None:
+        from dotfiles_tools.fonts import _classify_release_lookup_error
+
+        self.assertEqual(_classify_release_lookup_error(urllib.error.URLError("boom")), "network")
+        self.assertEqual(_classify_release_lookup_error(urllib.error.HTTPError("u", 500, "msg", {}, None)), "http")
+        self.assertEqual(_classify_release_lookup_error(TimeoutError("slow")), "timeout")
+        self.assertEqual(_classify_release_lookup_error(json.JSONDecodeError("oops", "doc", 0)), "decode")
+        self.assertEqual(_classify_release_lookup_error(FileNotFoundError("missing")), "offline")
+
+    def test_release_metadata_cached_lookup_records_error_kind(self) -> None:
+        from dotfiles_tools.fonts import _release_metadata
+        from dotfiles_tools.font_runner import CommandRunner as RealRunner
+
+        home = self.make_home()
+        cache_root = home / ".cache/000-dotfiles/fonts"
+        cache_root.mkdir(parents=True)
+        (cache_root / "nerd-fonts.latest.json").write_text(json.dumps({"tag_name": "v1.2.3", "assets": []}))
+
+        class TimeoutRunner(RealRunner):
+            def fetch_json(self, url: str) -> dict:
+                raise TimeoutError("slow")
+
+        runner = TimeoutRunner(env={}, path="")
+        result = _release_metadata(home, {}, runner, fetch=True)
+
+        self.assertEqual(result["tag_name"], "v1.2.3")
+        self.assertEqual(result["lookup_error_kind"], "timeout")
+        self.assertIn("slow", result["lookup_error"])
