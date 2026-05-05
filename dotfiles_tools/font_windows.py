@@ -29,7 +29,7 @@ def windows_host_plan(
         else:
             state = "missing"
             reason = "powershell.exe is available for Windows per-user font install"
-    operations = windows_host_operations(home, context, item, font_summary)
+    operations = windows_host_operations(home, context, item, font_summary, state)
     return windows_host_entry(home, context, item, state, reason), operations, {"host_action": host_action(context), "requires_sudo": False}
 
 
@@ -62,9 +62,12 @@ def windows_host_operations(
     context: dict[str, Any],
     item: NerdFontItem,
     font_summary: dict[str, Any],
+    state: str = "missing",
 ) -> list[dict[str, Any]]:
     if not context.get("powershell"):
         return [manual_op(WINDOWS_ENTRY_ID, f"Install {item.terminal_face} on the Windows host manually.")]
+    if state == "installed":
+        return [_windows_skip_op(WINDOWS_ENTRY_ID, f"{item.terminal_face} already installed in Windows per-user font store")]
     operations = [windows_font_install_operation(home, item, font_summary)]
     settings = context.get("windows_terminal_settings")
     if settings:
@@ -108,6 +111,17 @@ def nerd_paths(home: Path, item: NerdFontItem) -> dict[str, Path]:
         "version": cache_dir / f"{item.cache_stem}.version.json",
         "extract_dir": cache_dir / item.cache_stem,
         "install_dir": home / FONT_INSTALL_BASE_REL / item.install_dir_name,
+    }
+
+
+def _windows_skip_op(entry_id: str, reason: str) -> dict[str, Any]:
+    return {
+        "entry_id": entry_id,
+        "type": "font_skip",
+        "target": "Windows per-user font store",
+        "reason": reason,
+        "requires_approval": False,
+        "recipe": "fonts",
     }
 
 

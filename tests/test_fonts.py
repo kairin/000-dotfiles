@@ -499,3 +499,38 @@ class WindowsFontVerificationTests(DotfilesTestCase):
         users_root.mkdir(parents=True)
 
         self.assertFalse(check_windows_fonts_installed(source_dir, _users_root=users_root))
+
+    def test_windows_host_operations_returns_skip_when_installed(self) -> None:
+        from dotfiles_tools.font_windows import windows_host_operations
+        from dotfiles_tools.font_catalog import NERD_FONT_CATALOG, WINDOWS_ENTRY_ID
+
+        home = self.make_home()
+        item = NERD_FONT_CATALOG[0]
+        context = {"powershell": "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"}
+        font_summary: dict = {"state": "installed"}
+
+        ops = windows_host_operations(home, context, item, font_summary, state="installed")
+
+        self.assertEqual(len(ops), 1)
+        self.assertEqual(ops[0]["type"], "font_skip")
+        self.assertEqual(ops[0]["entry_id"], WINDOWS_ENTRY_ID)
+        self.assertFalse(ops[0]["requires_approval"])
+
+    def test_windows_host_operations_returns_install_ops_when_missing(self) -> None:
+        from dotfiles_tools.font_windows import windows_host_operations
+        from dotfiles_tools.font_catalog import NERD_FONT_CATALOG
+
+        home = self.make_home()
+        item = NERD_FONT_CATALOG[0]
+        context = {
+            "powershell": "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+            "windows_terminal_settings": "/mnt/c/Users/kairi/AppData/Local/Packages/Microsoft.WindowsTerminal/settings.json",
+        }
+        font_summary: dict = {"state": "missing"}
+
+        ops = windows_host_operations(home, context, item, font_summary, state="missing")
+
+        types = [op["type"] for op in ops]
+        self.assertIn("font_install_windows", types)
+        self.assertIn("font_update_windows_terminal", types)
+        self.assertTrue(all(op.get("requires_approval") for op in ops))
