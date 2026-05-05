@@ -328,23 +328,22 @@ def _extend_missing_tools(lines: list[str], missing_tools: list[dict[str, Any]])
         lines.append(f"    - {item['command']}: {hint}")
 
 
+def _auth_item_line(item: dict[str, Any]) -> str:
+    if item["state"] == "signed_in":
+        marker, detail = "[+]", item.get("signed_in_detail") or "signed in"
+    else:
+        marker, detail = "[ ]", item["guidance"]
+    return f"  {marker} {item['command']}: {detail}"
+
+
 def _extend_auth_status(lines: list[str], auth_items: list[dict[str, Any]]) -> None:
     visible = [item for item in auth_items if item["state"] != "tool_missing"]
     if not visible:
         return
     lines.append("")
     lines.append("Sign-in status:")
-    all_ok = all(item["state"] == "signed_in" for item in visible)
-    for item in visible:
-        state = item["state"]
-        if state == "signed_in":
-            marker = "[+]"
-            detail = item.get("signed_in_detail") or "signed in"
-        else:
-            marker = "[ ]"
-            detail = item["guidance"]
-        lines.append(f"  {marker} {item['command']}: {detail}")
-    if all_ok:
+    lines.extend(_auth_item_line(item) for item in visible)
+    if all(item["state"] == "signed_in" for item in visible):
         lines.append("")
         lines.append("  All verifiable sign-ins confirmed.")
 
@@ -362,6 +361,35 @@ def _tool_check(item: dict[str, Any], search_path: str) -> dict[str, Any]:
     }
 
 
+def _check_verify_file(base: dict[str, Any], home: Path, verify_file: str) -> dict[str, Any]:
+    # Resolve ~ against the audited home, not the process home.
+    p = home / verify_file.lstrip("~/") if verify_file.startswith("~/") else Path(verify_file)
+    if p.exists() and p.read_text().strip():
+        return {**base, "state": "signed_in", "signed_in_detail": f"token present at {verify_file}"}
+    return {**base, "state": "available"}
+
+
+def _run_verify_cmd(
+    base: dict[str, Any], verify: Any, search_path: str, home: Path
+) -> dict[str, Any]:
+    # Use the same PATH the tool was found on so the right binary is called.
+    env = {**os.environ, "PATH": search_path, "HOME": str(home)}
+    try:
+        result = subprocess.run(  # nosec B603  # noqa: S603
+            list(verify),
+            capture_output=True,
+            text=True,
+            timeout=8,
+            env=env,
+        )
+        if result.returncode == 0:
+            detail = _extract_signed_in_detail(result.stdout + result.stderr)
+            return {**base, "state": "signed_in", "signed_in_detail": detail}
+        return {**base, "state": "available"}
+    except Exception:  # noqa: BLE001
+        return {**base, "state": "available"}
+
+
 def _auth_check(item: dict[str, str], search_path: str, home: Path) -> dict[str, str]:
     tool = item.get("tool")
     found = shutil.which(tool, path=search_path) if tool else None
@@ -376,34 +404,12 @@ def _auth_check(item: dict[str, str], search_path: str, home: Path) -> dict[str,
 
     if not tool_present:
         return {**base, "state": "tool_missing"}
-
     verify_file = item.get("verify_file")
     if verify_file:
-        # Resolve ~ against the audited home, not the process home.
-        p = home / verify_file.lstrip("~/") if verify_file.startswith("~/") else Path(verify_file)
-        if p.exists() and p.read_text().strip():
-            return {**base, "state": "signed_in", "signed_in_detail": f"token present at {verify_file}"}
-        return {**base, "state": "available"}
-
+        return _check_verify_file(base, home, verify_file)
     verify = item.get("verify")
     if verify:
-        try:
-            # Use the same PATH the tool was found on so the right binary is called.
-            env = {**os.environ, "PATH": search_path, "HOME": str(home)}
-            result = subprocess.run(  # nosec B603
-                list(verify),
-                capture_output=True,
-                text=True,
-                timeout=8,
-                env=env,
-            )
-            if result.returncode == 0:
-                detail = _extract_signed_in_detail(result.stdout + result.stderr)
-                return {**base, "state": "signed_in", "signed_in_detail": detail}
-        except Exception:  # noqa: BLE001
-            pass
-        return {**base, "state": "available"}
-
+        return _run_verify_cmd(base, verify, search_path, home)
     return {**base, "state": "available"}
 
 
