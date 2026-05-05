@@ -1174,7 +1174,7 @@ ship_prepare_codacy_worktree() {
     done
     if [[ -n "$codacy_src" ]]; then
       cp "$codacy_src/codacy.yaml" "$worktree/.codacy/codacy.yaml"
-      [[ -f "$codacy_src/cli.sh" ]] && cp "$codacy_src/cli.sh" "$worktree/.codacy/cli.sh"
+      [[ -f "$codacy_src/cli.sh" ]] && cp "$codacy_src/cli.sh" "$worktree/.codacy/cli.sh" || true
     else
       cat >"$worktree/.codacy/codacy.yaml" <<'YAML'
 runtimes:
