@@ -366,6 +366,7 @@ def _curl_op(
         "url": args["url"],
         "script_name": args.get("script_name", "installer.sh"),
         "interpreter": args.get("interpreter", "bash"),
+        "install_to": args.get("install_to"),
         "requires_sudo": item.get("requires_sudo", False),
         "requires_network": True,
         "requires_approval": True,

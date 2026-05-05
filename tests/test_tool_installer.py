@@ -342,6 +342,44 @@ class ToolInstallExecuteTests(DotfilesTestCase):
         execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
         self.assertEqual(runner.commands[-1][0], "/usr/bin/python3")
 
+    def test_curl_installer_copies_script_to_install_to_path(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"bash": "/bin/bash"})
+        cache_dir = home / ".cache" / "tool-installers"
+        dest = home / ".local" / "bin" / "codacy-cli"
+        op = {
+            "entry_id": "tools.codacy-cli",
+            "recipe": "tool_installs",
+            "type": "tool_install_curl",
+            "url": "https://example.test/codacy-cli.sh",
+            "script_name": "codacy-cli.sh",
+            "interpreter": "bash",
+            "install_to": str(dest),
+            "requires_sudo": False,
+            "cache_dir": str(cache_dir),
+        }
+        execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
+        self.assertTrue(dest.exists())
+        self.assertTrue(dest.stat().st_mode & 0o111)
+
+    def test_curl_installer_without_install_to_does_not_create_extra_file(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"bash": "/bin/bash"})
+        cache_dir = home / ".cache" / "tool-installers"
+        local_bin = home / ".local" / "bin"
+        op = {
+            "entry_id": "tools.claude",
+            "recipe": "tool_installs",
+            "type": "tool_install_curl",
+            "url": "https://example.test/install.sh",
+            "script_name": "install.sh",
+            "interpreter": "bash",
+            "requires_sudo": False,
+            "cache_dir": str(cache_dir),
+        }
+        execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
+        self.assertFalse(local_bin.exists())
+
     def test_npm_missing_skips(self) -> None:
         home = self.make_home()
         runner = FakeRunner(which={})
