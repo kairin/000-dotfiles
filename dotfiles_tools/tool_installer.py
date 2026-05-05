@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import shutil
 import sys
 from typing import Any, Mapping
 
@@ -512,6 +513,12 @@ def _execute_curl(op: dict[str, Any], runner: CommandRunner, cache_dir: Path) ->
         op["result"] = message
         raise RuntimeError(message)
     script.chmod(0o755)
+    install_to = op.get("install_to")
+    if install_to:
+        dest = Path(install_to).expanduser()
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(script, dest)
+        dest.chmod(0o755)
     prefix = _sudo_prefix() if op.get("requires_sudo") else []
     runner.run([*prefix, interpreter, str(script)])
     return 1

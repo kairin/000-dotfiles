@@ -224,6 +224,7 @@ TOOL_BASELINE = (
             "url": "https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh",
             "script_name": "codacy-cli.sh",
             "interpreter": "bash",
+            "install_to": "~/.local/bin/codacy-cli",
         },
         "requires_sudo": False,
         "install_hint": "Installed by the setup tool-install menu option (codacy-cli-v2 install script).",
