@@ -456,3 +456,46 @@ class FontReleaseMetadataTests(DotfilesTestCase):
         self.assertEqual(result["tag_name"], "v1.2.3")
         self.assertEqual(result["lookup_error_kind"], "timeout")
         self.assertIn("slow", result["lookup_error"])
+
+
+class WindowsFontVerificationTests(DotfilesTestCase):
+    def test_check_windows_fonts_installed_returns_true_when_font_present(self) -> None:
+        from dotfiles_tools.font_context import check_windows_fonts_installed
+
+        home = self.make_home()
+        source_dir = home / ".local/share/fonts/JetBrainsMonoNerdFont"
+        source_dir.mkdir(parents=True)
+        font_file = source_dir / "JetBrainsMonoNerdFont-Regular.ttf"
+        font_file.write_bytes(b"fake font data")
+
+        users_root = home / "fake_mnt_c_Users"
+        win_fonts = users_root / "kairi/AppData/Local/Microsoft/Windows/Fonts"
+        win_fonts.mkdir(parents=True)
+        (win_fonts / font_file.name).write_bytes(b"fake font data")
+
+        self.assertTrue(check_windows_fonts_installed(source_dir, _users_root=users_root))
+
+    def test_check_windows_fonts_installed_returns_false_when_no_font_present(self) -> None:
+        from dotfiles_tools.font_context import check_windows_fonts_installed
+
+        home = self.make_home()
+        source_dir = home / ".local/share/fonts/JetBrainsMonoNerdFont"
+        source_dir.mkdir(parents=True)
+        (source_dir / "JetBrainsMonoNerdFont-Regular.ttf").write_bytes(b"fake font data")
+
+        users_root = home / "fake_mnt_c_Users"
+        win_fonts = users_root / "kairi/AppData/Local/Microsoft/Windows/Fonts"
+        win_fonts.mkdir(parents=True)
+
+        self.assertFalse(check_windows_fonts_installed(source_dir, _users_root=users_root))
+
+    def test_check_windows_fonts_installed_returns_false_when_source_missing(self) -> None:
+        from dotfiles_tools.font_context import check_windows_fonts_installed
+
+        home = self.make_home()
+        source_dir = home / ".local/share/fonts/JetBrainsMonoNerdFont"
+
+        users_root = home / "fake_mnt_c_Users"
+        users_root.mkdir(parents=True)
+
+        self.assertFalse(check_windows_fonts_installed(source_dir, _users_root=users_root))

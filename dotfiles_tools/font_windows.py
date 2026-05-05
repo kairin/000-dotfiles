@@ -7,7 +7,7 @@ from typing import Any
 from .backups import create_backup
 from .font_assets import windows_font_install_script
 from .font_catalog import FONT_CACHE_REL, FONT_FACE, FONT_INSTALL_BASE_REL, WINDOWS_ENTRY_ID, FontError, NerdFontItem
-from .font_context import host_action, terminal_impact
+from .font_context import check_windows_fonts_installed, host_action, terminal_impact
 from .font_runner import CommandRunner
 
 
@@ -18,8 +18,17 @@ def windows_host_plan(
     font_summary: dict[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
     powershell = context.get("powershell")
-    state = "missing" if powershell else "manual"
-    reason = "powershell.exe is available for Windows per-user font install" if powershell else "powershell.exe is not visible from WSL"
+    if not powershell:
+        state = "manual"
+        reason = "powershell.exe is not visible from WSL"
+    else:
+        source_dir = nerd_paths(home, item)["install_dir"]
+        if check_windows_fonts_installed(source_dir):
+            state = "installed"
+            reason = f"{item.terminal_face} files are present in Windows per-user font store"
+        else:
+            state = "missing"
+            reason = "powershell.exe is available for Windows per-user font install"
     operations = windows_host_operations(home, context, item, font_summary)
     return windows_host_entry(home, context, item, state, reason), operations, {"host_action": host_action(context), "requires_sudo": False}
 
