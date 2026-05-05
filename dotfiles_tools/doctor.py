@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,12 @@ ROOT_SYMLINKS = {
     "agents/CLAUDE.md.template": "AGENTS.md.template",
     "agents/GEMINI.md.template": "AGENTS.md.template",
 }
+
+CODACY_BEGIN_MARKER = "# BEGIN DOTFILES CODACY"
+CODACY_END_MARKER = "# END DOTFILES CODACY"
+CODACY_REPAIR_HINT = (
+    "Run './setup repair-codacy-env' to regenerate .envrc.local with all existing token exports."
+)
 
 
 def check_symlinks(repo: Path) -> list[dict[str, Any]]:
@@ -45,6 +52,67 @@ def check_symlinks(repo: Path) -> list[dict[str, Any]]:
             "reason": reason,
         })
     return entries
+
+
+def check_codacy_envrc_local_drift(repo: Path, home: Path) -> list[dict[str, Any]]:
+    envrc_local = repo / ".envrc.local"
+    codacy_dir = home / ".codacy"
+    if not envrc_local.is_file() or not codacy_dir.is_dir():
+        return []
+
+    expected: list[tuple[Path, str]] = []
+    account_token = codacy_dir / "account-token"
+    if account_token.is_file():
+        expected.append((account_token, "CODACY_API_TOKEN"))
+    for project_token in sorted(codacy_dir.glob("*.project-token")):
+        if project_token.is_file():
+            expected.append((project_token, "CODACY_PROJECT_TOKEN"))
+    if not expected:
+        return []
+
+    try:
+        text = envrc_local.read_text()
+    except OSError:
+        return []
+    block_lines = _codacy_block_lines(text)
+
+    entries: list[dict[str, Any]] = []
+    for token_path, var in expected:
+        if _block_exports(block_lines, var):
+            continue
+        entries.append({
+            "entry_id": f"codacy.envrc-local.{var}",
+            "source": str(token_path),
+            "target": str(envrc_local),
+            "state": "drifted",
+            "protected": False,
+            "reason": (
+                f"token file {token_path} exists but {var} export is missing "
+                f"from managed Codacy block in {envrc_local}. {CODACY_REPAIR_HINT}"
+            ),
+        })
+    return entries
+
+
+def _codacy_block_lines(text: str) -> list[str]:
+    in_block = False
+    lines: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == CODACY_BEGIN_MARKER:
+            in_block = True
+            continue
+        if stripped == CODACY_END_MARKER:
+            in_block = False
+            continue
+        if in_block:
+            lines.append(line)
+    return lines
+
+
+def _block_exports(block_lines: list[str], var: str) -> bool:
+    pattern = rf"^\s*export\s+{re.escape(var)}\s*="
+    return any(re.match(pattern, line) for line in block_lines)
 
 
 def evaluate_entry(repo: Path, home: Path, entry: ManifestEntry, include_protected: set[str] | None = None) -> dict[str, Any]:
@@ -219,6 +287,7 @@ def run_doctor(repo: Path | str, home: Path | str, *, profile: str = "machine", 
         include_set = validate_included_protected(manifest, include_protected)
         entries.extend(check_symlinks(repo_path))
         entries.extend(evaluate_entry(repo_path, home_path, entry, include_set) for entry in manifest.entries_for_profile(profile))
+        entries.extend(check_codacy_envrc_local_drift(repo_path, home_path))
         if profile == "machine":
             extra.update(collect_tool_baseline())
     except ManifestError as exc:
