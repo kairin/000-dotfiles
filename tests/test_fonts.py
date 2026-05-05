@@ -503,7 +503,29 @@ class WindowsFontVerificationTests(DotfilesTestCase):
 
         self.assertFalse(check_windows_fonts_installed(source_dir, _users_root=users_root))
 
-    def test_windows_host_operations_returns_skip_when_installed(self) -> None:
+    def test_windows_host_operations_skips_copy_but_updates_terminal_when_installed(self) -> None:
+        from dotfiles_tools.font_windows import windows_host_operations
+        from dotfiles_tools.font_catalog import NERD_FONT_CATALOG, WINDOWS_ENTRY_ID
+
+        home = self.make_home()
+        item = NERD_FONT_CATALOG[0]
+        settings = "/mnt/c/Users/kairi/AppData/Local/Packages/Microsoft.WindowsTerminal/settings.json"
+        context = {
+            "powershell": "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+            "windows_terminal_settings": settings,
+        }
+        font_summary: dict = {"state": "installed"}
+
+        ops = windows_host_operations(home, context, item, font_summary, state="installed")
+
+        types = [op["type"] for op in ops]
+        self.assertIn("font_skip", types)
+        self.assertIn("font_update_windows_terminal", types)
+        skip_op = next(op for op in ops if op["type"] == "font_skip")
+        self.assertEqual(skip_op["entry_id"], WINDOWS_ENTRY_ID)
+        self.assertFalse(skip_op["requires_approval"])
+
+    def test_windows_host_operations_skip_only_when_installed_no_settings(self) -> None:
         from dotfiles_tools.font_windows import windows_host_operations
         from dotfiles_tools.font_catalog import NERD_FONT_CATALOG, WINDOWS_ENTRY_ID
 
@@ -517,7 +539,6 @@ class WindowsFontVerificationTests(DotfilesTestCase):
         self.assertEqual(len(ops), 1)
         self.assertEqual(ops[0]["type"], "font_skip")
         self.assertEqual(ops[0]["entry_id"], WINDOWS_ENTRY_ID)
-        self.assertFalse(ops[0]["requires_approval"])
 
     def test_windows_host_operations_returns_install_ops_when_missing(self) -> None:
         from dotfiles_tools.font_windows import windows_host_operations

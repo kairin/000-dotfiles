@@ -67,7 +67,15 @@ def windows_host_operations(
     if not context.get("powershell"):
         return [manual_op(WINDOWS_ENTRY_ID, f"Install {item.terminal_face} on the Windows host manually.")]
     if state == "installed":
-        return [_windows_skip_op(WINDOWS_ENTRY_ID, f"{item.terminal_face} already installed in Windows per-user font store")]
+        # Font files are present — skip the copy but still update Windows Terminal settings
+        # if the settings file is discoverable (it may still point to a different font face).
+        operations: list[dict[str, Any]] = [
+            _windows_skip_op(WINDOWS_ENTRY_ID, f"{item.terminal_face} already installed in Windows per-user font store")
+        ]
+        settings = context.get("windows_terminal_settings")
+        if settings:
+            operations.append(windows_terminal_update_operation(item, settings))
+        return operations
     operations = [windows_font_install_operation(home, item, font_summary)]
     settings = context.get("windows_terminal_settings")
     if settings:
