@@ -113,6 +113,9 @@ def _execute_operation(op: dict[str, Any], repo_path: Path, backup_path: Path, b
     if op["type"] == "copy":
         _copy_operation(op, repo_path)
         return 1
+    if op["type"] == "copy_directory":
+        _copy_directory_operation(op)
+        return 1
     if op["type"] == "merge":
         _merge_operation(op, repo_path)
         return 1
@@ -127,6 +130,16 @@ def _copy_operation(op: dict[str, Any], repo_path: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     source = Path(op["source"])
     target.write_text(expected_text(source, _entry_for(op["entry_id"], repo_path)))
+
+
+def _copy_directory_operation(op: dict[str, Any]) -> None:
+    import shutil
+    source = Path(op["source"])
+    target = Path(op["target"])
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.copytree(source, target)
 
 
 def _merge_operation(op: dict[str, Any], repo_path: Path) -> None:
@@ -211,6 +224,8 @@ def _operations_for_state(repo: Path, home: Path, entry: ManifestEntry, state: d
         ops.append({**base, "type": "backup", "reason": "target differs and must be backed up before replacement"})
     if entry.kind == "symlink":
         ops.append({**base, "type": "symlink", "link_target": entry.link_target, "reason": "create target symlink"})
+    elif entry.kind == "directory":
+        ops.append({**base, "type": "copy_directory", "reason": "copy directory recursively"})
     else:
         ops.append({**base, "type": "copy", "reason": "copy source to target"})
     return ops

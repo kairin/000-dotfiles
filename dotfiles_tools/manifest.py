@@ -128,7 +128,7 @@ def _validate_entry_metadata(entry: ManifestEntry) -> None:
         raise ManifestError(f"protected entry lacks manual_reason: {entry.id}")
     if entry.kind == "symlink" and not entry.link_target:
         raise ManifestError(f"symlink entry lacks link_target: {entry.id}")
-    _validate_choice(entry.kind, {"file", "template", "symlink"}, "kind", entry.id)
+    _validate_choice(entry.kind, {"file", "template", "symlink", "directory"}, "kind", entry.id)
     _validate_choice(entry.parse, {None, "json", "toml"}, "parse value", entry.id)
     _validate_choice(entry.placeholders, {"required", "allowed_examples", "none"}, "placeholders value", entry.id)
     _validate_choice(entry.scope, {"home", "repo", "project"}, "scope", entry.id)

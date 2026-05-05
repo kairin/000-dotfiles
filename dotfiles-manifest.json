@@ -8,8 +8,10 @@
         "claude.keybindings",
         "claude.global-instructions",
         "claude.mcp-servers",
+        "claude.skills",
         "codex.config",
         "codex.default-rules",
+        "codex.skills",
         "gemini.settings",
         "gemini.global-instructions",
         "gh.config",
@@ -224,6 +226,26 @@
       "placeholders": "none",
       "merge_strategy": "json_merge",
       "scope": "repo"
+    },
+    {
+      "id": "claude.skills",
+      "source": "claude/skills",
+      "target": ".claude/skills",
+      "kind": "directory",
+      "profiles": ["machine"],
+      "protected": false,
+      "user_customizable": false,
+      "placeholders": "none"
+    },
+    {
+      "id": "codex.skills",
+      "source": "codex/skills",
+      "target": ".codex/skills",
+      "kind": "directory",
+      "profiles": ["machine"],
+      "protected": false,
+      "user_customizable": false,
+      "placeholders": "none"
     }
   ],
   "project_init": {

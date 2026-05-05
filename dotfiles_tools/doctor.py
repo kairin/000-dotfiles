@@ -92,7 +92,7 @@ def _protected_entry_state(result: dict[str, Any], entry: ManifestEntry, include
 
 
 def _target_preflight_state(result: dict[str, Any], target_path: Path, entry: ManifestEntry) -> dict[str, Any] | None:
-    if target_path.exists() and target_path.is_dir() and entry.kind != "symlink":
+    if target_path.exists() and target_path.is_dir() and entry.kind not in ("symlink", "directory"):
         return _state(result, "blocked", "target is a directory")
     if entry.kind == "symlink":
         return _symlink_target_state(result, target_path, entry.link_target or "")
@@ -102,6 +102,10 @@ def _target_preflight_state(result: dict[str, Any], target_path: Path, entry: Ma
 
 
 def _file_target_state(result: dict[str, Any], source_path: Path, target_path: Path, entry: ManifestEntry) -> dict[str, Any]:
+    if entry.kind == "directory":
+        if not target_path.exists():
+            return _state(result, "missing", "target directory is missing")
+        return _state(result, "drifted", "target directory will be replaced")
     if entry.merge_strategy == "json_merge":
         return _json_merge_target_state(result, source_path, target_path)
     try:
@@ -174,6 +178,10 @@ def _source_error(source_path: Path, entry: ManifestEntry) -> str | None:
         return "source path is missing"
     if entry.kind == "symlink":
         return _symlink_source_error(source_path, entry)
+    if entry.kind == "directory":
+        if not source_path.is_dir():
+            return "source is not a directory"
+        return None
     return _file_source_error(source_path, entry)
 
 
