@@ -293,20 +293,14 @@ AUTH_GUIDANCE = (
         "guidance": "Run 'hf auth login' to authenticate with the HuggingFace Hub.",
         "verify": ("hf", "auth", "status"),
     },
-    {
-        "id": "codacy",
-        "tool": None,
-        "command": "~/.codacy/account-token",
-        "guidance": "Run setup option 5 to paste your Codacy account token.",
-        "verify_file": "~/.codacy/account-token",
-    },
 )
 
 
-def collect_tool_baseline(path: str | None = None) -> dict[str, list[dict[str, Any]]]:
+def collect_tool_baseline(path: str | None = None, home: Path | None = None) -> dict[str, list[dict[str, Any]]]:
     search_path = path if path is not None else os.environ.get("PATH", "")
+    resolved_home = home if home is not None else Path.home()
     tool_checks = [_tool_check(item, search_path) for item in TOOL_BASELINE]
-    auth_guidance = [_auth_check(item, search_path) for item in AUTH_GUIDANCE]
+    auth_guidance = [_auth_check(item, search_path, resolved_home) for item in AUTH_GUIDANCE]
     return {"tool_checks": tool_checks, "auth_guidance": auth_guidance}
 
 
@@ -368,7 +362,7 @@ def _tool_check(item: dict[str, Any], search_path: str) -> dict[str, Any]:
     }
 
 
-def _auth_check(item: dict[str, str], search_path: str) -> dict[str, str]:
+def _auth_check(item: dict[str, str], search_path: str, home: Path) -> dict[str, str]:
     tool = item.get("tool")
     found = shutil.which(tool, path=search_path) if tool else None
     tool_present = bool(found) or tool is None
@@ -385,7 +379,8 @@ def _auth_check(item: dict[str, str], search_path: str) -> dict[str, str]:
 
     verify_file = item.get("verify_file")
     if verify_file:
-        p = Path(verify_file).expanduser()
+        # Resolve ~ against the audited home, not the process home.
+        p = home / verify_file.lstrip("~/") if verify_file.startswith("~/") else Path(verify_file)
         if p.exists() and p.read_text().strip():
             return {**base, "state": "signed_in", "signed_in_detail": f"token present at {verify_file}"}
         return {**base, "state": "available"}
@@ -393,11 +388,14 @@ def _auth_check(item: dict[str, str], search_path: str) -> dict[str, str]:
     verify = item.get("verify")
     if verify:
         try:
+            # Use the same PATH the tool was found on so the right binary is called.
+            env = {**os.environ, "PATH": search_path, "HOME": str(home)}
             result = subprocess.run(  # nosec B603
                 list(verify),
                 capture_output=True,
                 text=True,
                 timeout=8,
+                env=env,
             )
             if result.returncode == 0:
                 detail = _extract_signed_in_detail(result.stdout + result.stderr)

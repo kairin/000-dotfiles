@@ -23,7 +23,8 @@ def windows_host_plan(
         reason = "powershell.exe is not visible from WSL"
     else:
         source_dir = nerd_paths(home, item)["install_dir"]
-        if check_windows_fonts_installed(source_dir):
+        linux_state = font_summary.get("state", "missing")
+        if linux_state != "needs_update" and check_windows_fonts_installed(source_dir):
             state = "installed"
             reason = f"{item.terminal_face} files are present in Windows per-user font store"
         else:

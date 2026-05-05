@@ -1461,14 +1461,14 @@ configure_machine_api_tokens() {
     if [[ -f "$HOME/.cache/huggingface/token" ]]; then
       hf_status="Reconfigure"
     fi
-    if [[ -f "$HOME/.codacy/account-token" ]]; then
+    if [[ -f "$HOME/.codacy/account-token" ]] || ls "$HOME/.codacy"/*.project-token >/dev/null 2>&1; then
       codacy_status="Reconfigure"
     fi
 
     cat <<EOF
   1. $gh_status GitHub (gh) authentication
   2. $hf_status HuggingFace Hub access
-  3. $codacy_status Codacy account token
+  3. $codacy_status Codacy API access (account token + project token)
   4. Back to main menu
 EOF
 
@@ -1482,7 +1482,7 @@ EOF
     case "$choice" in
       1) configure_gh_auth ;;
       2) configure_huggingface_global ;;
-      3) configure_codacy_account_token ;;
+      3) configure_codacy_env "$(pwd)" ;;
       4|"") return 0 ;;
       *) echo "Unknown choice: $choice" >&2 ;;
     esac
