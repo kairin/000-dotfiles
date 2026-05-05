@@ -1218,7 +1218,8 @@ build_envrc_content() {
 }
 
 build_codacy_managed_section() {
-  local token_var="$1" token_ref="$2" owner="$3" repo="$4" has_active_token="$5"
+  local owner="$1" repo="$2"
+  shift 2
   local provider owner_escaped repo_escaped
   provider="$(escape_env_double_quoted "gh")"
   owner_escaped="$(escape_env_double_quoted "$owner")"
@@ -1229,17 +1230,20 @@ build_codacy_managed_section() {
   printf 'export CODACY_USERNAME="%s"\n' "$owner_escaped"
   printf 'export CODACY_PROJECT_NAME="%s"\n' "$repo_escaped"
 
-  # Include machine-level account token if it exists
   local account_token_file="$HOME/.codacy/account-token"
   if [[ -f "$account_token_file" ]]; then
     printf 'export CODACY_ACCOUNT_TOKEN="$(cat "%s")"\n' "$account_token_file"
   fi
 
-  if [[ "$has_active_token" -eq 1 ]]; then
-    printf 'export %s="$(cat "%s")"\n' "$token_var" "$token_ref"
-  else
-    printf '# %s not exported because no token file exists yet.\n' "$token_var"
-  fi
+  while (($# >= 3)); do
+    local token_var="$1" token_ref="$2" has_active="$3"
+    shift 3
+    if [[ "$has_active" -eq 1 ]]; then
+      printf 'export %s="$(cat "%s")"\n' "$token_var" "$token_ref"
+    else
+      printf '# %s not exported because no token file exists yet.\n' "$token_var"
+    fi
+  done
   printf '%s\n' "$CODACY_SECTION_END"
 }
 
@@ -1360,14 +1364,21 @@ EOF
     return 0
   fi
 
-  local token_dir="$HOME/.codacy" token_basename token_file token_ref
+  local token_dir="$HOME/.codacy"
+  local project_basename="$(codacy_safe_name "$owner")-$(codacy_safe_name "$repo").project-token"
+  local project_token_file="$token_dir/$project_basename"
+  local project_token_ref="\$HOME/.codacy/$project_basename"
+  local account_token_file="$token_dir/account-token"
+  local account_token_ref="\$HOME/.codacy/account-token"
+
+  local token_file token_ref
   if [[ "$token_name" == "account" ]]; then
-    token_basename="account-token"
+    token_file="$account_token_file"
+    token_ref="$account_token_ref"
   else
-    token_basename="$(codacy_safe_name "$owner")-$(codacy_safe_name "$repo").project-token"
+    token_file="$project_token_file"
+    token_ref="$project_token_ref"
   fi
-  token_file="$token_dir/$token_basename"
-  token_ref="\$HOME/.codacy/$token_basename"
 
   printf '%s (leave blank to reuse an existing token file): ' "$token_prompt"
   local token_value=""
@@ -1378,16 +1389,28 @@ EOF
   fi
   echo
 
-  local has_active_token=0 token_action
+  local project_has_active=0 account_has_active=0
+  [[ -f "$project_token_file" ]] && project_has_active=1
+  [[ -f "$account_token_file" ]] && account_has_active=1
   if [[ -n "$token_value" ]]; then
-    has_active_token=1
-    if [[ -f "$token_file" ]]; then
-      token_action="update"
+    if [[ "$token_name" == "project" ]]; then
+      project_has_active=1
     else
-      token_action="create"
+      account_has_active=1
     fi
+  fi
+
+  local has_active_token token_action
+  if [[ "$token_name" == "project" ]]; then
+    has_active_token="$project_has_active"
+  else
+    has_active_token="$account_has_active"
+  fi
+  if [[ -n "$token_value" && -f "$token_file" ]]; then
+    token_action="update"
+  elif [[ -n "$token_value" ]]; then
+    token_action="create"
   elif [[ -f "$token_file" ]]; then
-    has_active_token=1
     token_action="reuse"
   else
     token_action="not configured"
@@ -1395,9 +1418,22 @@ EOF
 
   local envrc="$project/.envrc" envrc_local="$project/.envrc.local"
   local block envrc_content envrc_local_content
-  block="$(build_codacy_managed_section "$token_var" "$token_ref" "$owner" "$repo" "$has_active_token")"
+  block="$(build_codacy_managed_section "$owner" "$repo" \
+    "CODACY_PROJECT_TOKEN" "$project_token_ref" "$project_has_active" \
+    "CODACY_API_TOKEN" "$account_token_ref" "$account_has_active")"
   envrc_content="$(build_envrc_content "$envrc")"
   envrc_local_content="$(build_envrc_local_content "$envrc_local" "$block")"
+
+  local exported_summary
+  if [[ "$project_has_active" -eq 1 && "$account_has_active" -eq 1 ]]; then
+    exported_summary="CODACY_PROJECT_TOKEN, CODACY_API_TOKEN"
+  elif [[ "$project_has_active" -eq 1 ]]; then
+    exported_summary="CODACY_PROJECT_TOKEN"
+  elif [[ "$account_has_active" -eq 1 ]]; then
+    exported_summary="CODACY_API_TOKEN"
+  else
+    exported_summary="(none yet)"
+  fi
 
   cat <<EOF
 
@@ -1407,6 +1443,7 @@ Codacy environment preview:
   - Project env file: $envrc
   - Local env bridge: $envrc_local
   - Token storage path: $token_ref ($token_action)
+  - Tokens exported: $exported_summary
   - Token values will not be printed or written into project files.
 EOF
   if [[ "$has_active_token" -eq 0 ]]; then
