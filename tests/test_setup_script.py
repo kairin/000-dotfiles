@@ -565,7 +565,7 @@ exit 64
         self.assertIn("4. Show tool and sign-in guidance. [recommended]", result.stdout)
         self.assertIn("Tool status:", result.stdout)
         self.assertIn("Missing tools:", result.stdout)
-        self.assertIn("Sign-in checks unavailable until the tool is installed:", result.stdout)
+        self.assertIn("Sign-in status:", result.stdout)
         self.assertNotIn("Missing tool install/auth commands:", result.stdout)
 
     def test_no_arg_details_choice_prints_full_diagnostics(self) -> None:
