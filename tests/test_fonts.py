@@ -214,6 +214,8 @@ class FontCatalogTests(DotfilesTestCase):
         )
 
     def test_wsl_plans_all_linux_fonts_and_windows_terminal_mono_update_when_detected(self) -> None:
+        from unittest.mock import patch
+
         home = self.make_home()
         install_dir = home / FONT_INSTALL_REL
         install_dir.mkdir(parents=True)
@@ -229,11 +231,12 @@ class FontCatalogTests(DotfilesTestCase):
             release=release_inventory(),
         )
 
-        plan = build_font_plan(home, env=env, path="", runner=runner)
-        op_types = [op["type"] for op in plan["operations"]]
+        with patch("dotfiles_tools.font_windows.check_windows_fonts_installed", return_value=False):
+            plan = build_font_plan(home, env=env, path="", runner=runner)
+            op_types = [op["type"] for op in plan["operations"]]
 
-        self.assertEqual(font_values(plan["fonts"], "nerd_font_release", "asset_name"), {item.asset_name for item in NERD_FONT_CATALOG})
-        self.assertIn("font_install_windows", op_types)
+            self.assertEqual(font_values(plan["fonts"], "nerd_font_release", "asset_name"), {item.asset_name for item in NERD_FONT_CATALOG})
+            self.assertIn("font_install_windows", op_types)
         terminal_update = next(op for op in plan["operations"] if op["type"] == "font_update_windows_terminal")
         self.assertEqual(terminal_update["source"], FONT_FACE)
         self.assertNotIn("Propo", terminal_update["source"])
