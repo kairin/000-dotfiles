@@ -946,6 +946,17 @@ exit 64
         self.assertEqual(extra_args.returncode, 2)
         self.assertIn("ship accepts at most one PR number", extra_args.stderr)
 
+    def test_ship_missing_token_error_mentions_repair_command(self) -> None:
+        setup_text = SETUP.read_text()
+        die_lines = [
+            line for line in setup_text.splitlines()
+            if "CODACY_PROJECT_TOKEN is not set" in line
+        ]
+        self.assertEqual(len(die_lines), 1, die_lines)
+        die_line = die_lines[0]
+        self.assertIn("repair-codacy-env", die_line)
+        self.assertIn("direnv allow", die_line)
+
     def test_ship_rejects_ambiguous_auto_detected_prs(self) -> None:
         repo, _base_sha, head_sha = self.make_ship_repo()
         home = self.make_home()

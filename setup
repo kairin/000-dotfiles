@@ -657,7 +657,7 @@ cmd_ship() {
 
   echo "[ship] step 1: verifying CODACY_PROJECT_TOKEN"
   [[ -n "${CODACY_PROJECT_TOKEN:-}" ]] \
-    || die "CODACY_PROJECT_TOKEN is not set; export it (cat ~/.codacy/<owner>-<repo>.project-token) before running ./setup ship"
+    || die "CODACY_PROJECT_TOKEN is not set. Run './setup repair-codacy-env' to regenerate .envrc.local with all existing token exports, then 'direnv allow .' before retrying ./setup ship."
 
   echo "[ship] step 2: verifying required CLIs (codacy-cli gh git jq)"
   local missing=()
