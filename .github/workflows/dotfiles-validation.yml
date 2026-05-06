@@ -47,6 +47,7 @@ jobs:
         if: steps.codacy_status.outputs.status != 'analyzed'
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
         with:
+          python-version: "3.11"
           cache-dependency-glob: |
             scripts/quality-pipeline.sh
 
@@ -71,9 +72,19 @@ jobs:
           echo "$INSTALL_DIR" >> "$GITHUB_PATH"
           echo "Installed codacy-cli-v2 at $CLI_PATH; symlinked into $INSTALL_DIR"
 
-      - name: Run quality pipeline
+      - name: Run unit tests
         if: steps.codacy_status.outputs.status != 'analyzed'
-        run: bash scripts/quality-pipeline.sh
+        run: uv run python -m unittest discover -s tests
+
+      - name: Generate coverage report
+        if: steps.codacy_status.outputs.status != 'analyzed'
+        run: |
+          uv run --with coverage==7.5.4 coverage run -m unittest discover -s tests
+          uv run --with coverage==7.5.4 coverage xml
+
+      - name: Run Codacy SARIF analysis via scripts/quality-pipeline.sh
+        if: steps.codacy_status.outputs.status != 'analyzed' && env.CODACY_PROJECT_TOKEN != ''
+        run: bash scripts/quality-pipeline.sh --codacy-only
 
       - name: Upload coverage to Codacy
         if: steps.codacy_status.outputs.status != 'analyzed' && env.CODACY_PROJECT_TOKEN != ''
