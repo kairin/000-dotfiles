@@ -46,6 +46,24 @@ dotfiles-manifest.json  Source of truth for what installs where
 - Placeholders follow the pattern `{ {UPPER_SNAKE_CASE} }` (double-braces with no spaces) and must all be replaced before use.
 - No secrets, tokens, or API keys are stored anywhere in this repo. Auth files are excluded by `.gitignore` and the global git ignore.
 
+## Local API Access
+
+When this repo is opened in a shell that has loaded `.envrc` and `.envrc.local`,
+agents may use the following environment variables for local Codacy and GitHub
+billing workflows:
+
+- `CODACY_ACCOUNT_TOKEN`
+- `CODACY_ORGANIZATION_PROVIDER`
+- `CODACY_PROJECT_NAME`
+- `CODACY_PROJECT_TOKEN`
+- `CODACY_USERNAME`
+- `GH_BILLING_TOKEN`
+
+These values come from direnv-managed local environment files, not from the
+repository. Do not commit them, print them, or add them to tracked config. If
+the shell output shows `direnv: export ...`, treat those exports as available
+for the current session only.
+
 ## Symlink Convention
 
 `CLAUDE.md` and `GEMINI.md` at the repo root are symlinks to `AGENTS.md`. At the project level, `agents/CLAUDE.md.template` and `agents/GEMINI.md.template` are symlinks to `agents/AGENTS.md.template`. This keeps one source of truth per scope.
