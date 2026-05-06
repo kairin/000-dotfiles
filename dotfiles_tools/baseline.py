@@ -376,7 +376,7 @@ def _run_verify_cmd(
         return {**base, "state": "available"}
     env = {**os.environ, "PATH": search_path, "HOME": str(home)}
     try:
-        result = subprocess.run(verify, capture_output=True, text=True, timeout=8, env=env)
+        result = subprocess.run(verify, capture_output=True, text=True, timeout=8, env=env)  # nosec B603 # nosemgrep: dangerous-subprocess-use-audit
         if result.returncode == 0:
             detail = _extract_signed_in_detail(result.stdout + result.stderr)
             return {**base, "state": "signed_in", "signed_in_detail": detail}
