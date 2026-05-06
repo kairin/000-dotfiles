@@ -119,7 +119,12 @@ echo "DEBUG: HEAD_SHA=$HEAD_SHA" >&2
 if [[ "${SKIP_CODACY_UPLOAD:-0}" = "1" ]]; then
   echo -e "${YELLOW}⚠ SKIP_CODACY_UPLOAD=1 — skipping SARIF upload by request.${NC}"
 else
-  BASE_SHA="$(git merge-base HEAD origin/main 2>/dev/null || git rev-parse origin/main 2>/dev/null || echo "")"
+  BASE_SHA=""
+  if git merge-base HEAD origin/main >/dev/null 2>&1; then
+    BASE_SHA="$(git merge-base HEAD origin/main)"
+  elif git rev-parse origin/main >/dev/null 2>&1; then
+    BASE_SHA="$(git rev-parse origin/main --quiet 2>/dev/null || echo "")"
+  fi
   echo "DEBUG: BASE_SHA=$BASE_SHA" >&2
 
   upload_with_retry() {
