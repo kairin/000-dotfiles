@@ -663,7 +663,7 @@ cmd_ship() {
 
   echo "[ship] step 1: verifying CODACY_PROJECT_TOKEN"
   [[ -n "${CODACY_PROJECT_TOKEN:-}" ]] \
-    || die "CODACY_PROJECT_TOKEN is not set; export it (cat ~/.codacy/<owner>-<repo>.project-token) before running ./setup ship"
+    || die "CODACY_PROJECT_TOKEN is not set — run: ./setup repair-codacy-env"
 
   echo "[ship] step 2: verifying required CLIs (codacy-cli gh git jq)"
   local missing=()
@@ -782,7 +782,7 @@ cmd_ship() {
       || die "codacy-cli analyze produced no SARIF at $_ship_head_sarif (check .codacy/codacy.yaml in the head worktree)"
 
     echo "[ship] step 4e: uploading SARIF for HEAD ($head_oid)"
-    ( cd "$_ship_head_wt" && codacy-cli upload -s "$_ship_head_sarif" -c "$head_oid" -t "$CODACY_PROJECT_TOKEN" ) \
+    ship_upload_sarif "$_ship_head_wt" "$_ship_head_sarif" "$head_oid" \
       || die "codacy-cli upload (HEAD) failed"
 
     echo "[ship] step 4f: fetching base branch origin/$base_ref_name"
@@ -802,7 +802,7 @@ cmd_ship() {
       || die "codacy-cli analyze produced no SARIF at $_ship_base_sarif (check .codacy/codacy.yaml in the base worktree)"
 
     echo "[ship] step 4i: uploading SARIF for base ($base_sha)"
-    ( cd "$_ship_base_wt" && codacy-cli upload -s "$_ship_base_sarif" -c "$base_sha" -t "$CODACY_PROJECT_TOKEN" ) \
+    ship_upload_sarif "$_ship_base_wt" "$_ship_base_sarif" "$base_sha" \
       || die "codacy-cli upload (base) failed"
 
     local interval="${SHIP_CHECK_INTERVAL:-15}" timeout="${SHIP_CHECK_TIMEOUT:-900}"
@@ -1166,6 +1166,17 @@ detect_github_identity() {
     [[ -n "$owner" && -n "$repo" && "$repo_part" == */* ]] || return 1
   }
   printf '%s\n%s\n' "$owner" "$repo"
+}
+
+ship_upload_sarif() {
+  local worktree="$1" sarif="$2" commit="$3"
+  ( cd "$worktree" && codacy-cli upload \
+      -s "$sarif" \
+      -c "$commit" \
+      -t "$CODACY_PROJECT_TOKEN" \
+      -o "${CODACY_USERNAME:-}" \
+      -p "${CODACY_ORGANIZATION_PROVIDER:-gh}" \
+      -r "${CODACY_PROJECT_NAME:-}" )
 }
 
 ship_prepare_codacy_worktree() {
