@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -101,6 +102,8 @@ def _target_preflight_state(result: dict[str, Any], target_path: Path, entry: Ma
 
 
 def _file_target_state(result: dict[str, Any], source_path: Path, target_path: Path, entry: ManifestEntry) -> dict[str, Any]:
+    if entry.merge_strategy == "json_merge":
+        return _json_merge_target_state(result, source_path, target_path)
     try:
         source_text = expected_text(source_path, entry)
         target_text = target_path.read_text()
@@ -108,9 +111,48 @@ def _file_target_state(result: dict[str, Any], source_path: Path, target_path: P
         return _state(result, "blocked", str(exc))
     if target_text == source_text:
         return _state(result, "current", "target matches source")
-    if getattr(entry, 'user_customizable', False):
+    if entry.user_customizable:
         return _state(result, "current", "user customizations are preserved")
     return _state(result, "drifted", "target differs from source")
+
+
+def _json_merge_target_state(
+    result: dict[str, Any], source_path: Path, target_path: Path
+) -> dict[str, Any]:
+    try:
+        source_text = source_path.read_text()
+        source = json.loads(source_text)
+        target = json.loads(target_path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        return _state(result, "blocked", f"json parse error: {exc}")
+    missing = _missing_json_keys(source, target)
+    if not missing:
+        return _state(result, "current", "required entries are present")
+    missing_str = ", ".join(missing)
+    return _state(result, "needs_merge", f"missing entries: {missing_str}")
+
+
+def _missing_json_keys(source: Any, target: Any) -> list[str]:
+    if not isinstance(source, dict):
+        return []
+    missing: list[str] = []
+    _walk_missing(source, target if isinstance(target, dict) else {}, "", missing)
+    return sorted(missing)
+
+
+def _walk_missing(source: dict[str, Any], target: dict[str, Any], prefix: str, missing: list[str]) -> None:
+    for key, source_value in source.items():
+        path = f"{prefix}.{key}" if prefix else key
+        if key not in target:
+            missing.append(path)
+            continue
+        if not isinstance(source_value, dict):
+            continue
+        target_value = target[key]
+        if not isinstance(target_value, dict):
+            missing.append(path)
+            continue
+        _walk_missing(source_value, target_value, path, missing)
 
 
 def _base_result(entry: ManifestEntry, source_path: Path, target_path: Path) -> dict[str, Any]:

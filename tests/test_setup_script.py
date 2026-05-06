@@ -5,6 +5,7 @@ import os
 import subprocess  # nosec B404
 from pathlib import Path
 import shutil
+import textwrap
 
 from tests.helpers import REPO_ROOT, DotfilesTestCase
 
@@ -57,6 +58,9 @@ class SetupScriptTests(DotfilesTestCase):
         "chmod",
         "date",
         "git",
+        "jq",
+        "awk",
+        "sleep",
         "python",
     )
 
@@ -71,6 +75,13 @@ class SetupScriptTests(DotfilesTestCase):
                 target = shutil.which("python3")
             self.assertIsNotNone(target, f"required command not found for test PATH: {name}")
             (bin_dir / name).symlink_to(target)
+        # Provide a fake gh that always reports authenticated so optional_integrations_menu
+        # omits the gh option and Codacy remains option 1 (matching test input sequences).
+        if not (bin_dir / "gh").exists():
+            self.write_executable(
+                bin_dir / "gh",
+                "#!/usr/bin/env bash\n[[ \"${1:-}\" == auth && \"${2:-}\" == status ]] && exit 0\nexit 1\n",
+            )
         return bin_dir
 
     def env_for(self, bin_dir: Path, home: Path, *, machine_summary_output: str | None = None) -> dict[str, str]:
@@ -168,6 +179,269 @@ cat "{installer_path}"
 """,
         )
 
+    def make_ship_repo(self) -> tuple[Path, str, str]:
+        repo = self.make_project()
+        bare_remote = self.make_project()
+        shutil.copy2(SETUP, repo / "setup")
+        subprocess.run(  # nosec B603
+            ["git", "init"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "switch", "-c", "main"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "config", "user.name", "Dotfiles Test"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "config", "user.email", "dotfiles@example.com"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        (repo / "README.md").write_text("# fake ship repo\n")
+        subprocess.run(  # nosec B603
+            ["git", "add", "setup", "README.md"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "commit", "-m", "base"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "init", "--bare"],
+            capture_output=True,
+            text=True,
+            cwd=str(bare_remote),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "config", f"url.file://{bare_remote.as_posix()}.insteadOf", "git@github.com:kairin/000-dotfiles.git"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "remote", "add", "origin", "git@github.com:kairin/000-dotfiles.git"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "push", "-u", "origin", "main"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "switch", "-c", "ship-test"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        (repo / "feature.txt").write_text("feature work\n")
+        subprocess.run(  # nosec B603
+            ["git", "add", "feature.txt"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "commit", "-m", "feature"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "push", "-u", "origin", "ship-test"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        base_sha = subprocess.run(  # nosec B603
+            ["git", "rev-parse", "HEAD^"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        ).stdout.strip()
+        head_sha = subprocess.run(  # nosec B603
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        ).stdout.strip()
+        return repo, base_sha, head_sha
+
+    def write_fake_ship_gh(
+        self,
+        bin_dir: Path,
+        log_path: Path,
+        *,
+        head_sha: str,
+        base_ref: str = "main",
+        pr_number: int = 17,
+    ) -> None:
+        state_file = log_path.parent / "gh-pr-state"
+        check_count_file = log_path.parent / "gh-check-count"
+        state_file.write_text("OPEN\n")
+        self.write_executable(
+            bin_dir / "gh",
+            textwrap.dedent(
+                f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "{log_path}"
+cmd="${{1:-}}"
+shift || true
+case "$cmd" in
+  auth)
+    [[ "${{1:-}}" == "status" ]] && exit 0
+    ;;
+  pr)
+    sub="${{1:-}}"
+    shift || true
+    case "$sub" in
+      list)
+        if [[ "${{FAKE_GH_PR_LIST_MODE:-}}" == "ambiguous" ]]; then
+          cat <<'JSON'
+[{{"number":41}},{{"number":42}}]
+JSON
+        else
+          cat <<'JSON'
+[{{"number":{pr_number}}}]
+JSON
+        fi
+        exit 0
+        ;;
+      view)
+        if [[ " $* " == *" --jq .mergeStateStatus "* ]]; then
+          echo "${{FAKE_GH_FINAL_MERGE_STATE:-CLEAN}}"
+          exit 0
+        fi
+        if [[ " $* " == *" --jq .state "* ]]; then
+          state="$(cat "{state_file}" 2>/dev/null || echo OPEN)"
+          echo "$state"
+          exit 0
+        fi
+        state="$(cat "{state_file}" 2>/dev/null || echo OPEN)"
+        cat <<JSON
+{{"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","headRefOid":"{head_sha}","baseRefName":"{base_ref}","state":"$state"}}
+JSON
+        exit 0
+        ;;
+      update-branch)
+        exit 0
+        ;;
+      merge)
+        printf 'MERGED\\n' > "{state_file}"
+        exit 0
+        ;;
+    esac
+    ;;
+  api)
+    path="${{1:-}}"
+    case "$path" in
+      repos/kairin/000-dotfiles/commits/{head_sha}/check-runs)
+        if [[ "${{FAKE_GH_CHECK_MODE:-}}" == "static-after-first-missing" ]]; then
+          count="$(cat "{check_count_file}" 2>/dev/null || echo 0)"
+          count="$((count + 1))"
+          printf '%s\\n' "$count" > "{check_count_file}"
+          if [[ "$count" == "1" ]]; then
+            cat <<'JSON'
+Codacy Coverage Variation	success
+Codacy Diff Coverage	success
+codacy-safety-net	success
+JSON
+            exit 0
+          fi
+        fi
+        if [[ "${{FAKE_GH_CHECK_MODE:-}}" == "missing-static" ]]; then
+          cat <<'JSON'
+Codacy Coverage Variation	success
+Codacy Diff Coverage	success
+codacy-safety-net	success
+JSON
+          exit 0
+        fi
+        cat <<'JSON'
+Codacy Static Code Analysis	success
+Codacy Coverage Variation	success
+Codacy Diff Coverage	success
+codacy-safety-net	success
+JSON
+        exit 0
+        ;;
+    esac
+    ;;
+esac
+echo "unexpected gh call: $cmd $*" >&2
+exit 64
+"""
+            ),
+        )
+    def write_fake_ship_codacy_cli(self, bin_dir: Path, log_path: Path) -> None:
+        self.write_executable(
+            bin_dir / "codacy-cli",
+            textwrap.dedent(
+                f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "{log_path}"
+cmd="${{1:-}}"
+shift || true
+case "$cmd" in
+  analyze)
+    out=""
+    while (($#)); do
+      case "$1" in
+        -o)
+          out="${{2:-}}"
+          shift 2
+          ;;
+        *)
+          shift
+          ;;
+      esac
+    done
+    [[ -n "$out" ]] || exit 64
+    printf 'SARIF\\n' > "$out"
+    exit 0
+    ;;
+  upload)
+    exit 0
+    ;;
+esac
+echo "unexpected codacy-cli call: $cmd $*" >&2
+exit 64
+"""
+            ),
+        )
+
     def assert_no_codacy_files(self, project: Path, home: Path) -> None:
         self.assertFalse((project / ".envrc").exists())
         self.assertFalse((project / ".envrc.local").exists())
@@ -194,7 +468,7 @@ cat "{installer_path}"
         log_path = home / "uv.log"
         self.write_fake_uv(bin_dir, log_path)
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="6\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("uv found at", result.stdout)
@@ -259,11 +533,8 @@ cat "{installer_path}"
         self.assertIn("Machine setup summary", result.stdout)
         self.assertIn("WARN: uv self update failed", result.stderr)
 
-    def test_no_arg_apply_writes_only_non_protected_config_with_backups(self) -> None:
+    def test_no_arg_apply_writes_only_non_protected_config(self) -> None:
         home = self.make_home()
-        drifted = home / ".claude" / "settings.json"
-        drifted.parent.mkdir(parents=True)
-        drifted.write_text('{"drift": true}')
         bin_dir = self.make_command_path()
         self.write_fake_uv(bin_dir, home / "uv.log")
 
@@ -275,7 +546,6 @@ cat "{installer_path}"
         self.assertTrue((home / ".config" / "fish" / "functions" / "direnv.fish").exists())
         self.assertFalse((home / ".config" / "git" / "config").exists())
         self.assertTrue((home / ".config" / "fish" / "conf.d" / "000-dotfiles-pixel-avf-prompt.fish").exists())
-        self.assertTrue(any(path.is_file() for path in (home / ".dotfiles-backups").rglob("*")))
 
     def test_no_arg_tool_guidance_choice_prints_status(self) -> None:
         home = self.make_home()
@@ -295,7 +565,7 @@ cat "{installer_path}"
         self.assertIn("4. Show tool and sign-in guidance. [recommended]", result.stdout)
         self.assertIn("Tool status:", result.stdout)
         self.assertIn("Missing tools:", result.stdout)
-        self.assertIn("Sign-in checks unavailable until the tool is installed:", result.stdout)
+        self.assertIn("Sign-in status:", result.stdout)
         self.assertNotIn("Missing tool install/auth commands:", result.stdout)
 
     def test_no_arg_details_choice_prints_full_diagnostics(self) -> None:
@@ -545,7 +815,12 @@ cat "{installer_path}"
         self.assertEqual(oct(envrc_local.stat().st_mode & 0o777), "0o600")
         self.assertIn("source_env_if_exists .envrc.local", envrc.read_text())
         local_text = envrc_local.read_text()
-        self.assertIn("CODACY_PROJECT_TOKEN", local_text)
+        self.assertIn(
+            'export CODACY_PROJECT_TOKEN="$(cat "$HOME/.codacy/kairin-000-dotfiles.project-token")"',
+            local_text,
+        )
+        self.assertIn("# CODACY_API_TOKEN not exported because no token file exists yet.", local_text)
+        self.assertNotIn("export CODACY_API_TOKEN=", local_text)
         self.assertIn('CODACY_ORGANIZATION_PROVIDER="gh"', local_text)
         self.assertIn('CODACY_USERNAME="kairin"', local_text)
         self.assertIn('CODACY_PROJECT_NAME="000-dotfiles"', local_text)
@@ -566,10 +841,76 @@ cat "{installer_path}"
         self.assertTrue(token_file.exists())
         self.assertEqual(token_file.read_text(), secret + "\n")
         local_text = (project / ".envrc.local").read_text()
-        self.assertIn("CODACY_API_TOKEN", local_text)
+        self.assertIn(
+            'export CODACY_API_TOKEN="$(cat "$HOME/.codacy/account-token")"',
+            local_text,
+        )
+        self.assertIn(
+            "# CODACY_PROJECT_TOKEN not exported because no token file exists yet.",
+            local_text,
+        )
+        self.assertNotIn("export CODACY_PROJECT_TOKEN=", local_text)
         self.assertIn('CODACY_ORGANIZATION_PROVIDER="gh"', local_text)
         self.assertIn('CODACY_USERNAME="kairin"', local_text)
         self.assertIn('CODACY_PROJECT_NAME="000-dotfiles"', local_text)
+        self.assertNotIn(secret, local_text)
+        self.assertNotIn(secret, result.stdout)
+        self.assertNotIn(secret, result.stderr)
+
+    def test_codacy_account_mode_also_exports_project_token_when_file_exists(self) -> None:
+        project = self.make_project()
+        home = self.make_home()
+        codacy_dir = home / ".codacy"
+        codacy_dir.mkdir(parents=True)
+        (codacy_dir / "kairin-000-dotfiles.project-token").write_text("preexisting-project\n")
+        (codacy_dir / "kairin-000-dotfiles.project-token").chmod(0o600)
+        secret = "fresh-account-token"
+        result, _home = self.run_project_setup(
+            project,
+            f"3\n1\n2\nkairin\n000-dotfiles\n{secret}\ny\n2\n5\n",
+            home=home,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn(
+            'export CODACY_PROJECT_TOKEN="$(cat "$HOME/.codacy/kairin-000-dotfiles.project-token")"',
+            local_text,
+        )
+        self.assertIn(
+            'export CODACY_API_TOKEN="$(cat "$HOME/.codacy/account-token")"',
+            local_text,
+        )
+        self.assertNotIn("not exported because no token file exists yet", local_text)
+        self.assertNotIn(secret, local_text)
+        self.assertNotIn(secret, result.stdout)
+        self.assertNotIn(secret, result.stderr)
+
+    def test_codacy_repository_mode_also_exports_account_token_when_file_exists(self) -> None:
+        project = self.make_project()
+        home = self.make_home()
+        codacy_dir = home / ".codacy"
+        codacy_dir.mkdir(parents=True)
+        (codacy_dir / "account-token").write_text("preexisting-account\n")
+        (codacy_dir / "account-token").chmod(0o600)
+        secret = "fresh-repo-token"
+        result, _home = self.run_project_setup(
+            project,
+            f"3\n1\n1\nkairin\n000-dotfiles\n{secret}\ny\n2\n5\n",
+            home=home,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn(
+            'export CODACY_PROJECT_TOKEN="$(cat "$HOME/.codacy/kairin-000-dotfiles.project-token")"',
+            local_text,
+        )
+        self.assertIn(
+            'export CODACY_API_TOKEN="$(cat "$HOME/.codacy/account-token")"',
+            local_text,
+        )
+        self.assertNotIn("not exported because no token file exists yet", local_text)
         self.assertNotIn(secret, local_text)
         self.assertNotIn(secret, result.stdout)
         self.assertNotIn(secret, result.stderr)
@@ -666,6 +1007,266 @@ cat "{installer_path}"
         self.assertEqual(local_text.count("# END DOTFILES CODACY"), 1)
         self.assertIn("# user managed line", local_text)
         self.assertEqual((home / ".codacy" / "kairin-000-dotfiles.project-token").read_text(), "repo-token\n")
+
+    def test_ship_help_and_extra_args(self) -> None:
+        help_result = run_setup("ship", "--help")
+        self.assertEqual(help_result.returncode, 0, help_result.stderr)
+        self.assertIn("ship [<pr-number>]", help_result.stdout)
+
+        extra_args = run_setup("ship", "17", "18")
+        self.assertEqual(extra_args.returncode, 2)
+        self.assertIn("ship accepts at most one PR number", extra_args.stderr)
+
+    def test_ship_rejects_ambiguous_auto_detected_prs(self) -> None:
+        repo, _base_sha, head_sha = self.make_ship_repo()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_ship_gh(bin_dir, home / "gh.log", head_sha=head_sha)
+        self.write_fake_ship_codacy_cli(bin_dir, home / "codacy.log")
+        (bin_dir / "sleep").unlink()
+        self.write_executable(bin_dir / "sleep", "#!/usr/bin/env bash\nexit 0\n")
+
+        env = self.env_for(bin_dir, home)
+        env["CODACY_PROJECT_TOKEN"] = "project-token"
+        env["FAKE_GH_PR_LIST_MODE"] = "ambiguous"
+
+        result = run_setup("ship", cwd=repo, executable=repo / "setup", env=env)
+
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("multiple open PRs match branch 'ship-test' on kairin/000-dotfiles", result.stderr)
+
+    def test_ship_uses_base_branch_and_cleans_up_temporary_worktrees(self) -> None:
+        repo, base_sha, head_sha = self.make_ship_repo()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        gh_log = home / "gh.log"
+        codacy_log = home / "codacy.log"
+        self.write_fake_ship_gh(bin_dir, gh_log, head_sha=head_sha)
+        self.write_fake_ship_codacy_cli(bin_dir, codacy_log)
+
+        env = self.env_for(bin_dir, home)
+        env["CODACY_PROJECT_TOKEN"] = "project-token"
+
+        result = run_setup("ship", "17", cwd=repo, executable=repo / "setup", env=env)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("base=main", result.stdout)
+        self.assertIn("PR #17 is MERGED", result.stdout)
+
+        codacy_lines = codacy_log.read_text().splitlines()
+        self.assertEqual(len(codacy_lines), 4)
+        self.assertTrue(codacy_lines[0].startswith("analyze --tool pylint --format sarif -o "))
+        self.assertTrue(codacy_lines[1].startswith("upload -s "))
+        self.assertIn(f"-c {head_sha}", codacy_lines[1])
+        self.assertTrue(codacy_lines[2].startswith("analyze --tool pylint --format sarif -o "))
+        self.assertTrue(codacy_lines[3].startswith("upload -s "))
+        self.assertIn(f"-c {base_sha}", codacy_lines[3])
+
+        head_sarif = Path(codacy_lines[0].split()[-1])
+        base_sarif = Path(codacy_lines[2].split()[-1])
+        self.assertNotEqual(head_sarif, base_sarif)
+        self.assertFalse(head_sarif.parent.exists())
+        self.assertFalse(base_sarif.parent.exists())
+
+        gh_lines = gh_log.read_text().splitlines()
+        self.assertTrue(any(line.startswith("pr view 17 ") for line in gh_lines))
+        self.assertTrue(any(line.startswith("api repos/kairin/000-dotfiles/commits/") and "/check-runs" in line for line in gh_lines))
+        self.assertTrue(any(line.startswith("pr merge 17 ") for line in gh_lines))
+
+    def test_ship_reports_missing_required_checks_by_name(self) -> None:
+        repo, _base_sha, head_sha = self.make_ship_repo()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_ship_gh(bin_dir, home / "gh.log", head_sha=head_sha)
+        self.write_fake_ship_codacy_cli(bin_dir, home / "codacy.log")
+        (bin_dir / "sleep").unlink()
+        self.write_executable(bin_dir / "sleep", "#!/usr/bin/env bash\nexit 0\n")
+
+        env = self.env_for(bin_dir, home)
+        env["CODACY_PROJECT_TOKEN"] = "project-token"
+        env["FAKE_GH_CHECK_MODE"] = "missing-static"
+        env["SHIP_CHECK_TIMEOUT"] = "30"
+
+        result = run_setup("ship", "17", cwd=repo, executable=repo / "setup", env=env)
+
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("Codacy Static Code Analysis: missing", result.stdout)
+        self.assertIn("required Codacy checks did not all reach success after 3 attempts", result.stderr)
+
+    def test_ship_merges_when_missing_required_check_later_succeeds(self) -> None:
+        repo, _base_sha, head_sha = self.make_ship_repo()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_ship_gh(bin_dir, home / "gh.log", head_sha=head_sha)
+        self.write_fake_ship_codacy_cli(bin_dir, home / "codacy.log")
+        (bin_dir / "sleep").unlink()
+        self.write_executable(bin_dir / "sleep", "#!/usr/bin/env bash\nexit 0\n")
+
+        env = self.env_for(bin_dir, home)
+        env["CODACY_PROJECT_TOKEN"] = "project-token"
+        env["FAKE_GH_CHECK_MODE"] = "static-after-first-missing"
+        env["SHIP_CHECK_TIMEOUT"] = "30"
+
+        result = run_setup("ship", "17", cwd=repo, executable=repo / "setup", env=env)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Codacy Static Code Analysis: missing", result.stdout)
+        self.assertIn("Codacy Static Code Analysis: success", result.stdout)
+        self.assertIn("PR #17 is MERGED", result.stdout)
+
+    def test_ship_merges_unstable_pr_when_required_checks_are_green(self) -> None:
+        repo, _base_sha, head_sha = self.make_ship_repo()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_ship_gh(bin_dir, home / "gh.log", head_sha=head_sha)
+        self.write_fake_ship_codacy_cli(bin_dir, home / "codacy.log")
+
+        env = self.env_for(bin_dir, home)
+        env["CODACY_PROJECT_TOKEN"] = "project-token"
+        env["FAKE_GH_FINAL_MERGE_STATE"] = "UNSTABLE"
+
+        result = run_setup("ship", "17", cwd=repo, executable=repo / "setup", env=env)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("required checks are green but mergeStateStatus is UNSTABLE", result.stdout)
+        self.assertIn("PR #17 is MERGED", result.stdout)
+
+    def make_repair_project(self, *, with_remote: bool = True) -> Path:
+        project = self.make_project()
+        subprocess.run(  # nosec B603
+            [shutil.which("git") or "git", "init", "-q"],
+            capture_output=True,
+            text=True,
+            cwd=str(project),
+            check=True,
+        )
+        if with_remote:
+            subprocess.run(  # nosec B603
+                [shutil.which("git") or "git", "remote", "add", "origin", "https://github.com/test/test.git"],
+                capture_output=True,
+                text=True,
+                cwd=str(project),
+                check=True,
+            )
+        return project
+
+    def write_codacy_token(self, home: Path, basename: str, value: str) -> Path:
+        token_dir = home / ".codacy"
+        token_dir.mkdir(parents=True, exist_ok=True)
+        token_dir.chmod(0o700)
+        path = token_dir / basename
+        path.write_text(value + "\n")
+        path.chmod(0o600)
+        return path
+
+    def test_repair_codacy_env_regenerates_block_for_existing_token_files(self) -> None:
+        project = self.make_repair_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_codacy_token(home, "account-token", "fake-account")
+        self.write_codacy_token(home, "test-test.project-token", "fake-project")
+
+        result = run_setup(
+            "repair-codacy-env", "--owner", "test", "--repo", "test", "--project", str(project),
+            env=self.env_for(bin_dir, home),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn("# BEGIN DOTFILES CODACY", local_text)
+        self.assertIn("# END DOTFILES CODACY", local_text)
+        self.assertIn('CODACY_ORGANIZATION_PROVIDER="gh"', local_text)
+        self.assertIn('CODACY_USERNAME="test"', local_text)
+        self.assertIn('CODACY_PROJECT_NAME="test"', local_text)
+        self.assertIn("export CODACY_ACCOUNT_TOKEN=", local_text)
+        self.assertIn("export CODACY_API_TOKEN=", local_text)
+        self.assertIn("export CODACY_PROJECT_TOKEN=", local_text)
+        self.assertNotIn("fake-account", local_text)
+        self.assertNotIn("fake-project", local_text)
+        self.assertNotIn("fake-account", result.stdout)
+        self.assertNotIn("fake-project", result.stdout)
+        self.assertEqual(oct((project / ".envrc.local").stat().st_mode & 0o777), "0o600")
+
+    def test_repair_codacy_env_only_one_token(self) -> None:
+        project = self.make_repair_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_codacy_token(home, "test-test.project-token", "fake-project")
+
+        result = run_setup(
+            "repair-codacy-env", "--owner", "test", "--repo", "test", "--project", str(project),
+            env=self.env_for(bin_dir, home),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn("export CODACY_PROJECT_TOKEN=", local_text)
+        self.assertNotIn("export CODACY_API_TOKEN=", local_text)
+        self.assertNotIn("export CODACY_ACCOUNT_TOKEN=", local_text)
+
+    def test_repair_codacy_env_fails_clearly_when_no_token_files_found(self) -> None:
+        project = self.make_repair_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        (home / ".codacy").mkdir()
+
+        result = run_setup(
+            "repair-codacy-env", "--owner", "test", "--repo", "test", "--project", str(project),
+            env=self.env_for(bin_dir, home),
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("no Codacy token files found", result.stderr)
+        self.assertFalse((project / ".envrc.local").exists())
+
+    def test_repair_codacy_env_fails_when_owner_repo_cannot_be_detected(self) -> None:
+        project = self.make_repair_project(with_remote=False)
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_codacy_token(home, "account-token", "fake-account")
+
+        result = run_setup(
+            "repair-codacy-env", "--project", str(project),
+            env=self.env_for(bin_dir, home),
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("could not detect GitHub owner/repo", result.stderr)
+        self.assertFalse((project / ".envrc.local").exists())
+
+    def test_repair_codacy_env_preserves_user_managed_envrc_local_lines(self) -> None:
+        project = self.make_repair_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_codacy_token(home, "account-token", "fake-account")
+        (project / ".envrc.local").write_text("# user header\nexport USER_VAR=1\n")
+
+        result = run_setup(
+            "repair-codacy-env", "--owner", "test", "--repo", "test", "--project", str(project),
+            env=self.env_for(bin_dir, home),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn("# user header", local_text)
+        self.assertIn("export USER_VAR=1", local_text)
+        self.assertEqual(local_text.count("# BEGIN DOTFILES CODACY"), 1)
+        self.assertEqual(local_text.count("# END DOTFILES CODACY"), 1)
+
+    def test_repair_codacy_env_detects_owner_repo_from_origin_remote(self) -> None:
+        project = self.make_repair_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_codacy_token(home, "test-test.project-token", "fake-project")
+
+        env = self.env_for(bin_dir, home)
+        result = run_setup("repair-codacy-env", cwd=project, env=env)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn('CODACY_USERNAME="test"', local_text)
+        self.assertIn('CODACY_PROJECT_NAME="test"', local_text)
+        self.assertIn("export CODACY_PROJECT_TOKEN=", local_text)
 
 
 if __name__ == "__main__":

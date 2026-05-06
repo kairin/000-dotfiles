@@ -43,7 +43,10 @@ def init_project(
     _renumber_operations(operations)
     entries = [_project_entry(repo_path, project_path, config.agent_template, agent_text)]
     status = "failed" if errors else "ok"
-    return Report("init-project", status, str(repo_path), project=str(project_path), entries=entries, operations=operations, backups=backups, errors=errors)
+    report = Report("init-project", status, str(repo_path), project=str(project_path), entries=entries, operations=operations, backups=backups, errors=errors)
+    if not errors:
+        report.extra["codacy_setup_guidance"] = _codacy_setup_guidance(project_path)
+    return report
 
 
 def _prepare_project_init(repo_path: Path, vars_path: Path | str, copilot: bool):
@@ -140,3 +143,14 @@ def _operation(op_type: str, entry_id: str, target: Path, reason: str, **extra: 
 def _renumber_operations(operations: list[dict[str, Any]]) -> None:
     for index, operation in enumerate(operations, 1):
         operation["operation_id"] = f"op-{index:03d}"
+
+
+def _codacy_setup_guidance(project_path: Path) -> dict[str, Any]:
+    return {
+        "tool": "mcp__codacy__codacy_setup_repository",
+        "project": str(project_path),
+        "guidance": (
+            "Run codacy_setup_repository via the Codacy MCP server to register this "
+            "repository and enable issue tracking and coverage reporting."
+        ),
+    }

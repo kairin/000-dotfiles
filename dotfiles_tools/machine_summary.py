@@ -78,18 +78,16 @@ def _recommendation(
     action_summary: dict[str, int | bool],
     groups: dict[str, list[dict[str, Any]]],
 ) -> Recommendation:
-    for candidate in (
-        _recommendation_for_audit_failure(doctor, plan),
-        _recommendation_for_blockers(action_summary),
-        _recommendation_for_missing_tools(doctor),
-        _recommendation_for_safe_changes(action_summary),
-        _recommendation_for_auth_guidance(doctor),
-        _recommendation_for_manual_only(action_summary, groups),
-        _recommendation_for_current(),
-    ):
-        if candidate is not None:
-            return candidate
-    raise AssertionError("unreachable recommendation state")
+    # Return the first matching recommendation; fall back to "current".
+    return (
+        _recommendation_for_audit_failure(doctor, plan)
+        or _recommendation_for_blockers(action_summary)
+        or _recommendation_for_missing_tools(doctor)
+        or _recommendation_for_safe_changes(action_summary)
+        or _recommendation_for_auth_guidance(doctor)
+        or _recommendation_for_manual_only(action_summary, groups)
+        or _recommendation_for_current()
+    )
 
 
 def _recommendation_for_audit_failure(doctor: Report, plan: Report) -> Recommendation | None:
@@ -133,6 +131,7 @@ def _recommendation_for_safe_changes(action_summary: dict[str, int | bool]) -> R
 
 def _recommendation_for_auth_guidance(doctor: Report) -> Recommendation | None:
     auth_guidance = doctor.extra.get("auth_guidance") or []
+    # Only recommend option 4 when at least one tool is present but not yet signed in.
     if any(item.get("state") == "available" for item in auth_guidance):
         return Recommendation(
             4,
@@ -238,9 +237,14 @@ def _extend_blocked_context(lines: list[str], action_summary: dict[str, int | bo
 
 def _extend_auth_guidance_context(lines: list[str], doctor: Report) -> None:
     auth_guidance = doctor.extra.get("auth_guidance") or []
-    commands = ", ".join(str(item.get("command")) for item in auth_guidance if item.get("state") == "available")
-    if commands:
-        lines.append(f"  - Tool and sign-in guidance: {commands}.")
+    pending = [item for item in auth_guidance if item.get("state") == "available"]
+    signed_in = [item for item in auth_guidance if item.get("state") == "signed_in"]
+    if signed_in:
+        names = ", ".join(str(item.get("id")) for item in signed_in)
+        lines.append(f"  - Already signed in: {names}.")
+    if pending:
+        commands = ", ".join(str(item.get("command")) for item in pending)
+        lines.append(f"  - Pending sign-ins: {commands}.")
 
 
 def _extend_manual_only_context(
@@ -286,6 +290,9 @@ def _group_entries(entries: list[dict[str, Any]]) -> dict[str, list[dict[str, An
 
 
 def _entry_group(entry: dict[str, Any]) -> str | None:
+    # Fonts use install/needs-update/manual semantics, not file-drift, and are
+    # rendered separately by _extend_font_summary; excluding them avoids
+    # double-counting in _action_summary["file_changes"].
     if entry.get("recipe") == "fonts":
         return None
     state = entry.get("state")
@@ -465,9 +472,16 @@ def _extend_tool_check_lines(lines: list[str], tool_checks: list[dict[str, Any]]
 
 
 def _extend_auth_summary_line(lines: list[str], auth_guidance: list[dict[str, Any]]) -> None:
-    commands = ", ".join(str(item.get("command")) for item in auth_guidance if item.get("state") == "available")
-    if commands:
+    pending = [item for item in auth_guidance if item.get("state") == "available"]
+    signed_in = [item for item in auth_guidance if item.get("state") == "signed_in"]
+    if signed_in:
+        names = ", ".join(str(item.get("id")) for item in signed_in)
+        lines.append(f"  - Verified sign-ins: {names}.")
+    if pending:
+        commands = ", ".join(str(item.get("command")) for item in pending)
         lines.append(f"  - Auth checks are manual: {commands}.")
+    elif not signed_in:
+        lines.append("  - No auth guidance items applicable.")
 
 
 def _target_label(entry: dict[str, Any], manifest_entries: dict[str, ManifestEntry]) -> str:

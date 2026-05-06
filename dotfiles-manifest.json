@@ -7,6 +7,7 @@
         "claude.settings",
         "claude.keybindings",
         "claude.global-instructions",
+        "claude.mcp-servers",
         "codex.config",
         "codex.default-rules",
         "gemini.settings",
@@ -14,6 +15,7 @@
         "gh.config",
         "fish.env",
         "fish.direnv",
+        "fish.direnv-hook",
         "fish.plugins",
         "git.config"
       ]
@@ -23,7 +25,8 @@
       "entries": [
         "repo.gitignore",
         "agents.claude-template",
-        "agents.gemini-template"
+        "agents.gemini-template",
+        "claude.mcp-servers-repo"
       ]
     }
   },
@@ -103,6 +106,18 @@
       "placeholders": "none"
     },
     {
+      "id": "claude.mcp-servers",
+      "source": ".claude/.mcp.json.template",
+      "target": ".claude/.mcp.json",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "user_customizable": false,
+      "parse": "json",
+      "placeholders": "none",
+      "merge_strategy": "json_merge"
+    },
+    {
       "id": "gh.config",
       "source": "gh/config.yml.template",
       "target": ".config/gh/config.yml",
@@ -129,6 +144,17 @@
       "kind": "file",
       "profiles": ["machine"],
       "protected": false,
+      "user_customizable": true,
+      "placeholders": "none"
+    },
+    {
+      "id": "fish.direnv-hook",
+      "source": "fish/conf.d/direnv.fish",
+      "target": ".config/fish/conf.d/direnv.fish",
+      "kind": "file",
+      "profiles": ["machine"],
+      "protected": false,
+      "user_customizable": true,
       "placeholders": "none"
     },
     {
@@ -184,6 +210,19 @@
       "manual_reason": "This symlink preserves agents/AGENTS.md.template as the project agent-doc source of truth.",
       "placeholders": "none",
       "link_target": "AGENTS.md.template",
+      "scope": "repo"
+    },
+    {
+      "id": "claude.mcp-servers-repo",
+      "source": ".claude/.mcp.json.template",
+      "target": ".claude/.mcp.json",
+      "kind": "template",
+      "profiles": ["repo"],
+      "protected": false,
+      "user_customizable": false,
+      "parse": "json",
+      "placeholders": "none",
+      "merge_strategy": "json_merge",
       "scope": "repo"
     }
   ],

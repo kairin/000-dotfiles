@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess  # nosec B404
+from pathlib import Path
 from typing import Any
 
 
@@ -195,6 +197,41 @@ TOOL_BASELINE = (
             },
         ),
     },
+    {
+        "id": "huggingface",
+        "label": "HuggingFace Hub",
+        "command": "hf",
+        "bootstrap": True,
+        "install_method": "uv_tool",
+        "install_args": {
+            "package": "huggingface-hub",
+        },
+        "requires_sudo": False,
+        "install_hint": "Installed by the setup tool-install menu option (uv tool install huggingface-hub).",
+        "post_install": (
+            {
+                "kind": "guidance",
+                "label": "Sign in to HuggingFace",
+                "command_template": ("hf", "auth", "login"),
+            },
+        ),
+    },
+    {
+        "id": "codacy-cli",
+        "label": "Codacy CLI",
+        "command": "codacy-cli",
+        "bootstrap": True,
+        "install_method": "curl_installer",
+        "install_args": {
+            "url": "https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh",
+            "script_name": "codacy-cli.sh",
+            "interpreter": "bash",
+            "install_to": "~/.local/bin/codacy-cli",
+        },
+        "requires_sudo": False,
+        "install_hint": "Installed by the setup tool-install menu option (codacy-cli-v2 install script).",
+        "post_install": (),
+    },
 )
 
 
@@ -223,6 +260,7 @@ AUTH_GUIDANCE = (
         "tool": "gh",
         "command": "gh auth status",
         "guidance": "If it reports no authenticated host, run gh auth login.",
+        "verify": ("gh", "auth", "status"),
     },
     {
         "id": "codex",
@@ -248,26 +286,32 @@ AUTH_GUIDANCE = (
         "command": "copilot /login",
         "guidance": "Run when GitHub Copilot CLI is installed and needs user authentication.",
     },
+    {
+        "id": "huggingface",
+        "tool": "hf",
+        "command": "hf auth status",
+        "guidance": "Run 'hf auth login' to authenticate with the HuggingFace Hub.",
+        "verify": ("hf", "auth", "status"),
+    },
 )
 
 
-def collect_tool_baseline(path: str | None = None) -> dict[str, list[dict[str, Any]]]:
+def collect_tool_baseline(path: str | None = None, home: Path | None = None) -> dict[str, list[dict[str, Any]]]:
     search_path = path if path is not None else os.environ.get("PATH", "")
+    resolved_home = home if home is not None else Path.home()
     tool_checks = [_tool_check(item, search_path) for item in TOOL_BASELINE]
-    auth_guidance = [_auth_check(item, search_path) for item in AUTH_GUIDANCE]
+    auth_guidance = [_auth_check(item, search_path, resolved_home) for item in AUTH_GUIDANCE]
     return {"tool_checks": tool_checks, "auth_guidance": auth_guidance}
 
 
 def render_setup_guidance(path: str | None = None) -> str:
     baseline = collect_tool_baseline(path)
     missing_tools = [item for item in baseline["tool_checks"] if item["state"] == "missing"]
-    available_auth = [item for item in baseline["auth_guidance"] if item["state"] == "available"]
-    missing_auth_tools = [item for item in baseline["auth_guidance"] if item["state"] != "available"]
+    auth_items = baseline["auth_guidance"]
 
     lines = ["Tool status:"]
     _extend_missing_tools(lines, missing_tools)
-    _extend_available_auth(lines, available_auth)
-    _extend_missing_auth_tools(lines, missing_auth_tools)
+    _extend_auth_status(lines, auth_items)
     return "\n".join(lines) + "\n"
 
 
@@ -284,22 +328,25 @@ def _extend_missing_tools(lines: list[str], missing_tools: list[dict[str, Any]])
         lines.append(f"    - {item['command']}: {hint}")
 
 
-def _extend_available_auth(lines: list[str], available_auth: list[dict[str, Any]]) -> None:
-    if not available_auth:
+def _extend_auth_status(lines: list[str], auth_items: list[dict[str, Any]]) -> None:
+    visible = [item for item in auth_items if item["state"] != "tool_missing"]
+    if not visible:
         return
     lines.append("")
-    lines.append("Optional sign-in checks:")
-    for item in available_auth:
-        lines.append(f"  - {item['command']}: {item['guidance']}")
-
-
-def _extend_missing_auth_tools(lines: list[str], missing_auth_tools: list[dict[str, Any]]) -> None:
-    if not missing_auth_tools:
-        return
-    lines.append("")
-    lines.append("Sign-in checks unavailable until the tool is installed:")
-    for item in missing_auth_tools:
-        lines.append(f"  - {item['tool']}")
+    lines.append("Sign-in status:")
+    all_ok = all(item["state"] == "signed_in" for item in visible)
+    for item in visible:
+        state = item["state"]
+        if state == "signed_in":
+            marker = "[+]"
+            detail = item.get("signed_in_detail") or "signed in"
+        else:
+            marker = "[ ]"
+            detail = item["guidance"]
+        lines.append(f"  {marker} {item['command']}: {detail}")
+    if all_ok:
+        lines.append("")
+        lines.append("  All verifiable sign-ins confirmed.")
 
 
 def _tool_check(item: dict[str, Any], search_path: str) -> dict[str, Any]:
@@ -315,15 +362,57 @@ def _tool_check(item: dict[str, Any], search_path: str) -> dict[str, Any]:
     }
 
 
-def _auth_check(item: dict[str, str], search_path: str) -> dict[str, str]:
-    found = shutil.which(item["tool"], path=search_path)
-    return {
+def _auth_check(item: dict[str, str], search_path: str, home: Path) -> dict[str, str]:
+    tool = item.get("tool")
+    found = shutil.which(tool, path=search_path) if tool else None
+    tool_present = bool(found) or tool is None
+
+    base: dict[str, Any] = {
         "id": item["id"],
-        "tool": item["tool"],
+        "tool": tool,
         "command": item["command"],
-        "state": "available" if found else "tool_missing",
         "guidance": item["guidance"],
     }
+
+    if not tool_present:
+        return {**base, "state": "tool_missing"}
+
+    verify_file = item.get("verify_file")
+    if verify_file:
+        # Resolve ~ against the audited home, not the process home.
+        p = home / verify_file.lstrip("~/") if verify_file.startswith("~/") else Path(verify_file)
+        if p.exists() and p.read_text().strip():
+            return {**base, "state": "signed_in", "signed_in_detail": f"token present at {verify_file}"}
+        return {**base, "state": "available"}
+
+    verify = item.get("verify")
+    if verify:
+        try:
+            # Use the same PATH the tool was found on so the right binary is called.
+            env = {**os.environ, "PATH": search_path, "HOME": str(home)}
+            result = subprocess.run(  # nosec B603
+                list(verify),
+                capture_output=True,
+                text=True,
+                timeout=8,
+                env=env,
+            )
+            if result.returncode == 0:
+                detail = _extract_signed_in_detail(result.stdout + result.stderr)
+                return {**base, "state": "signed_in", "signed_in_detail": detail}
+        except Exception:  # noqa: BLE001
+            pass
+        return {**base, "state": "available"}
+
+    return {**base, "state": "available"}
+
+
+def _extract_signed_in_detail(output: str) -> str:
+    for line in output.splitlines():
+        line = line.strip()
+        if "logged in" in line.lower() or "account" in line.lower():
+            return line.lstrip("!✓- ") or "signed in"
+    return "signed in"
 
 
 if __name__ == "__main__":

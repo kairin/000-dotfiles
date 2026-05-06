@@ -135,7 +135,7 @@ $ ~/000-dotfiles/setup
         DONE.
 ```
 
-Nothing is written without your explicit confirmation (`[y/N]`). Files are backed up before overwrite (default: `~/.dotfiles-backups/`). The script is idempotent—safe to run repeatedly.
+Nothing is written without your explicit confirmation (`[y/N]`). Files are backed up before overwrite (default: `~/.dotfiles-backups/`). The script is idempotent—safe to run repeatedly. User-customizable files (such as `~/.claude/settings.json`, `~/.config/gh/config.yml`, `~/.config/fish/env.fish`, and 7 others) skip drift detection and are never silently overwritten by option 2.
 
 ---
 
@@ -147,9 +147,10 @@ Nothing is written without your explicit confirmation (`[y/N]`). Files are backe
 | Check current state (read-only) | `./setup doctor` |
 | Scaffold `AGENTS.md` + `CLAUDE.md`/`GEMINI.md` in a project | `./setup init --yes` |
 | Verify agent docs in CI / pre-commit (no uv required) | `./setup verify` |
+| Audit machine and show API credential status (GitHub, HuggingFace) | `./setup` → choose option 3 |
+| Manage optional integrations (GitHub, HuggingFace, Codacy) | `./setup` → choose option 4 |
 | Upgrade installed tools | `./setup` → choose option 1 |
 | Apply config drift | `./setup` → choose option 2 |
-| Show full technical details (cache, versions, operations) | `./setup` → choose option 3 |
 
 Supported platforms: Ubuntu-style Linux, WSL (with Windows host font install), Raspberry Pi, Pixel Terminal, Pixel AVF.
 
@@ -158,6 +159,7 @@ Supported platforms: Ubuntu-style Linux, WSL (with Windows host font install), R
 ## Going deeper
 
 - **[Getting Started](docs/getting-started.md)** — Step-by-step first-time setup, ongoing maintenance, AI agent doc scaffolding, troubleshooting
+- **[GitHub Actions usage baseline](docs/operations/github-actions-usage-baseline.md)** — Live repo-level Actions history for comparing GitHub-hosted and local-runner usage
 - **[Setup script reference](#setup-script-reference)** (below) — All commands and options
 - **[Direct CLI reference](#direct-cli-advanced)** (below) — Stable commands for automation
 - **[Protected files](#protected-files)** — Which files are never auto-overwritten
@@ -179,7 +181,7 @@ A good dotfiles repo should:
 | Protected files never auto-overwritten | ✓ git config, fish plugins, etc. |
 | No secrets or tokens committed | ✓ Auth files `.gitignore`d |
 | Multi-platform support | ✓ Linux, WSL, Pi, Pixel Terminal |
-| Validation & test coverage | ✓ 103 unit tests; CI/CD integration |
+| Validation & test coverage | ✓ 120 unit tests; CI/CD integration |
 | AI tool config management | ✓ Claude, Codex, Gemini, Copilot |
 | Per-project AI agent scaffolding | ✓ `AGENTS.md` + symlinks |
 
@@ -193,8 +195,8 @@ A good dotfiles repo should:
 | `claude/` | `~/.claude/` | `settings.json`, `keybindings.json`, global `CLAUDE.md` |
 | `codex/` | `~/.codex/` | `config.toml`, `rules/default.rules` |
 | `gemini/` | `~/.gemini/` | `settings.json`, global `GEMINI.md` |
-| `gh/` | `~/.config/gh/` | `config.yml`, Codacy branch-protection checklist |
-| `fish/` | `~/.config/fish/` | `fish_plugins`, `functions/direnv.fish`, `env.fish` |
+| `gh/` | `~/.config/gh/` | `config.yml` |
+| `fish/` | `~/.config/fish/` | `fish_plugins`, `conf.d/direnv.fish` (auto-installs direnv hook), `functions/direnv.fish`, `env.fish` |
 | `git/` | `~/.config/git/` | `config` |
 | `dotfiles_tools/` | — | Python validation/setup CLI (`python -m dotfiles_tools …`) |
 | `setup` | `~/.local/bin/dotfiles-setup` (optional) | Self-locating bash entrypoint |
@@ -202,7 +204,7 @@ A good dotfiles repo should:
 | `specs/` | — | Design specification, task tracking, contracts |
 | `docs/` | — | Getting started guide, operations docs, issue tracking |
 
-Files ending in `.template` are copy-and-customize sources. Placeholders use `{{UPPER_SNAKE_CASE}}` and must all be replaced before use.
+Files ending in `.template` are copy-and-customize sources. Placeholders follow the pattern of double-braces with upper-snake-case content (e.g. `{{PROJECT_NAME}}`) and must all be replaced before use.
 
 ---
 
@@ -215,6 +217,14 @@ Files ending in `.template` are copy-and-customize sources. Placeholders use `{{
 | `./setup init [--project PATH] [--vars FILE] [--copilot] --yes` | Render `AGENTS.md` + `CLAUDE.md`/`GEMINI.md` symlinks; auto-discovers `project-vars.json` or `.dotfiles/project-vars.json` and infers defaults from `package.json`/`pyproject.toml`/`Cargo.toml`/`go.mod`/Makefile when missing |
 | `./setup verify [--project PATH] [--copilot]` | Read-only check: requires no `uv`, suitable for CI |
 | `./setup doctor [--home PATH] [--profile NAME]` | Read-only machine audit (wraps `dotfiles_tools doctor`) |
+| `./setup quality` | Run the local quality pipeline (`scripts/quality-pipeline.sh`): tests, coverage, Codacy upload |
+| `./setup ship [<pr-number>]` | Finalize a PR: refresh branch, re-upload Codacy SARIF, poll required checks, squash-merge |
+
+Menu options during `./setup`:
+- **Option 1:** Install or update developer tools
+- **Option 2:** Apply safe non-protected dotfiles (backed up before overwrite)
+- **Option 3:** Show full technical details (machine state, versions, all pending operations)
+- **Option 4:** Manage optional integrations (GitHub auth, HuggingFace token configuration, Codacy setup). GitHub CLI installs via `apt`; HuggingFace CLI (`hf`) installs via `uv tool install huggingface-hub`; use `hf auth login` to authenticate. Machine bootstrap calls `ensure_mcp_servers()`, which auto-registers the **GitHub MCP** server (uses `GITHUB_TOKEN`) and **Codacy MCP** server (uses `CODACY_ACCOUNT_TOKEN`) with the Claude CLI.
 
 Install on `PATH`:
 
@@ -222,6 +232,28 @@ Install on `PATH`:
 ln -s /path/to/000-dotfiles/setup ~/.local/bin/dotfiles-setup
 dotfiles-setup verify --project ~/code/my-app
 ```
+
+### Finalizing a PR
+
+Once a PR is open, `./setup ship` drives it to merged:
+
+```bash
+# After your PR is open:
+./setup ship              # ships the PR for the current branch
+./setup ship 183          # ships PR #183 explicitly
+```
+
+`setup ship` requires `CODACY_PROJECT_TOKEN` to be exported and `gh` to be
+authenticated. It runs `gh pr update-branch` automatically when the branch is
+BEHIND `main`, re-uploads the Codacy SARIF for the new HEAD and base SHA so the
+diff comparison is fresh, then polls the four required checks
+(`Codacy Static Code Analysis`, `Codacy Coverage Variation`,
+`Codacy Diff Coverage`, `codacy-safety-net`) before squash-merging. It allows
+GitHub's `UNSTABLE` merge state after those required checks are green because
+non-required advisory jobs can be skipped or cancelled.
+The default check polling window is 15 minutes; override with
+`SHIP_CHECK_TIMEOUT=<seconds>` or `SHIP_CHECK_INTERVAL=<seconds>` only when
+debugging.
 
 ---
 
@@ -303,7 +335,7 @@ CI runs the same validation suite on pushes and pull requests and generates `cov
 
 ## Conventions and safety
 
-- **No secrets.** No tokens, passwords, or API keys live in this repo. Auth files (`hosts.yml`, `auth.json`, `oauth_creds.json`, `token`) are `.gitignore`d. Sign in via `gh auth login`, `codex auth`, `claude /login`, etc.
+- **No secrets.** No tokens, passwords, or API keys live in this repo. Auth files (`hosts.yml`, `auth.json`, `oauth_creds.json`, `token`) are `.gitignore`d. Sign in via `gh auth login`, `codex auth`, `claude /login`, etc. The local `.envrc.local` (also `.gitignore`d) exports `GITHUB_TOKEN` dynamically via `$(gh auth token 2>/dev/null)` so the GitHub MCP server can authenticate without storing a static token.
 - **Symlinks for AI-agent docs.** Root `CLAUDE.md`/`GEMINI.md` symlink to `AGENTS.md`; `agents/CLAUDE.md.template` and `agents/GEMINI.md.template` symlink to `agents/AGENTS.md.template`. One source of truth per scope.
 - **Backups before replace.** Drifted targets are copied to the backup dir (default `~/.dotfiles-backups`) before being overwritten.
 - **Stop on first failure.** `apply` halts on the first failed write and reports `partial` status with completed operations and backups intact.

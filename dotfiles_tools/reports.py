@@ -154,6 +154,7 @@ def _extend_extra(lines: list[str], extra: dict[str, Any]) -> None:
     _extend_extra_tools(lines, extra.get("tools") or [])
     _extend_extra_verification(lines, extra.get("verification") or [])
     _extend_extra_post_install(lines, extra.get("post_install_actions") or [])
+    _extend_extra_codacy_setup(lines, extra.get("codacy_setup_guidance"))
 
 
 def _extend_extra_fonts(lines: list[str], fonts: list[dict[str, Any]]) -> None:
@@ -368,3 +369,11 @@ def _extend_post_install_guidance(lines: list[str], guidance: list[dict[str, Any
 def _post_install_line(item: dict[str, Any], *, glyph: str) -> str:
     cmd = " ".join(item.get("command") or [])
     return f"  {glyph}  {item.get('tool'):<8s} {item.get('label')}:  {cmd}"
+
+
+def _extend_extra_codacy_setup(lines: list[str], guidance: dict[str, Any] | None) -> None:
+    if not guidance:
+        return
+    lines.append("codacy setup guidance:")
+    lines.append(f"  tool: {guidance.get('tool')}")
+    lines.append(f"  {guidance.get('guidance')}")

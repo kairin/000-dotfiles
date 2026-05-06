@@ -63,6 +63,22 @@ Commands:
       Audit a machine home directory by wrapping 'dotfiles_tools doctor'.
       Defaults: --home="\$HOME", --profile=machine.
 
+  quality
+      Run the local quality pipeline (tests, coverage, Codacy upload) via
+      scripts/quality-pipeline.sh. Use before pushing to validate locally.
+
+  ship [<pr-number>]
+      Finalize a PR end-to-end: detect or use the given PR number, refresh the
+      branch with main if BEHIND, re-upload Codacy SARIF for the new HEAD and
+      base, poll the four required Codacy checks, then squash-merge. Requires
+      CODACY_PROJECT_TOKEN and an authenticated gh.
+
+  repair-codacy-env [<project>] [--project PATH] [--owner OWNER] [--repo REPO]
+      Non-interactive: regenerate the managed Codacy block in
+      <project>/.envrc.local based on token files present in \$HOME/.codacy/.
+      Detects owner/repo from the project's origin remote unless provided.
+      Exits non-zero if owner/repo cannot be resolved or no token files exist.
+
   help, -h, --help
       Show this message.
 
@@ -350,11 +366,132 @@ check_api_credentials() {
     echo "  HuggingFace          ✗ Not configured"
   fi
 
-  # Check Codacy token
-  if [[ -f "$HOME/.codacy/project-token" ]] || [[ -f "$HOME/.codacy/account-token" ]]; then
+  # Check Codacy token (account token or any project token)
+  if [[ -f "$HOME/.codacy/account-token" ]] || ls "$HOME/.codacy"/*.project-token >/dev/null 2>&1; then
     echo "  Codacy               ✓ Token found"
   else
     echo "  Codacy               ✗ Not configured"
+  fi
+}
+
+check_mcp_servers() {
+  echo
+  echo "MCP server configuration:"
+  echo "  Server               Status"
+  echo "  ---                  ---"
+
+  local claude_json="$HOME/.claude.json"
+
+  if [[ ! -f "$claude_json" ]]; then
+    echo "  (none configured)    ✗ ~/.claude.json not found"
+    return
+  fi
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "  (validation)         ✗ python3 required for JSON validation"
+    return
+  fi
+
+  local servers
+  servers=$(python3 - "$claude_json" <<'PYSCRIPT' 2>/dev/null
+import json, sys
+try:
+  with open(sys.argv[1], 'r') as f:
+    data = json.load(f)
+    for name in data.get('mcpServers', {}).keys():
+      print(name)
+except Exception:
+  pass
+PYSCRIPT
+)
+
+  if [[ -z "$servers" ]]; then
+    echo "  (none defined)       ⚠ no user MCP servers in ~/.claude.json"
+    return
+  fi
+
+  for server in $servers; do
+    check_mcp_server_config "$server" || true
+  done
+
+  return 0
+}
+
+check_mcp_server_config() {
+  local server_name="$1"
+  local claude_json="$HOME/.claude.json"
+
+  local server_config
+  server_config=$(python3 - "$claude_json" "$server_name" <<'PYSCRIPT' 2>/dev/null
+import json, sys
+try:
+  with open(sys.argv[1], 'r') as f:
+    data = json.load(f)
+    cfg = data.get('mcpServers', {}).get(sys.argv[2])
+    if cfg:
+      print(json.dumps(cfg))
+except Exception:
+  pass
+PYSCRIPT
+)
+
+  if [[ -z "$server_config" ]]; then
+    echo "  $server_name         ✗ Not registered (run: claude mcp add --scope user)"
+    return 1
+  fi
+
+  local command env_vars
+  command=$(echo "$server_config" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('command',''))" 2>/dev/null)
+  env_vars=$(echo "$server_config" | python3 -c "import json,sys; d=json.load(sys.stdin); print(' '.join(d.get('env',{}).keys()))" 2>/dev/null)
+
+  if ! command -v "$command" >/dev/null 2>&1; then
+    echo "  $server_name         ⚠ Command '$command' not available"
+    return 1
+  fi
+
+  local all_env_ok=1
+  for env_var in $env_vars; do
+    if [[ -z "${!env_var:-}" ]]; then
+      if [[ -f "$HOME/.envrc.local" ]] && grep -q "$env_var" "$HOME/.envrc.local"; then
+        continue
+      else
+        all_env_ok=0
+      fi
+    fi
+  done
+
+  if [[ $all_env_ok -eq 0 ]]; then
+    echo "  $server_name         ⚠ Environment variables not set (source .envrc.local?)"
+    return 1
+  fi
+
+  echo "  $server_name         ✓ Configured"
+  return 0
+}
+
+ensure_mcp_servers() {
+  local claude_json="$HOME/.claude.json"
+  local registered
+  registered=$(python3 - "$claude_json" <<'PYSCRIPT' 2>/dev/null
+import json, sys
+try:
+  with open(sys.argv[1], 'r') as f:
+    print(' '.join(json.load(f).get('mcpServers', {}).keys()))
+except Exception:
+  pass
+PYSCRIPT
+)
+
+  if [[ "$registered" != *"github"* ]]; then
+    claude mcp add -e 'GITHUB_TOKEN=$GITHUB_TOKEN' --scope user github -- npx -y @modelcontextprotocol/server-github 2>/dev/null \
+      && echo "  github MCP server registered" \
+      || echo "  github MCP server registration failed (is claude CLI installed?)"
+  fi
+
+  if [[ "$registered" != *"codacy"* ]]; then
+    claude mcp add -e 'CODACY_ACCOUNT_TOKEN=$CODACY_ACCOUNT_TOKEN' --scope user codacy -- npx -y @codacy/codacy-mcp@latest 2>/dev/null \
+      && echo "  codacy MCP server registered" \
+      || echo "  codacy MCP server registration failed (is claude CLI installed?)"
   fi
 }
 
@@ -425,6 +562,7 @@ cmd_verify() {
   fi
   echo "Verification passed."
   check_api_credentials
+  check_mcp_servers || true
   return 0
 }
 
@@ -496,6 +634,272 @@ cmd_doctor() {
     --profile "${profile:-machine}")
 }
 
+cmd_quality() {
+  local repo_root
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || die "setup quality must run inside a git repository"
+  local pipeline="$repo_root/scripts/quality-pipeline.sh"
+  [[ -x "$pipeline" ]] || die "quality pipeline script missing or not executable: $pipeline"
+  exec bash "$pipeline"
+}
+
+cmd_ship() {
+  local pr=""
+  while (($#)); do
+    case "$1" in
+      -h|--help)
+        usage
+        return 0
+        ;;
+      -*)
+        die "unknown flag for ship: $1"
+        ;;
+      *)
+        [[ -z "$pr" ]] || die "ship accepts at most one PR number"
+        pr="$1"
+        ;;
+    esac
+    shift
+  done
+
+  echo "[ship] step 1: verifying CODACY_PROJECT_TOKEN"
+  [[ -n "${CODACY_PROJECT_TOKEN:-}" ]] \
+    || die "CODACY_PROJECT_TOKEN is not set — run: ./setup repair-codacy-env"
+
+  echo "[ship] step 2: verifying required CLIs (codacy-cli gh git jq)"
+  local missing=()
+  local cli
+  for cli in codacy-cli gh git jq; do
+    command -v "$cli" >/dev/null 2>&1 || missing+=("$cli")
+  done
+  [[ ${#missing[@]} -eq 0 ]] || die "missing required CLIs on PATH: ${missing[*]}"
+
+  local repo_root
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" \
+    || die "setup ship must run inside a git checkout"
+  local detected_identity
+  detected_identity="$(detect_github_identity "$repo_root")" \
+    || die "setup ship must run inside a git checkout with a GitHub origin remote"
+  local -a detected_identity_lines=()
+  mapfile -t detected_identity_lines <<<"$detected_identity"
+  local repo_owner="${detected_identity_lines[0]:-}" repo_name="${detected_identity_lines[1]:-}"
+  local repo="${repo_owner}/${repo_name}"
+  [[ -n "$repo_owner" && -n "$repo_name" ]] \
+    || die "could not determine GitHub owner/repository from origin remote"
+
+  echo "[ship] step 3: resolving PR number"
+  if [[ -z "$pr" ]]; then
+    local branch
+    branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" \
+      || die "could not determine current branch"
+    [[ "$branch" != "HEAD" ]] \
+      || die "detached HEAD; pass an explicit PR number: ./setup ship <pr-number>"
+    local pr_rows pr_count
+    pr_rows="$(gh pr list --head "$repo_owner:$branch" -R "$repo" --state open --json number 2>/dev/null || true)"
+    pr_count="$(printf '%s' "$pr_rows" | jq 'length')"
+    case "$pr_count" in
+      1) pr="$(printf '%s' "$pr_rows" | jq -r '.[0].number')" ;;
+      0) die "no open PR found for branch '$branch' on $repo; pass an explicit PR number" ;;
+      *) die "multiple open PRs match branch '$branch' on $repo; pass an explicit PR number" ;;
+    esac
+  fi
+  [[ "$pr" =~ ^[0-9]+$ ]] || die "PR number must be numeric: $pr"
+  echo "[ship] PR #$pr on $repo"
+
+  local _ship_tmpdir="" _ship_head_wt="" _ship_base_wt="" _ship_head_sarif="" _ship_base_sarif="" _ship_repo_root
+  _ship_repo_root="$repo_root"
+  _ship_cleanup() {
+    [[ -n "${_ship_head_wt:-}" ]] && git -C "$_ship_repo_root" worktree remove "$_ship_head_wt" --force >/dev/null 2>&1 || true
+    [[ -n "${_ship_base_wt:-}" ]] && git -C "$_ship_repo_root" worktree remove "$_ship_base_wt" --force >/dev/null 2>&1 || true
+    [[ -n "${_ship_tmpdir:-}" ]] && rm -rf "$_ship_tmpdir" 2>/dev/null || true
+  }
+  trap _ship_cleanup EXIT
+  trap 'exit 130' INT TERM
+
+  local required_checks=()
+  if [[ -n "${SHIP_REQUIRED_CHECKS:-}" ]]; then
+    local check
+    while IFS= read -r check; do
+      [[ -n "$check" ]] && required_checks+=("$check")
+    done <<<"$SHIP_REQUIRED_CHECKS"
+  else
+    required_checks=(
+      "Codacy Static Code Analysis"
+      "Codacy Coverage Variation"
+      "Codacy Diff Coverage"
+      "codacy-safety-net"
+    )
+  fi
+
+  local attempt
+  local all_green=0
+  for attempt in 1 2 3; do
+    echo "[ship] attempt $attempt/3"
+    _ship_cleanup
+    _ship_tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/setup-ship.XXXXXX")" \
+      || die "could not create a temporary workspace for ship"
+    _ship_head_wt="$_ship_tmpdir/head"
+    _ship_base_wt="$_ship_tmpdir/base"
+    _ship_head_sarif="$_ship_tmpdir/head.sarif"
+    _ship_base_sarif="$_ship_tmpdir/base.sarif"
+
+    echo "[ship] step 4a: fetching PR state"
+    local pr_state head_oid merge_state base_ref_name base_sha
+    pr_state="$(gh pr view "$pr" -R "$repo" --json mergeable,mergeStateStatus,headRefOid,baseRefName 2>/dev/null)" \
+      || die "gh pr view failed for PR #$pr"
+    head_oid="$(printf '%s' "$pr_state" | jq -r '.headRefOid')"
+    merge_state="$(printf '%s' "$pr_state" | jq -r '.mergeStateStatus')"
+    base_ref_name="$(printf '%s' "$pr_state" | jq -r '.baseRefName')"
+    [[ -n "$head_oid" && "$head_oid" != "null" ]] || die "gh pr view returned no headRefOid for PR #$pr"
+    [[ -n "$base_ref_name" && "$base_ref_name" != "null" ]] || die "gh pr view returned no baseRefName for PR #$pr"
+    echo "[ship] head=$head_oid base=$base_ref_name mergeStateStatus=$merge_state"
+
+    if [[ "$merge_state" == "BEHIND" ]]; then
+      echo "[ship] step 4b: branch BEHIND $base_ref_name; running gh pr update-branch"
+      gh pr update-branch "$pr" -R "$repo" \
+        || die "gh pr update-branch failed for PR #$pr"
+      sleep 3
+      pr_state="$(gh pr view "$pr" -R "$repo" --json mergeable,mergeStateStatus,headRefOid,baseRefName 2>/dev/null)" \
+        || die "gh pr view (refetch) failed for PR #$pr"
+      head_oid="$(printf '%s' "$pr_state" | jq -r '.headRefOid')"
+      merge_state="$(printf '%s' "$pr_state" | jq -r '.mergeStateStatus')"
+      base_ref_name="$(printf '%s' "$pr_state" | jq -r '.baseRefName')"
+      [[ -n "$head_oid" && "$head_oid" != "null" ]] || die "gh pr view returned no headRefOid for PR #$pr"
+      [[ -n "$base_ref_name" && "$base_ref_name" != "null" ]] || die "gh pr view returned no baseRefName for PR #$pr"
+      echo "[ship] new head=$head_oid base=$base_ref_name mergeStateStatus=$merge_state"
+    fi
+
+    echo "[ship] step 4c: preparing tmp worktree at $_ship_head_wt"
+    git -C "$repo_root" fetch origin "pull/${pr}/head:refs/remotes/origin/pr/${pr}" >/dev/null 2>&1 || true
+    git -C "$repo_root" worktree add --detach "$_ship_head_wt" "$head_oid" \
+      || die "could not create worktree at $_ship_head_wt for $head_oid"
+    ship_prepare_codacy_worktree "$_ship_head_wt" "$repo_root"
+
+    echo "[ship] step 4d: running codacy-cli analyze (head)"
+    rm -f "$_ship_head_sarif"
+    ( cd "$_ship_head_wt" && codacy-cli analyze --tool pylint --format sarif -o "$_ship_head_sarif" ) \
+      || die "codacy-cli analyze failed in $_ship_head_wt"
+    [[ -s "$_ship_head_sarif" ]] \
+      || die "codacy-cli analyze produced no SARIF at $_ship_head_sarif (check .codacy/codacy.yaml in the head worktree)"
+
+    echo "[ship] step 4e: uploading SARIF for HEAD ($head_oid)"
+    ship_upload_sarif "$_ship_head_wt" "$_ship_head_sarif" "$head_oid" \
+      || die "codacy-cli upload (HEAD) failed"
+
+    echo "[ship] step 4f: fetching base branch origin/$base_ref_name"
+    git -C "$repo_root" fetch origin "$base_ref_name" >/dev/null 2>&1 \
+      || die "could not fetch origin/$base_ref_name"
+    base_sha="$(git -C "$repo_root" rev-parse "origin/$base_ref_name" 2>/dev/null)" \
+      || die "could not resolve origin/$base_ref_name after fetch"
+    echo "[ship] step 4g: preparing base worktree at $_ship_base_wt ($base_sha)"
+    git -C "$repo_root" worktree add --detach "$_ship_base_wt" "$base_sha" \
+      || die "could not create worktree at $_ship_base_wt for $base_sha"
+    ship_prepare_codacy_worktree "$_ship_base_wt" "$repo_root"
+    echo "[ship] step 4h: running codacy-cli analyze (base)"
+    rm -f "$_ship_base_sarif"
+    ( cd "$_ship_base_wt" && codacy-cli analyze --tool pylint --format sarif -o "$_ship_base_sarif" ) \
+      || die "codacy-cli analyze failed in $_ship_base_wt"
+    [[ -s "$_ship_base_sarif" ]] \
+      || die "codacy-cli analyze produced no SARIF at $_ship_base_sarif (check .codacy/codacy.yaml in the base worktree)"
+
+    echo "[ship] step 4i: uploading SARIF for base ($base_sha)"
+    ship_upload_sarif "$_ship_base_wt" "$_ship_base_sarif" "$base_sha" \
+      || die "codacy-cli upload (base) failed"
+
+    local interval="${SHIP_CHECK_INTERVAL:-15}" timeout="${SHIP_CHECK_TIMEOUT:-900}"
+    [[ "$interval" =~ ^[0-9]+$ && "$interval" -gt 0 ]] \
+      || die "SHIP_CHECK_INTERVAL must be a positive integer number of seconds"
+    [[ "$timeout" =~ ^[0-9]+$ && "$timeout" -gt 0 ]] \
+      || die "SHIP_CHECK_TIMEOUT must be a positive integer number of seconds"
+    echo "[ship] step 4j: polling required checks (up to ${timeout}s)"
+    local elapsed=0 last_status_report=""
+    while (( elapsed < timeout )); do
+      local checks
+      checks="$(gh api "repos/${repo}/commits/${head_oid}/check-runs" --paginate \
+        --jq '.check_runs[] | "\(.name)\t\(.conclusion // .status)"' 2>/dev/null || true)"
+      local pending=0 failed=0 check line status_report="" status_line
+      for check in "${required_checks[@]}"; do
+        line="$(printf '%s\n' "$checks" | awk -F '\t' -v n="$check" '$1==n {print $2; exit}')"
+        case "$line" in
+          success)
+            status_report+="$check: success"$'\n'
+            ;;
+          failure|cancelled|timed_out|action_required|startup_failure|stale|skipped)
+            failed=1
+            status_report+="$check: $line"$'\n'
+            ;;
+          "")
+            pending=1
+            status_report+="$check: missing"$'\n'
+            ;;
+          *)
+            pending=1
+            status_report+="$check: $line"$'\n'
+            ;;
+        esac
+      done
+      status_report="${status_report%$'\n'}"
+      if [[ "$status_report" != "$last_status_report" ]]; then
+        echo "[ship] required check status (${elapsed}s elapsed):"
+        while IFS= read -r status_line; do
+          echo "[ship]   $status_line"
+        done <<<"$status_report"
+        last_status_report="$status_report"
+      fi
+      if (( failed == 1 )); then
+        echo "[ship] one or more required checks failed; will retry SARIF upload"
+        break
+      fi
+      if (( pending == 0 )); then
+        echo "[ship] all required checks green for $head_oid"
+        all_green=1
+        break
+      fi
+      printf '[ship]   waiting for required checks (%ds elapsed)...\n' "$elapsed"
+      sleep "$interval"
+      elapsed=$(( elapsed + interval ))
+    done
+
+    (( all_green == 1 )) && break
+    echo "[ship] retrying after re-upload (attempt $attempt complete)"
+  done
+
+  (( all_green == 1 )) || die "required Codacy checks did not all reach success after 3 attempts"
+
+  echo "[ship] step 5: confirming PR is mergeable"
+  local final_state waited=0
+  final_state="$(gh pr view "$pr" -R "$repo" --json mergeStateStatus --jq .mergeStateStatus 2>/dev/null || true)"
+  while (( waited < 60 )) && [[ "$final_state" != "CLEAN" && "$final_state" != "UNSTABLE" ]]; do
+    echo "[ship] mergeStateStatus is '$final_state'; waiting (${waited}s elapsed)"
+    sleep 5
+    waited=$(( waited + 5 ))
+    final_state="$(gh pr view "$pr" -R "$repo" --json mergeStateStatus --jq .mergeStateStatus 2>/dev/null || true)"
+  done
+  case "$final_state" in
+    CLEAN) ;;
+    UNSTABLE)
+      echo "[ship] required checks are green but mergeStateStatus is UNSTABLE; proceeding with merge"
+      ;;
+    *)
+      die "PR mergeStateStatus is '$final_state'; refusing to merge"
+      ;;
+  esac
+
+  echo "[ship] step 6: squash-merging PR #$pr"
+  gh pr merge "$pr" -R "$repo" --squash \
+    || die "gh pr merge failed for PR #$pr"
+
+  local merged_state
+  merged_state="$(gh pr view "$pr" -R "$repo" --json state --jq .state 2>/dev/null || true)"
+  [[ "$merged_state" == "MERGED" ]] \
+    || die "PR #$pr final state is '$merged_state', expected MERGED"
+  echo "[ship] PR #$pr is MERGED"
+
+  echo "[ship] step 7: cleaning up"
+  _ship_cleanup
+  trap - EXIT INT TERM
+  echo "[ship] done"
+}
+
 run_machine_doctor() {
   (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools doctor \
     --repo "$DOTFILES_REPO" \
@@ -549,10 +953,41 @@ run_machine_install_tools_with_confirm() {
   fi
 }
 
+ensure_project_envrc_local() {
+  local project="${1:-.}"
+  local envrc_local="$project/.envrc.local"
+  local content=""
+
+  # Build content with GitHub and Codacy tokens
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    content+='export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"'$'\n'
+  fi
+
+  if [[ -f "$HOME/.codacy/account-token" ]]; then
+    content+=$'\n# Codacy account token'$'\n'
+    content+='export CODACY_ACCOUNT_TOKEN="$(cat "$HOME/.codacy/account-token")"'$'\n'
+  fi
+
+  if [[ -z "$content" ]]; then
+    return 0
+  fi
+
+  # Write only if not present or needs updating
+  if [[ ! -f "$envrc_local" ]]; then
+    printf '%s' "$content" > "$envrc_local"
+    chmod 600 "$envrc_local"
+    if command -v direnv >/dev/null 2>&1; then
+      direnv allow "$project" 2>/dev/null || true
+    fi
+  fi
+}
+
 run_machine_apply_with_message() {
   echo
   echo "Applying safe non-protected machine dotfiles and approved install/update recipes..."
   run_machine_apply || return $?
+  ensure_mcp_servers
+  ensure_project_envrc_local "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
   return 2
 }
 
@@ -593,12 +1028,14 @@ machine_menu_loop() {
     local opt2="  2. Apply safe non-protected dotfiles and approved install/update recipes."
     local opt3="  3. Show full technical details."
     local opt4="  4. Show tool and sign-in guidance."
-    local opt5="  5. Exit without writing."
+    local opt5="  5. Configure API tokens (GitHub, HuggingFace, Codacy)."
+    local opt6="  6. Exit without writing."
     [[ "$rec_opt" == "1" ]] && opt1+=" [recommended]"
     [[ "$rec_opt" == "2" ]] && opt2+=" [recommended]"
     [[ "$rec_opt" == "3" ]] && opt3+=" [recommended]"
     [[ "$rec_opt" == "4" ]] && opt4+=" [recommended]"
     [[ "$rec_opt" == "5" ]] && opt5+=" [recommended]"
+    [[ "$rec_opt" == "6" ]] && opt6+=" [recommended]"
     cat <<EOF
 
 Recommended next step: ${recommendation_body}
@@ -607,8 +1044,9 @@ ${opt2}
 ${opt3}
 ${opt4}
 ${opt5}
+${opt6}
 EOF
-    printf 'Choose [1-5]: '
+    printf 'Choose [1-6]: '
     local choice
     if ! read -r -e choice; then
       echo
@@ -620,7 +1058,8 @@ EOF
       2) run_machine_apply_with_message; return $? ;;
       3) echo; run_machine_details ;;
       4) echo; show_tool_auth_commands ;;
-      5|"") echo "No changes applied."; return 0 ;;
+      5) echo; configure_machine_api_tokens ;;
+      6|"") echo "No changes applied."; return 0 ;;
       *) echo "Unknown choice: $choice" >&2 ;;
     esac
   done
@@ -699,7 +1138,10 @@ detect_github_identity() {
   if ! command -v git >/dev/null 2>&1; then
     return 1
   fi
-  url="$(git -C "$project" remote get-url origin 2>/dev/null || true)"
+  url="$(git -C "$project" config --get remote.origin.url 2>/dev/null || true)"
+  if [[ -z "$url" ]]; then
+    url="$(git -C "$project" remote get-url origin 2>/dev/null || true)"
+  fi
   [[ -n "$url" ]] || return 1
 
   case "$url" in
@@ -726,6 +1168,41 @@ detect_github_identity() {
   printf '%s\n%s\n' "$owner" "$repo"
 }
 
+ship_upload_sarif() {
+  local worktree="$1" sarif="$2" commit="$3"
+  ( cd "$worktree" && codacy-cli upload \
+      -s "$sarif" \
+      -c "$commit" \
+      -t "$CODACY_PROJECT_TOKEN" \
+      -o "${CODACY_USERNAME:-}" \
+      -p "${CODACY_ORGANIZATION_PROVIDER:-gh}" \
+      -r "${CODACY_PROJECT_NAME:-}" )
+}
+
+ship_prepare_codacy_worktree() {
+  local worktree="$1" repo_root="$2" codacy_src="" candidate
+  if [[ ! -f "$worktree/.codacy/codacy.yaml" ]]; then
+    mkdir -p "$worktree/.codacy"
+    for candidate in "$repo_root/.codacy/codacy.yaml" "$DOTFILES_REPO/.codacy/codacy.yaml"; do
+      if [[ -f "$candidate" ]]; then
+        codacy_src="${candidate%/codacy.yaml}"
+        break
+      fi
+    done
+    if [[ -n "$codacy_src" ]]; then
+      cp "$codacy_src/codacy.yaml" "$worktree/.codacy/codacy.yaml"
+      [[ -f "$codacy_src/cli.sh" ]] && cp "$codacy_src/cli.sh" "$worktree/.codacy/cli.sh"
+    else
+      cat >"$worktree/.codacy/codacy.yaml" <<'YAML'
+runtimes:
+    - python@3.11.11
+tools:
+    - pylint@3.3.6
+YAML
+    fi
+  fi
+}
+
 prompt_value() {
   local __resultvar="$1" label="$2" default="${3:-}" value
   if [[ -n "$default" ]]; then
@@ -733,7 +1210,7 @@ prompt_value() {
   else
     printf '%s: ' "$label"
   fi
-  if ! read -r value; then
+  if ! read -r -e value; then
     echo
     return 1
   fi
@@ -758,7 +1235,8 @@ build_envrc_content() {
 }
 
 build_codacy_managed_section() {
-  local token_var="$1" token_ref="$2" owner="$3" repo="$4" has_active_token="$5"
+  local owner="$1" repo="$2"
+  shift 2
   local provider owner_escaped repo_escaped
   provider="$(escape_env_double_quoted "gh")"
   owner_escaped="$(escape_env_double_quoted "$owner")"
@@ -768,11 +1246,21 @@ build_codacy_managed_section() {
   printf 'export CODACY_ORGANIZATION_PROVIDER="%s"\n' "$provider"
   printf 'export CODACY_USERNAME="%s"\n' "$owner_escaped"
   printf 'export CODACY_PROJECT_NAME="%s"\n' "$repo_escaped"
-  if [[ "$has_active_token" -eq 1 ]]; then
-    printf 'export %s="$(cat "%s")"\n' "$token_var" "$token_ref"
-  else
-    printf '# %s not exported because no token file exists yet.\n' "$token_var"
+
+  local account_token_file="$HOME/.codacy/account-token"
+  if [[ -f "$account_token_file" ]]; then
+    printf 'export CODACY_ACCOUNT_TOKEN="$(cat "%s")"\n' "$account_token_file"
   fi
+
+  while (($# >= 3)); do
+    local token_var="$1" token_ref="$2" has_active="$3"
+    shift 3
+    if [[ "$has_active" -eq 1 ]]; then
+      printf 'export %s="$(cat "%s")"\n' "$token_var" "$token_ref"
+    else
+      printf '# %s not exported because no token file exists yet.\n' "$token_var"
+    fi
+  done
   printf '%s\n' "$CODACY_SECTION_END"
 }
 
@@ -844,7 +1332,7 @@ Codacy API access:
   3. Back to optional integrations.
 EOF
     printf 'Choose [1-3]: '
-    if ! read -r mode_choice; then
+    if ! read -r -e mode_choice; then
       echo
       echo "Codacy setup cancelled; returning to optional integrations."
       return 0
@@ -893,14 +1381,21 @@ EOF
     return 0
   fi
 
-  local token_dir="$HOME/.codacy" token_basename token_file token_ref
+  local token_dir="$HOME/.codacy"
+  local project_basename="$(codacy_safe_name "$owner")-$(codacy_safe_name "$repo").project-token"
+  local project_token_file="$token_dir/$project_basename"
+  local project_token_ref="\$HOME/.codacy/$project_basename"
+  local account_token_file="$token_dir/account-token"
+  local account_token_ref="\$HOME/.codacy/account-token"
+
+  local token_file token_ref
   if [[ "$token_name" == "account" ]]; then
-    token_basename="account-token"
+    token_file="$account_token_file"
+    token_ref="$account_token_ref"
   else
-    token_basename="$(codacy_safe_name "$owner")-$(codacy_safe_name "$repo").project-token"
+    token_file="$project_token_file"
+    token_ref="$project_token_ref"
   fi
-  token_file="$token_dir/$token_basename"
-  token_ref="\$HOME/.codacy/$token_basename"
 
   printf '%s (leave blank to reuse an existing token file): ' "$token_prompt"
   local token_value=""
@@ -911,16 +1406,28 @@ EOF
   fi
   echo
 
-  local has_active_token=0 token_action
+  local project_has_active=0 account_has_active=0
+  [[ -f "$project_token_file" ]] && project_has_active=1
+  [[ -f "$account_token_file" ]] && account_has_active=1
   if [[ -n "$token_value" ]]; then
-    has_active_token=1
-    if [[ -f "$token_file" ]]; then
-      token_action="update"
+    if [[ "$token_name" == "project" ]]; then
+      project_has_active=1
     else
-      token_action="create"
+      account_has_active=1
     fi
+  fi
+
+  local has_active_token token_action
+  if [[ "$token_name" == "project" ]]; then
+    has_active_token="$project_has_active"
+  else
+    has_active_token="$account_has_active"
+  fi
+  if [[ -n "$token_value" && -f "$token_file" ]]; then
+    token_action="update"
+  elif [[ -n "$token_value" ]]; then
+    token_action="create"
   elif [[ -f "$token_file" ]]; then
-    has_active_token=1
     token_action="reuse"
   else
     token_action="not configured"
@@ -928,9 +1435,22 @@ EOF
 
   local envrc="$project/.envrc" envrc_local="$project/.envrc.local"
   local block envrc_content envrc_local_content
-  block="$(build_codacy_managed_section "$token_var" "$token_ref" "$owner" "$repo" "$has_active_token")"
+  block="$(build_codacy_managed_section "$owner" "$repo" \
+    "CODACY_PROJECT_TOKEN" "$project_token_ref" "$project_has_active" \
+    "CODACY_API_TOKEN" "$account_token_ref" "$account_has_active")"
   envrc_content="$(build_envrc_content "$envrc")"
   envrc_local_content="$(build_envrc_local_content "$envrc_local" "$block")"
+
+  local exported_summary
+  if [[ "$project_has_active" -eq 1 && "$account_has_active" -eq 1 ]]; then
+    exported_summary="CODACY_PROJECT_TOKEN, CODACY_API_TOKEN"
+  elif [[ "$project_has_active" -eq 1 ]]; then
+    exported_summary="CODACY_PROJECT_TOKEN"
+  elif [[ "$account_has_active" -eq 1 ]]; then
+    exported_summary="CODACY_API_TOKEN"
+  else
+    exported_summary="(none yet)"
+  fi
 
   cat <<EOF
 
@@ -940,6 +1460,7 @@ Codacy environment preview:
   - Project env file: $envrc
   - Local env bridge: $envrc_local
   - Token storage path: $token_ref ($token_action)
+  - Tokens exported: $exported_summary
   - Token values will not be printed or written into project files.
 EOF
   if [[ "$has_active_token" -eq 0 ]]; then
@@ -966,7 +1487,152 @@ EOF
   if [[ "$has_active_token" -eq 0 ]]; then
     echo "A Codacy token is required before activation."
   fi
-  echo "Run your shell reload step, such as: direnv allow \"$project\""
+
+  # Auto-run direnv allow since user already approved the changes
+  if command -v direnv >/dev/null 2>&1; then
+    if direnv allow "$project" 2>/dev/null; then
+      echo "✓ direnv allowed for $project"
+      echo "  Environment will load automatically when you cd into the project."
+    else
+      echo "Note: Run 'direnv allow \"$project\"' manually to activate the environment."
+    fi
+  else
+    echo "Note: direnv not installed. Install via './setup' (machine setup)."
+    echo "Once installed, run: direnv allow \"$project\""
+  fi
+}
+
+cmd_repair_codacy_env() {
+  local project="" owner="" repo=""
+  while (($#)); do
+    case "$1" in
+      -h|--help)
+        usage
+        return 0
+        ;;
+      --project)
+        [[ $# -ge 2 ]] || die "--project requires a value"
+        project="$2"; shift 2
+        ;;
+      --owner)
+        [[ $# -ge 2 ]] || die "--owner requires a value"
+        owner="$2"; shift 2
+        ;;
+      --repo)
+        [[ $# -ge 2 ]] || die "--repo requires a value"
+        repo="$2"; shift 2
+        ;;
+      -*)
+        die "unknown flag for repair-codacy-env: $1"
+        ;;
+      *)
+        [[ -z "$project" ]] || die "repair-codacy-env accepts at most one project path"
+        project="$1"; shift
+        ;;
+    esac
+  done
+  [[ -n "$project" ]] || project="$PWD"
+  [[ -d "$project" ]] || die "project path is not a directory: $project"
+  project="$(cd -P "$project" && pwd)"
+  if [[ -z "$owner" || -z "$repo" ]]; then
+    local detected detected_lines
+    if detected="$(detect_github_identity "$project")"; then
+      mapfile -t detected_lines <<<"$detected"
+      [[ -n "$owner" ]] || owner="${detected_lines[0]:-}"
+      [[ -n "$repo"  ]] || repo="${detected_lines[1]:-}"
+    fi
+  fi
+  if [[ -z "$owner" || -z "$repo" ]]; then
+    die "could not detect GitHub owner/repo from origin remote in '$project'; pass --owner and --repo"
+  fi
+
+  local token_dir="$HOME/.codacy"
+  local account_file="$token_dir/account-token"
+  local project_basename="$(codacy_safe_name "$owner")-$(codacy_safe_name "$repo").project-token"
+  local project_file="$token_dir/$project_basename"
+  local has_account=0 has_project=0
+  [[ -f "$account_file" ]] && has_account=1
+  [[ -f "$project_file" ]] && has_project=1
+  if [[ "$has_account" -eq 0 && "$has_project" -eq 0 ]]; then
+    die "no Codacy token files found under '$token_dir'; create $account_file or $project_file first"
+  fi
+
+  local provider owner_escaped repo_escaped
+  provider="$(escape_env_double_quoted "gh")"
+  owner_escaped="$(escape_env_double_quoted "$owner")"
+  repo_escaped="$(escape_env_double_quoted "$repo")"
+
+  local block=""
+  block+="$CODACY_SECTION_BEGIN"$'\n'
+  block+="export CODACY_ORGANIZATION_PROVIDER=\"$provider\""$'\n'
+  block+="export CODACY_USERNAME=\"$owner_escaped\""$'\n'
+  block+="export CODACY_PROJECT_NAME=\"$repo_escaped\""$'\n'
+  local exported=()
+  if [[ "$has_account" -eq 1 ]]; then
+    block+="export CODACY_ACCOUNT_TOKEN=\"\$(cat \"$account_file\")\""$'\n'
+    block+="export CODACY_API_TOKEN=\"\$(cat \"$account_file\")\""$'\n'
+    exported+=("CODACY_ACCOUNT_TOKEN" "CODACY_API_TOKEN")
+  fi
+  if [[ "$has_project" -eq 1 ]]; then
+    block+="export CODACY_PROJECT_TOKEN=\"\$(cat \"$project_file\")\""$'\n'
+    exported+=("CODACY_PROJECT_TOKEN")
+  fi
+  block+="$CODACY_SECTION_END"
+
+  local envrc_local="$project/.envrc.local"
+  local envrc_local_content
+  envrc_local_content="$(build_envrc_local_content "$envrc_local" "$block")"
+  write_file_if_changed "$envrc_local" "$envrc_local_content" 600
+
+  echo "Codacy environment repaired for $owner/$repo"
+  echo "  Project: $project"
+  echo "  Wrote: $envrc_local"
+  echo "  Token files detected:"
+  [[ "$has_account" -eq 1 ]] && echo "    - $account_file"
+  [[ "$has_project" -eq 1 ]] && echo "    - $project_file"
+  local IFS=' '
+  echo "  Exports written: ${exported[*]}"
+}
+
+configure_machine_api_tokens() {
+  while true; do
+    echo
+    echo "Machine-level API Authentication:"
+    local gh_status="Configure" hf_status="Configure" codacy_status="Configure"
+
+    # Check status for display
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+      gh_status="Reconfigure"
+    fi
+    if [[ -f "$HOME/.cache/huggingface/token" ]]; then
+      hf_status="Reconfigure"
+    fi
+    if [[ -f "$HOME/.codacy/account-token" ]] || ls "$HOME/.codacy"/*.project-token >/dev/null 2>&1; then
+      codacy_status="Reconfigure"
+    fi
+
+    cat <<EOF
+  1. $gh_status GitHub (gh) authentication
+  2. $hf_status HuggingFace Hub access
+  3. $codacy_status Codacy API access (account token + project token)
+  4. Back to main menu
+EOF
+
+    printf "Choose [1-4]: "
+    local choice
+    if ! read -r -e choice; then
+      echo
+      return 0
+    fi
+
+    case "$choice" in
+      1) configure_gh_auth ;;
+      2) configure_huggingface_global ;;
+      3) configure_codacy_env "$(pwd)" ;;
+      4|"") return 0 ;;
+      *) echo "Unknown choice: $choice" >&2 ;;
+    esac
+  done
 }
 
 configure_gh_auth() {
@@ -974,7 +1640,7 @@ configure_gh_auth() {
   echo "Setting up GitHub (gh) authentication..."
   if ! command -v gh >/dev/null 2>&1; then
     echo "gh CLI not found."
-    printf "Install gh with uv? [Y/n]: "
+    printf "Install gh with apt? [Y/n]: "
     local install_choice
     if read -r -e install_choice && [[ "$install_choice" =~ ^[Yy]?$ ]]; then
       echo "Installing gh via apt..."
@@ -998,64 +1664,80 @@ configure_gh_auth() {
   fi
 }
 
-configure_huggingface_token() {
+configure_huggingface_global() {
   echo
-  echo "Setting up HuggingFace token..."
-  if ! command -v huggingface-cli >/dev/null 2>&1; then
-    echo "HuggingFace CLI not found."
-    printf "Install huggingface-hub with uv? [Y/n]: "
-    local install_choice
-    if read -r -e install_choice && [[ "$install_choice" =~ ^[Yy]?$ ]]; then
-      echo "Installing huggingface-hub..."
-      if uv tool install huggingface-hub; then
-        echo "✓ huggingface-hub installed"
-        refresh_uv_path
-      else
-        echo "✗ Failed to install huggingface-hub"
-        return 1
-      fi
+  echo "Setting up HuggingFace Hub..."
+  if ! command -v hf >/dev/null 2>&1; then
+    echo "hf CLI not found. Installing via uv..."
+    if uv tool install huggingface-hub; then
+      echo "✓ huggingface-hub installed"
+      refresh_uv_path
     else
-      echo "Skipped HuggingFace installation"
-      return 10
+      echo "✗ Failed to install huggingface-hub"
+      return 1
     fi
   fi
 
-  if command -v huggingface-cli >/dev/null 2>&1; then
-    huggingface-cli login
+  if command -v hf >/dev/null 2>&1; then
+    hf auth login
     if [[ -f "$HOME/.cache/huggingface/token" ]]; then
       echo "✓ HuggingFace token configured"
     fi
   fi
 }
 
+configure_codacy_account_token() {
+  local token_value token_dir token_file
+  echo
+  echo "Setting up Codacy account token..."
+  echo "Get your account token from: https://app.codacy.com/account/tokens"
+  echo
+  printf 'Paste Codacy account token (or press enter to skip): '
+  if ! read -r -s token_value; then
+    echo
+    echo "Codacy account token setup cancelled."
+    return 0
+  fi
+  echo
+
+  if [[ -z "$token_value" ]]; then
+    echo "No token provided. Codacy account token will not be configured."
+    return 0
+  fi
+
+  token_dir="$HOME/.codacy"
+  token_file="$token_dir/account-token"
+  mkdir -p "$token_dir" || return 1
+  chmod 700 "$token_dir"
+  printf '%s\n' "$token_value" > "$token_file" || return 1
+  chmod 600 "$token_file"
+
+  echo "✓ Codacy account token configured at $token_file"
+  echo "  This token will be automatically available in all projects via direnv."
+}
+
 optional_integrations_menu() {
   local project="$1"
   while true; do
-    local menu_items="" choice_count=1 gh_opt="" hf_opt="" codacy_opt="" back_opt=""
+    local choice_count=1 gh_num="" codacy_num="" back_num=""
 
     # Check which services need configuration
     if ! (command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1); then
-      gh_opt="$choice_count. Manage GitHub (gh) API access."
+      gh_num="$choice_count"
       ((choice_count++))
     fi
 
-    if [[ -z "${HF_TOKEN:-}" ]] && [[ ! -f "$HOME/.cache/huggingface/token" ]]; then
-      hf_opt="$choice_count. Configure HuggingFace API token."
-      ((choice_count++))
-    fi
-
-    codacy_opt="$choice_count. Manage Codacy API access."
+    codacy_num="$choice_count"
     ((choice_count++))
-    back_opt="$choice_count. Back to project setup."
+    back_num="$choice_count"
 
     echo
     echo "Optional integrations and APIs:"
-    [[ -n "$gh_opt" ]] && echo "  $gh_opt"
-    [[ -n "$hf_opt" ]] && echo "  $hf_opt"
-    echo "  $codacy_opt"
-    echo "  $back_opt"
+    [[ -n "$gh_num" ]] && echo "  $gh_num. Manage GitHub (gh) API access."
+    echo "  $codacy_num. Manage Codacy API access."
+    echo "  $back_num. Back to project setup."
 
-    printf "Choose [1-$((choice_count-1))]: "
+    printf "Choose [1-%s]: " "$back_num"
     local choice
     if ! read -r -e choice; then
       echo
@@ -1063,40 +1745,16 @@ optional_integrations_menu() {
       return 10
     fi
 
-    case "$choice" in
-      1)
-        if [[ -n "$gh_opt" ]]; then
-          configure_gh_auth
-        elif [[ -n "$hf_opt" ]]; then
-          configure_huggingface_token
-        else
-          configure_codacy_env "$project"
-        fi
-        ;;
-      2)
-        if [[ -n "$gh_opt" && -n "$hf_opt" ]]; then
-          configure_huggingface_token
-        elif [[ -n "$gh_opt" ]] || [[ -n "$hf_opt" ]]; then
-          configure_codacy_env "$project"
-        else
-          return 0
-        fi
-        ;;
-      3)
-        if [[ $choice_count -gt 4 ]]; then
-          configure_codacy_env "$project"
-        else
-          return 0
-        fi
-        ;;
-      $((choice_count-1))|"")
-        echo "No optional integration selection received; project files were not changed."
-        return 10
-        ;;
-      *)
-        echo "Unknown choice: $choice" >&2
-        ;;
-    esac
+    if [[ -z "$choice" || "$choice" == "$back_num" ]]; then
+      echo "No optional integration selection received; project files were not changed."
+      return 10
+    elif [[ -n "$gh_num" && "$choice" == "$gh_num" ]]; then
+      configure_gh_auth
+    elif [[ "$choice" == "$codacy_num" ]]; then
+      configure_codacy_env "$project"
+    else
+      echo "Unknown choice: $choice" >&2
+    fi
   done
 }
 
@@ -1192,6 +1850,9 @@ main() {
     verify) cmd_verify "$@" ;;
     init)   cmd_init "$@" ;;
     doctor) cmd_doctor "$@" ;;
+    quality) cmd_quality "$@" ;;
+    ship)   cmd_ship "$@" ;;
+    repair-codacy-env) cmd_repair_codacy_env "$@" ;;
     help|-h|--help) usage ;;
     *)
       if [[ $# -eq 0 && -d "$sub" ]]; then

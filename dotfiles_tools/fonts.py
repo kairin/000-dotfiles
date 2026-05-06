@@ -248,8 +248,31 @@ def _font_operation_handlers(
 
 
 def _execute_systemd(op: dict[str, Any], runner: CommandRunner, *args: str) -> int:
+    # State-change command (no file write). Returns 1 because callers track this
+    # for partial-apply accounting; if a later op fails, we want to know systemd
+    # state has already been mutated.
     runner.run(["sudo", "systemctl", *args])
     return 1
+
+
+_RELEASE_FETCH_ERRORS: tuple[type[BaseException], ...] = (OSError, json.JSONDecodeError, UnicodeDecodeError)
+
+
+def _classify_release_lookup_error(exc: BaseException) -> str:
+    import socket
+    import urllib.error
+
+    if isinstance(exc, urllib.error.HTTPError):
+        return "http"
+    if isinstance(exc, urllib.error.URLError):
+        return "network"
+    if isinstance(exc, (TimeoutError, socket.timeout)):
+        return "timeout"
+    if isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError)):
+        return "decode"
+    if isinstance(exc, FileNotFoundError):
+        return "offline"
+    return "network"
 
 
 def _release_metadata(home: Path, env: Mapping[str, str], runner: CommandRunner, *, fetch: bool) -> dict[str, Any]:
@@ -259,10 +282,14 @@ def _release_metadata(home: Path, env: Mapping[str, str], runner: CommandRunner,
     if fetch or _truthy(env.get("DOTFILES_FONT_CHECK_LATEST")):
         try:
             release = runner.fetch_json(NERD_FONTS_RELEASE_URL)
-        except Exception as exc:
+        except _RELEASE_FETCH_ERRORS as exc:
             cached = _read_version(cache_path)
-            if cached:
-                cached["lookup_error"] = str(exc)
+            if not cached:
+                raise FontError(
+                    f"nerd-fonts release lookup failed and no cache exists at {cache_path}: {exc}"
+                ) from exc
+            cached["lookup_error"] = str(exc)
+            cached["lookup_error_kind"] = _classify_release_lookup_error(exc)
             return cached
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_text(json.dumps(release, indent=2, sort_keys=True) + "\n")
@@ -427,12 +454,16 @@ def _execute_install_linux(op: dict[str, Any]) -> int:
     fonts = _installed_font_files(source)
     if not fonts:
         raise FontError(f"no extracted font files found in {source}")
+    version = _read_version(Path(op.get("version_source", "")))
+    marker_path = target / FONT_MARKER_NAME
+    if version and _read_version(marker_path) == version and all((target / font.name).exists() for font in fonts):
+        op["result"] = f"already installed at {version.get('tag_name', 'cached version')}"
+        return 0
     target.mkdir(parents=True, exist_ok=True)
     for font in fonts:
         shutil.copy2(font, target / font.name)
-    version = _read_version(Path(op.get("version_source", "")))
     if version:
-        (target / FONT_MARKER_NAME).write_text(json.dumps(version, indent=2, sort_keys=True) + "\n")
+        marker_path.write_text(json.dumps(version, indent=2, sort_keys=True) + "\n")
     return 1
 
 
@@ -490,6 +521,11 @@ def _execute_install_packages(op: dict[str, Any], runner: CommandRunner) -> int:
     return 1
 
 
+# ttyd_html, ttyd_service: targets are root-owned (/etc/...) so we cannot read
+# them to compare against generated content without invoking sudo (which itself
+# has side effects). Returning 1 honestly: every call to these handlers performs
+# a sudo install and a backup. Callers that want idempotence should gate at the
+# plan level, not here.
 def _execute_ttyd_html(op: dict[str, Any], runner: CommandRunner, backups: list[dict[str, Any]]) -> int:
     source_dir = Path(op["source"])
     font = _regular_mono_font(source_dir)
@@ -537,6 +573,13 @@ def _first_mono_font(fonts: list[Path], *, require_regular: bool) -> Path | None
 
 def _execute_pixel_avf_prompt(op: dict[str, Any]) -> int:
     target = Path(op["target"])
+    desired = pixel_avf_prompt_text()
+    try:
+        if target.read_text() == desired:
+            op["result"] = "prompt fallback already current"
+            return 0
+    except OSError:
+        pass
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(pixel_avf_prompt_text())
+    target.write_text(desired)
     return 1
