@@ -51,6 +51,15 @@ jobs:
           cache-dependency-glob: |
             scripts/quality-pipeline.sh
 
+      - name: Show environment
+        if: steps.codacy_status.outputs.status != 'analyzed'
+        run: |
+          echo "=== uv ==="; uv --version
+          echo "=== python via uv ==="; uv run --python 3.11 python --version
+          echo "=== python3 ==="; python3 --version 2>/dev/null || echo "not on PATH"
+          echo "=== pwd ==="; pwd
+          echo "=== test files ==="; ls tests/ | head -10
+
       - name: Install Codacy CLI
         if: steps.codacy_status.outputs.status != 'analyzed' && env.CODACY_PROJECT_TOKEN != ''
         env:
@@ -74,13 +83,13 @@ jobs:
 
       - name: Run unit tests
         if: steps.codacy_status.outputs.status != 'analyzed'
-        run: uv run python -m unittest discover -s tests
+        run: uv run --python 3.11 python -m unittest discover -s tests
 
       - name: Generate coverage report
         if: steps.codacy_status.outputs.status != 'analyzed'
         run: |
-          uv run --with coverage==7.5.4 coverage run -m unittest discover -s tests
-          uv run --with coverage==7.5.4 coverage xml
+          uv run --python 3.11 --with coverage==7.5.4 coverage run -m unittest discover -s tests
+          uv run --python 3.11 --with coverage==7.5.4 coverage xml
 
       - name: Run Codacy SARIF analysis via scripts/quality-pipeline.sh
         if: steps.codacy_status.outputs.status != 'analyzed' && env.CODACY_PROJECT_TOKEN != ''
