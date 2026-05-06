@@ -25,27 +25,24 @@ class WorkflowTests(DotfilesTestCase):
 
         self.assertEqual([], mutable_refs)
 
-    def test_workflow_is_thin_codacy_safety_net(self):
+    def test_workflow_runs_tests_and_uploads_coverage(self):
         workflow = (REPO_ROOT / ".github/workflows/dotfiles-validation.yml").read_text()
-        self.assertIn("name: Codacy Safety Net", workflow)
+        self.assertIn("name: Dotfiles Validation", workflow)
+        # job name must stay codacy-safety-net — required by branch protection ruleset
+        self.assertIn("codacy-safety-net:", workflow)
         self.assertIn("CODACY_PROJECT_TOKEN", workflow)
         self.assertIn("concurrency:", workflow)
-        self.assertIn("codacy-safety-net-${{ github.ref }}", workflow)
-        self.assertIn("quality-status", workflow)
-        self.assertIn("steps.codacy_status.outputs.status == 'analyzed'", workflow)
-        self.assertIn("steps.codacy_status.outputs.status != 'analyzed'", workflow)
-        self.assertIn("scripts/quality-pipeline.sh", workflow)
+        self.assertIn("coverage run -m unittest discover -s tests", workflow)
+        self.assertIn("coverage xml", workflow)
         self.assertIn("coverage.xml", workflow)
         self.assertIn("coverage.codacy.com/get.sh", workflow)
         self.assertIn("continue-on-error: true", workflow)
-        self.assertIn("codacy-cli-v2/main/codacy-cli.sh) download", workflow)
-        self.assertIn('ln -sf "$CLI_PATH" "$INSTALL_DIR/codacy-cli-v2"', workflow)
-        self.assertIn('ln -sf "$CLI_PATH" "$INSTALL_DIR/codacy-cli"', workflow)
-        self.assertIn("cache-dependency-glob:", workflow)
-        self.assertIn("scripts/quality-pipeline.sh", workflow)
         # Pinned action SHAs must be preserved.
         self.assertIn("actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd", workflow)
         self.assertIn("astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b", workflow)
+        # Codacy CLI and quality pipeline must not run in CI — cloud analysis covers it.
+        self.assertNotIn("codacy-cli", workflow)
+        self.assertNotIn("quality-pipeline.sh", workflow)
 
     def test_quality_pipeline_is_non_blocking_and_uses_local_prereqs(self):
         pipeline = (REPO_ROOT / "scripts/quality-pipeline.sh").read_text()
