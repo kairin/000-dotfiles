@@ -44,9 +44,27 @@ dotfiles-manifest.json  Source of truth for what installs where
 
 Two MCP servers are available to agents when the required tokens are set.
 
+### Token loading — automatic
+
+A user-global `SessionStart` hook (`~/.claude/hooks/load-project-env.sh`) sources
+each project's `.envrc` / `.envrc.local` at session start and exports the token
+allowlist into every Bash tool call for the session. The allowlist covers:
+`CODACY_ACCOUNT_TOKEN`, `CODACY_API_TOKEN`, `CODACY_PROJECT_TOKEN`,
+`CODACY_USERNAME`, `CODACY_PROJECT_NAME`, `CODACY_ORGANIZATION_PROVIDER`,
+`GITHUB_TOKEN`, `GH_TOKEN`, `HF_TOKEN`, `HUGGINGFACE_TOKEN`.
+
+**Do not run `direnv allow`, `source .envrc.local`, or `cat ~/.codacy/...`.**
+Use `codacy-cli`, Codacy MCP, and `gh` directly — tokens are already in env.
+
+If a tool returns 401/404/auth-error: look for a `[claude-env]` diagnostic in
+the session-start output. Recovery: `./setup repair-codacy-env`.
+
+Per-project extra variables: create `.claude/env-allowlist` with one variable
+name per line; the hook merges those into the forwarded set.
+
 ### GitHub MCP (`mcp__github__*`)
 
-Available when `GITHUB_TOKEN` is set. In this repo, `.envrc.local` populates it via `gh auth token`.
+Available when `GITHUB_TOKEN` is set. `$GITHUB_TOKEN` is automatically loaded by the SessionStart hook from `.envrc.local` — no manual sourcing needed.
 
 Key tools: `create_issue`, `list_issues`, `create_pull_request`, `list_pull_requests`, `get_pull_request`, `get_pull_request_files`, `get_pull_request_reviews`, `get_pull_request_status`, `push_files`, `search_code`, `search_repositories`.
 
@@ -54,7 +72,7 @@ Prerequisite: `gh auth login` must have been run. If `gh` is not authenticated, 
 
 ### Codacy MCP (`mcp__codacy__*`)
 
-Available when `CODACY_ACCOUNT_TOKEN` is set. The token is a machine-level account token stored at `~/.codacy/account-token`; `.envrc.local` sources it via `$(cat ~/.codacy/account-token)`. A project-level token alone is insufficient.
+Available when `CODACY_ACCOUNT_TOKEN` is set. The token is a machine-level account token stored at `~/.codacy/account-token`. It is automatically loaded into `$CODACY_ACCOUNT_TOKEN` by the SessionStart hook — no manual sourcing needed. A project-level token alone is insufficient.
 
 Key tools: `codacy_list_repository_issues`, `codacy_get_file_issues`, `codacy_get_file_coverage`, `codacy_get_pull_request_files_coverage`, `codacy_cli_analyze`, `codacy_setup_repository`.
 
