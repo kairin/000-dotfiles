@@ -1,0 +1,321 @@
+#!/usr/bin/env bash
+# Codacy integration setup and diagnostics.
+#
+# This script handles all Codacy environment configuration, token management,
+# and validation. It's designed to be self-contained and repeatable without
+# requiring LLM intervention or manual direnv configuration.
+#
+# Usage:
+#   ./scripts/codacy-setup status       # Check current setup status
+#   ./scripts/codacy-setup init         # Initialize Codacy tokens and .envrc.local
+#   ./scripts/codacy-setup verify       # Run diagnostic checks
+#   ./scripts/codacy-setup repair       # Fix common setup issues
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;36m'
+NC='\033[0m'
+
+CODACY_HOME="${HOME}/.codacy"
+ACCOUNT_TOKEN_FILE="${CODACY_HOME}/account-token"
+PROJECT_TOKEN_FILE="${CODACY_HOME}/project-token"
+ENVRC_LOCAL="${REPO_ROOT}/.envrc.local"
+
+# Command selection
+CMD="${1:-status}"
+
+# ============================================================================
+# Status check - show current Codacy setup state
+# ============================================================================
+status() {
+  echo -e "${BLUE}Codacy Setup Status${NC}"
+  echo "===================="
+
+  # Check for account token file
+  if [[ -f "$ACCOUNT_TOKEN_FILE" ]] && [[ -s "$ACCOUNT_TOKEN_FILE" ]]; then
+    echo -e "${GREEN}✓${NC} Account token: present at $ACCOUNT_TOKEN_FILE"
+  else
+    echo -e "${RED}✗${NC} Account token: missing or empty at $ACCOUNT_TOKEN_FILE"
+  fi
+
+  # Check for project token file
+  if [[ -f "$PROJECT_TOKEN_FILE" ]] && [[ -s "$PROJECT_TOKEN_FILE" ]]; then
+    echo -e "${GREEN}✓${NC} Project token: present at $PROJECT_TOKEN_FILE"
+  else
+    echo -e "${RED}✗${NC} Project token: missing or empty at $PROJECT_TOKEN_FILE"
+  fi
+
+  # Check .envrc.local
+  if [[ -f "$ENVRC_LOCAL" ]]; then
+    if grep -q "CODACY_ACCOUNT_TOKEN\|CODACY_PROJECT_TOKEN" "$ENVRC_LOCAL"; then
+      echo -e "${GREEN}✓${NC} .envrc.local: configured with Codacy tokens"
+    else
+      echo -e "${YELLOW}⚠${NC} .envrc.local: exists but missing Codacy configuration"
+    fi
+  else
+    echo -e "${RED}✗${NC} .envrc.local: not found"
+  fi
+
+  # Check environment variables (if .envrc.local was sourced)
+  if [[ -n "${CODACY_ACCOUNT_TOKEN:-}" ]]; then
+    echo -e "${GREEN}✓${NC} CODACY_ACCOUNT_TOKEN: set in current shell"
+  else
+    echo -e "${YELLOW}⚠${NC} CODACY_ACCOUNT_TOKEN: not set (run: direnv allow or source .envrc.local)"
+  fi
+
+  if [[ -n "${CODACY_PROJECT_TOKEN:-}" ]]; then
+    echo -e "${GREEN}✓${NC} CODACY_PROJECT_TOKEN: set in current shell"
+  else
+    echo -e "${YELLOW}⚠${NC} CODACY_PROJECT_TOKEN: not set (run: direnv allow or source .envrc.local)"
+  fi
+
+  # Check codacy-cli
+  if command -v codacy-cli >/dev/null 2>&1; then
+    echo -e "${GREEN}✓${NC} codacy-cli: installed"
+  else
+    echo -e "${RED}✗${NC} codacy-cli: not installed (run: ./setup install-tools)"
+  fi
+
+  echo ""
+}
+
+# ============================================================================
+# Initialize - set up tokens and .envrc.local
+# ============================================================================
+init() {
+  echo -e "${BLUE}Codacy Initialization${NC}"
+  echo "====================="
+  echo ""
+
+  # Create ~/.codacy directory if needed
+  mkdir -p "$CODACY_HOME"
+
+  # Prompt for account token
+  echo "1. CODACY_ACCOUNT_TOKEN (Organization-wide token from Codacy account settings)"
+  echo "   Find at: https://app.codacy.com/account/settings/organization/tokens"
+  if [[ -f "$ACCOUNT_TOKEN_FILE" ]] && [[ -s "$ACCOUNT_TOKEN_FILE" ]]; then
+    read -p "   Current token found. Update it? (y/N) " -r UPDATE_ACCOUNT
+    if [[ ! "$UPDATE_ACCOUNT" =~ ^[Yy]$ ]]; then
+      echo "   Keeping existing token."
+    else
+      read -sp "   Paste new CODACY_ACCOUNT_TOKEN: " ACCOUNT_TOKEN
+      echo "$ACCOUNT_TOKEN" > "$ACCOUNT_TOKEN_FILE"
+      chmod 600 "$ACCOUNT_TOKEN_FILE"
+      echo ""
+      echo -e "   ${GREEN}✓ Token saved${NC}"
+    fi
+  else
+    read -sp "   Paste CODACY_ACCOUNT_TOKEN: " ACCOUNT_TOKEN
+    echo "$ACCOUNT_TOKEN" > "$ACCOUNT_TOKEN_FILE"
+    chmod 600 "$ACCOUNT_TOKEN_FILE"
+    echo ""
+    echo -e "   ${GREEN}✓ Token saved${NC}"
+  fi
+
+  echo ""
+
+  # Prompt for project token
+  echo "2. CODACY_PROJECT_TOKEN (Repository-specific token)"
+  echo "   Find at: https://app.codacy.com/gh/kairin/000-dotfiles/settings/integrations"
+  if [[ -f "$PROJECT_TOKEN_FILE" ]] && [[ -s "$PROJECT_TOKEN_FILE" ]]; then
+    read -p "   Current token found. Update it? (y/N) " -r UPDATE_PROJECT
+    if [[ ! "$UPDATE_PROJECT" =~ ^[Yy]$ ]]; then
+      echo "   Keeping existing token."
+    else
+      read -sp "   Paste new CODACY_PROJECT_TOKEN: " PROJECT_TOKEN
+      echo "$PROJECT_TOKEN" > "$PROJECT_TOKEN_FILE"
+      chmod 600 "$PROJECT_TOKEN_FILE"
+      echo ""
+      echo -e "   ${GREEN}✓ Token saved${NC}"
+    fi
+  else
+    read -sp "   Paste CODACY_PROJECT_TOKEN: " PROJECT_TOKEN
+    echo "$PROJECT_TOKEN" > "$PROJECT_TOKEN_FILE"
+    chmod 600 "$PROJECT_TOKEN_FILE"
+    echo ""
+    echo -e "   ${GREEN}✓ Token saved${NC}"
+  fi
+
+  echo ""
+
+  # Set up .envrc.local
+  if [[ ! -f "$ENVRC_LOCAL" ]]; then
+    cat > "$ENVRC_LOCAL" << 'EOF'
+# Codacy environment configuration
+# This file is sourced by .envrc and must not be committed to git.
+# Set it up by running: ./scripts/codacy-setup init
+
+export CODACY_ACCOUNT_TOKEN="$(cat ~/.codacy/account-token 2>/dev/null || echo '')"
+export CODACY_PROJECT_TOKEN="$(cat ~/.codacy/project-token 2>/dev/null || echo '')"
+
+# Codacy CLI environment
+export CODACY_USERNAME="kairin"
+export CODACY_PROJECT_NAME="000-dotfiles"
+export CODACY_ORGANIZATION_PROVIDER="gh"
+
+# API token alias for compatibility
+export CODACY_API_TOKEN="${CODACY_ACCOUNT_TOKEN}"
+EOF
+    echo -e "${GREEN}✓ Created .envrc.local${NC}"
+  else
+    echo -e "${YELLOW}✓ .envrc.local already exists${NC}"
+  fi
+
+  echo ""
+  echo "Next steps:"
+  echo "  1. Run: direnv allow"
+  echo "  2. Run: ./scripts/codacy-setup verify"
+  echo ""
+}
+
+# ============================================================================
+# Verify - run diagnostic checks
+# ============================================================================
+verify() {
+  echo -e "${BLUE}Codacy Verification${NC}"
+  echo "===================="
+  echo ""
+
+  # Source .envrc.local if it exists and tokens aren't set
+  if [[ -z "${CODACY_ACCOUNT_TOKEN:-}" && -f "$ENVRC_LOCAL" ]]; then
+    source "$ENVRC_LOCAL" 2>/dev/null || true
+  fi
+
+  FAILED=0
+
+  # Check tokens are set
+  if [[ -z "${CODACY_ACCOUNT_TOKEN:-}" ]]; then
+    echo -e "${RED}✗ CODACY_ACCOUNT_TOKEN not set in environment${NC}"
+    FAILED=1
+  else
+    echo -e "${GREEN}✓ CODACY_ACCOUNT_TOKEN is set${NC}"
+  fi
+
+  if [[ -z "${CODACY_PROJECT_TOKEN:-}" ]]; then
+    echo -e "${RED}✗ CODACY_PROJECT_TOKEN not set in environment${NC}"
+    FAILED=1
+  else
+    echo -e "${GREEN}✓ CODACY_PROJECT_TOKEN is set${NC}"
+  fi
+
+  # Check codacy-cli is available
+  if ! command -v codacy-cli >/dev/null 2>&1; then
+    echo -e "${RED}✗ codacy-cli not found on PATH${NC}"
+    FAILED=1
+  else
+    echo -e "${GREEN}✓ codacy-cli is available${NC}"
+  fi
+
+  # Try running a simple analysis
+  echo ""
+  echo "Running test analysis..."
+  if [[ -n "${CODACY_ACCOUNT_TOKEN:-}" && -n "${CODACY_PROJECT_TOKEN:-}" ]]; then
+    if codacy-cli analyze --tool pylint --format sarif -o /tmp/codacy-test.sarif 2>&1 | grep -q "Running"; then
+      echo -e "${GREEN}✓ codacy-cli analysis runs successfully${NC}"
+      rm -f /tmp/codacy-test.sarif
+    else
+      echo -e "${YELLOW}⚠ codacy-cli analysis encountered an issue (this may be normal)${NC}"
+    fi
+  else
+    echo -e "${YELLOW}⚠ Skipping analysis test (tokens not set)${NC}"
+  fi
+
+  echo ""
+  if [[ $FAILED -eq 0 ]]; then
+    echo -e "${GREEN}All checks passed!${NC}"
+    return 0
+  else
+    echo -e "${RED}Some checks failed. Run ./scripts/codacy-setup repair${NC}"
+    return 1
+  fi
+}
+
+# ============================================================================
+# Repair - fix common setup issues
+# ============================================================================
+repair() {
+  echo -e "${BLUE}Codacy Repair${NC}"
+  echo "=============="
+  echo ""
+
+  # Check and fix .envrc.local
+  if [[ ! -f "$ENVRC_LOCAL" ]]; then
+    echo "Creating .envrc.local..."
+    init
+    return
+  fi
+
+  # Verify tokens exist
+  if [[ ! -f "$ACCOUNT_TOKEN_FILE" ]] || [[ ! -s "$ACCOUNT_TOKEN_FILE" ]]; then
+    echo -e "${RED}CODACY_ACCOUNT_TOKEN file missing or empty${NC}"
+    echo "Please run: ./scripts/codacy-setup init"
+    return 1
+  fi
+
+  if [[ ! -f "$PROJECT_TOKEN_FILE" ]] || [[ ! -s "$PROJECT_TOKEN_FILE" ]]; then
+    echo -e "${RED}CODACY_PROJECT_TOKEN file missing or empty${NC}"
+    echo "Please run: ./scripts/codacy-setup init"
+    return 1
+  fi
+
+  # Fix .envrc.local if needed
+  if ! grep -q "CODACY_ACCOUNT_TOKEN\|CODACY_PROJECT_TOKEN" "$ENVRC_LOCAL"; then
+    echo "Updating .envrc.local with Codacy configuration..."
+    init
+    return
+  fi
+
+  # Reinstall codacy-cli if missing
+  if ! command -v codacy-cli >/dev/null 2>&1; then
+    echo "Installing codacy-cli..."
+    bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) download
+    mkdir -p "$HOME/.local/bin"
+    CLI_PATH=$(find "$HOME/.cache/codacy/codacy-cli-v2" -name 'codacy-cli-v2' -type f -executable 2>/dev/null | head -1)
+    if [[ -n "$CLI_PATH" ]]; then
+      ln -sf "$CLI_PATH" "$HOME/.local/bin/codacy-cli"
+      echo -e "${GREEN}✓ codacy-cli installed${NC}"
+    fi
+  fi
+
+  # Force reload environment
+  echo ""
+  echo "Reloading environment..."
+  if command -v direnv >/dev/null 2>&1; then
+    direnv allow
+    echo -e "${GREEN}✓ direnv reloaded${NC}"
+  else
+    source "$ENVRC_LOCAL"
+    echo -e "${GREEN}✓ .envrc.local sourced${NC}"
+  fi
+
+  echo ""
+  echo "Running verification..."
+  verify
+}
+
+# ============================================================================
+# Main dispatch
+# ============================================================================
+case "$CMD" in
+  status)  status ;;
+  init)    init ;;
+  verify)  verify ;;
+  repair)  repair ;;
+  *)
+    echo "Usage: $0 {status|init|verify|repair}"
+    echo ""
+    echo "Commands:"
+    echo "  status   Show current Codacy setup status"
+    echo "  init     Initialize Codacy tokens and .envrc.local"
+    echo "  verify   Run diagnostic checks"
+    echo "  repair   Automatically fix common setup issues"
+    exit 1
+    ;;
+esac

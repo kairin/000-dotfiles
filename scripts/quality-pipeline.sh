@@ -64,8 +64,14 @@ if (( ${#missing[@]} > 0 )); then
     echo "  - $item" >&2
   done
   echo "" >&2
-  echo "Hint: ensure tools are bootstrapped (./setup install-tools) and that" >&2
-  echo "      .envrc.local has been sourced (direnv allow, or 'source .envrc.local')." >&2
+  echo "To fix Codacy setup issues:" >&2
+  echo "  ./scripts/codacy-setup status    # Check current status" >&2
+  echo "  ./scripts/codacy-setup repair    # Automatically fix issues" >&2
+  echo "  ./scripts/codacy-setup init      # Set up tokens from scratch" >&2
+  echo "" >&2
+  echo "Or manually:" >&2
+  echo "  ./setup install-tools            # Install missing tools" >&2
+  echo "  direnv allow                     # Load .envrc.local" >&2
   exit 3
 fi
 
