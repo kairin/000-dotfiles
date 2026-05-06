@@ -23,3 +23,21 @@ Project-specific instructions live in each repo's `CLAUDE.md` (or `AGENTS.md` wi
 - Shell: fish
 - Package manager preference: uv (Python), npm (Node)
 - Branch convention: `YYYYMMDD-HHMMSS` timestamped branches; never commit directly to main.
+
+## Project env is auto-loaded
+
+A user-global `SessionStart` hook (`~/.claude/hooks/load-project-env.sh`) sources
+each project's `.envrc` / `.envrc.local` at session start and exports a token
+allowlist (`CODACY_*`, `GITHUB_TOKEN`, `GH_TOKEN`, `HF_TOKEN`, `OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY`, etc.) into every Bash tool call for the session.
+
+**Do not run `direnv allow`, `source .envrc.local`, or `cat ~/.codacy/...`.**
+Use `codacy-cli`, Codacy MCP, `gh`, and other token-gated tools directly — their
+tokens are already in the env.
+
+If a tool returns 401/404/auth-error: look for a `[claude-env]` line in the
+session-start output. The most common fix is `./setup repair-codacy-env`
+(in repos that have that subcommand) or `./scripts/codacy-setup repair`.
+
+To forward extra variables for a specific project, create
+`.claude/env-allowlist` in that project root (one variable name per line).
