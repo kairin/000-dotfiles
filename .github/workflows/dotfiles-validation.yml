@@ -80,7 +80,8 @@ jobs:
 
       - name: Upload coverage to Codacy
         if: steps.codacy_status.outputs.status != 'analyzed' && env.CODACY_PROJECT_TOKEN != ''
-        uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699
-        with:
-          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: coverage.xml
+        continue-on-error: true
+        run: |
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) report \
+            --project-token "$CODACY_PROJECT_TOKEN" \
+            -r coverage.xml
