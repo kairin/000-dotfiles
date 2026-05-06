@@ -51,15 +51,6 @@ jobs:
           cache-dependency-glob: |
             scripts/quality-pipeline.sh
 
-      - name: Show environment
-        if: steps.codacy_status.outputs.status != 'analyzed'
-        run: |
-          echo "=== uv ==="; uv --version
-          echo "=== python via uv ==="; uv run --python 3.11 python --version
-          echo "=== python3 ==="; python3 --version 2>/dev/null || echo "not on PATH"
-          echo "=== pwd ==="; pwd
-          echo "=== test files ==="; ls tests/ | head -10
-
       - name: Install Codacy CLI
         if: steps.codacy_status.outputs.status != 'analyzed' && env.CODACY_PROJECT_TOKEN != ''
         env:
