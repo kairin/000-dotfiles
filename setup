@@ -1635,7 +1635,22 @@ EOF
   done
 }
 
+ensure_github_token_in_envrc_local() {
+  local envrc_local="$1"
+  local token_line='export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"'
+  if grep -qF 'GITHUB_TOKEN' "$envrc_local" 2>/dev/null; then
+    return 0
+  fi
+  printf '%s\n' "$token_line" >> "$envrc_local"
+  chmod 600 "$envrc_local"
+  echo "  GITHUB_TOKEN added to $envrc_local"
+  if command -v direnv >/dev/null 2>&1; then
+    direnv allow "$(dirname "$envrc_local")" 2>/dev/null || true
+  fi
+}
+
 configure_gh_auth() {
+  local project="${1:-}"
   echo
   echo "Setting up GitHub (gh) authentication..."
   if ! command -v gh >/dev/null 2>&1; then
@@ -1660,6 +1675,12 @@ configure_gh_auth() {
     gh auth login
     if gh auth status >/dev/null 2>&1; then
       echo "✓ GitHub authentication configured"
+      if [[ -n "$project" ]]; then
+        local envrc_local="$project/.envrc.local"
+        if [[ -f "$envrc_local" ]]; then
+          ensure_github_token_in_envrc_local "$envrc_local"
+        fi
+      fi
     fi
   fi
 }
@@ -1749,7 +1770,7 @@ optional_integrations_menu() {
       echo "No optional integration selection received; project files were not changed."
       return 10
     elif [[ -n "$gh_num" && "$choice" == "$gh_num" ]]; then
-      configure_gh_auth
+      configure_gh_auth "$project"
     elif [[ "$choice" == "$codacy_num" ]]; then
       configure_codacy_env "$project"
     else
