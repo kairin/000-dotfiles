@@ -15,6 +15,9 @@ jobs:
   codacy-safety-net:
     runs-on: ubuntu-latest
     env:
+      CODACY_ORGANIZATION_PROVIDER: gh
+      CODACY_USERNAME: ${{ github.repository_owner }}
+      CODACY_PROJECT_NAME: ${{ github.event.repository.name }}
       CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
       SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
