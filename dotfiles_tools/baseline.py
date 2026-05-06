@@ -372,16 +372,11 @@ def _check_verify_file(base: dict[str, Any], home: Path, verify_file: str) -> di
 def _run_verify_cmd(
     base: dict[str, Any], verify: Any, search_path: str, home: Path
 ) -> dict[str, Any]:
-    # Use the same PATH the tool was found on so the right binary is called.
+    if not isinstance(verify, (list, tuple)) or not all(isinstance(arg, str) for arg in verify):
+        return {**base, "state": "available"}
     env = {**os.environ, "PATH": search_path, "HOME": str(home)}
     try:
-        result = subprocess.run(  # nosec B603  # noqa: S603
-            list(verify),
-            capture_output=True,
-            text=True,
-            timeout=8,
-            env=env,
-        )
+        result = subprocess.run(verify, capture_output=True, text=True, timeout=8, env=env)
         if result.returncode == 0:
             detail = _extract_signed_in_detail(result.stdout + result.stderr)
             return {**base, "state": "signed_in", "signed_in_detail": detail}
