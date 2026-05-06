@@ -4,18 +4,16 @@
 # Stages:
 #   1. Unit tests
 #   2. Coverage XML
-#   3. Pylint analysis (SARIF)
-#   4. Coverage upload to Codacy
-#   5. SARIF upload to Codacy (HEAD)
-#   6. SARIF upload to Codacy (merge-base) -- so PR diff has a baseline
+#   3. Pylint analysis (SARIF)           -- skipped when no token
+#   4. (reserved: coverage upload via CI workflow action)
+#   5. SARIF upload to Codacy (HEAD)     -- skipped when no token
+#   6. SARIF upload to Codacy (merge-base)
 #   7. Codacy server-side gate (informational)
 #
 # Modes:
-#   (default)        run stages 1-7
+#   (default)        run stages 1-7 (stages 3-7 need CODACY_PROJECT_TOKEN)
 #   --codacy-only    run only stages 3, 5, 6, 7 against working tree HEAD.
-#                    Used by the pre-push hook so the static-analysis SARIF
-#                    is uploaded BEFORE the push completes; lets the four
-#                    required GitHub checks go green automatically.
+#                    Used by ./setup ship and the pre-push hook.
 #
 # Exit codes:
 #   0  pipeline passed
@@ -38,14 +36,20 @@ RED='\033[0;31m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
+# Token may be absent in CI; affects which stages run.
+TOKEN="${CODACY_PROJECT_TOKEN:-}"
+
 # ----------------------------------------------------------------------------
 # Prerequisite validation
 # ----------------------------------------------------------------------------
 missing=()
 
-required_cmds=(codacy-cli)
-if (( CODACY_ONLY == 0 )); then
-  required_cmds=(gh uv codacy-cli)
+if (( CODACY_ONLY == 1 )); then
+  required_cmds=(codacy-cli)
+elif [[ -n "$TOKEN" ]]; then
+  required_cmds=(uv codacy-cli)
+else
+  required_cmds=(uv)
 fi
 
 for cmd in "${required_cmds[@]}"; do
@@ -65,9 +69,6 @@ if (( ${#missing[@]} > 0 )); then
   exit 3
 fi
 
-# Token may be absent in local dev; we skip the upload then rather than fail.
-TOKEN="${CODACY_PROJECT_TOKEN:-}"
-
 # ----------------------------------------------------------------------------
 # Stages 1-2: tests + coverage (skipped in --codacy-only mode)
 # ----------------------------------------------------------------------------
@@ -78,6 +79,14 @@ if (( CODACY_ONLY == 0 )); then
   echo -e "${CYAN}[STAGE 2/7] Generating coverage XML...${NC}"
   uv run --with coverage==7.5.4 coverage run -m unittest discover -s tests
   uv run --with coverage==7.5.4 coverage xml
+
+  if [[ -z "$TOKEN" ]]; then
+    echo -e "\n${YELLOW}No CODACY_PROJECT_TOKEN — skipping Codacy analysis and upload.${NC}"
+    echo "  Run: ./setup ship <PR#>   (uploads SARIF and merges via the full pipeline)"
+    echo ""
+    echo -e "${GREEN}✓ Quality pipeline complete (tests + coverage)${NC}"
+    exit 0
+  fi
 fi
 
 # ----------------------------------------------------------------------------
@@ -87,28 +96,17 @@ echo -e "\n${CYAN}[STAGE 3/7] Running pylint analysis...${NC}"
 SARIF="/tmp/pylint-$$.sarif"
 # codacy-cli analyze propagates pylint's bitmask exit code (28 = W+R+C found),
 # which is not a pipeline failure — violations are expected and reported via
-# SARIF. Only fail if the SARIF file was not produced AND a token is configured
-# (meaning an upload was expected). Without a token the upload is skipped
-# regardless, so a missing SARIF is non-fatal (e.g. CI runtime download issues).
+# SARIF. Only fail if the SARIF file was not produced at all.
 analyze_rc=0
 codacy-cli analyze --tool pylint --format sarif -o "$SARIF" || analyze_rc=$?
 if (( analyze_rc != 0 )); then
   echo -e "${YELLOW}⚠ codacy-cli analyze exited $analyze_rc (pylint violations found; will be uploaded to Codacy)${NC}"
 fi
-if [[ ! -s "$SARIF" ]]; then
-  if [[ -n "$TOKEN" ]]; then
-    echo -e "${RED}✗ codacy-cli analyze produced no SARIF output${NC}" >&2
-    exit 1
-  fi
-  echo -e "${YELLOW}⚠ codacy-cli analyze produced no SARIF — upload skipped (no token configured)${NC}"
-fi
+[[ -s "$SARIF" ]] || { echo -e "${RED}✗ codacy-cli analyze produced no SARIF output${NC}" >&2; exit 1; }
 
 # ----------------------------------------------------------------------------
 # Stage 4: coverage upload — handled by .github/workflows/dotfiles-validation.yml
-# via codacy/codacy-coverage-reporter-action. We do NOT upload coverage here:
-# `codacy-cli upload` accepts only SARIF, not coverage.xml, and would die with
-# "invalid character '<'", killing the pipeline before SARIF upload runs.
-# Local push: the workflow uploads coverage on its own schedule.
+# via codacy/codacy-coverage-reporter-action. We do NOT upload coverage here.
 # ----------------------------------------------------------------------------
 HEAD_SHA="$(git rev-parse HEAD)"
 
@@ -117,12 +115,8 @@ HEAD_SHA="$(git rev-parse HEAD)"
 # ----------------------------------------------------------------------------
 echo -e "\n${CYAN}[STAGE 5/7] CODACY STATIC CODE ANALYSIS — SARIF UPLOAD${NC}"
 
-if [[ -z "$TOKEN" ]]; then
-  echo -e "${YELLOW}⚠ CODACY_PROJECT_TOKEN not set — skipping SARIF upload (the GH App may not post the static-analysis check without it).${NC}"
-elif [[ "${SKIP_CODACY_UPLOAD:-0}" = "1" ]]; then
+if [[ "${SKIP_CODACY_UPLOAD:-0}" = "1" ]]; then
   echo -e "${YELLOW}⚠ SKIP_CODACY_UPLOAD=1 — skipping SARIF upload by request.${NC}"
-elif [[ ! -s "${SARIF:-}" ]]; then
-  echo -e "${YELLOW}⚠ No SARIF to upload — codacy-cli analyze produced no output.${NC}"
 else
   BASE_SHA="$(git merge-base HEAD origin/main 2>/dev/null || git rev-parse origin/main 2>/dev/null || echo "")"
 
@@ -151,7 +145,7 @@ else
   fi
 fi
 
-rm -f "${SARIF:-}"
+rm -f "$SARIF"
 
 # ----------------------------------------------------------------------------
 # Stage 7: server-side gate (informational)
