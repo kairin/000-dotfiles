@@ -85,7 +85,15 @@ fi
 # ----------------------------------------------------------------------------
 echo -e "\n${CYAN}[STAGE 3/7] Running pylint analysis...${NC}"
 SARIF="/tmp/pylint-$$.sarif"
-codacy-cli analyze --tool pylint --format sarif -o "$SARIF"
+# codacy-cli analyze propagates pylint's bitmask exit code (28 = W+R+C found),
+# which is not a pipeline failure — violations are expected and reported via
+# SARIF. Only fail if the SARIF file was not produced at all.
+analyze_rc=0
+codacy-cli analyze --tool pylint --format sarif -o "$SARIF" || analyze_rc=$?
+if (( analyze_rc != 0 )); then
+  echo -e "${YELLOW}⚠ codacy-cli analyze exited $analyze_rc (pylint violations found; will be uploaded to Codacy)${NC}"
+fi
+[[ -s "$SARIF" ]] || { echo -e "${RED}✗ codacy-cli analyze produced no SARIF output${NC}" >&2; exit 1; }
 
 # ----------------------------------------------------------------------------
 # Stage 4: coverage upload — handled by .github/workflows/dotfiles-validation.yml
