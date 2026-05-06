@@ -51,27 +51,6 @@ jobs:
           cache-dependency-glob: |
             scripts/quality-pipeline.sh
 
-      - name: Install Codacy CLI
-        if: steps.codacy_status.outputs.status != 'analyzed' && env.CODACY_PROJECT_TOKEN != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          # Only runs when CODACY_PROJECT_TOKEN is set (not in standard CI).
-          # GH_TOKEN authenticates the GitHub API call for the latest release.
-          bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) download
-          CLI_PATH=$(find "$HOME/.cache/codacy/codacy-cli-v2" -name 'codacy-cli-v2' -type f -executable 2>/dev/null | head -1)
-          if [ -z "$CLI_PATH" ]; then
-            echo "codacy-cli-v2 binary not found after install" >&2
-            exit 1
-          fi
-          INSTALL_DIR="$HOME/.local/bin"
-          mkdir -p "$INSTALL_DIR"
-          ln -sf "$CLI_PATH" "$INSTALL_DIR/codacy-cli-v2"
-          ln -sf "$CLI_PATH" "$INSTALL_DIR/codacy-cli"
-          echo "$INSTALL_DIR" >> "$GITHUB_PATH"
-          echo "Installed codacy-cli-v2 at $CLI_PATH; symlinked into $INSTALL_DIR"
-
       - name: Run unit tests
         if: steps.codacy_status.outputs.status != 'analyzed'
         run: uv run --python 3.11 python -m unittest discover -s tests
@@ -82,9 +61,22 @@ jobs:
           uv run --python 3.11 --with coverage==7.5.4 coverage run -m unittest discover -s tests
           uv run --python 3.11 --with coverage==7.5.4 coverage xml
 
-      - name: Run Codacy SARIF analysis via scripts/quality-pipeline.sh
+      - name: Install Codacy CLI and run SARIF analysis
         if: steps.codacy_status.outputs.status != 'analyzed' && env.CODACY_PROJECT_TOKEN != ''
-        run: bash scripts/quality-pipeline.sh --codacy-only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) download
+          CLI_PATH=$(find "$HOME/.cache/codacy/codacy-cli-v2" -name 'codacy-cli-v2' -type f -executable 2>/dev/null | head -1)
+          if [ -z "$CLI_PATH" ]; then
+            echo "codacy-cli-v2 binary not found after install" >&2
+            exit 1
+          fi
+          export PATH="$HOME/.local/bin:$PATH"
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$CLI_PATH" "$HOME/.local/bin/codacy-cli"
+          bash scripts/quality-pipeline.sh --codacy-only
 
       - name: Upload coverage to Codacy
         if: steps.codacy_status.outputs.status != 'analyzed' && env.CODACY_PROJECT_TOKEN != ''
