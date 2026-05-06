@@ -113,10 +113,14 @@ else
   _codacy_provider() {
     local remote="${1:-}"
     case "$remote" in
-      *github.com*)  echo "gh" ;;
-      *gitlab.com*)  echo "gl" ;;
+      *github.com*)    echo "gh" ;;
+      *gitlab.com*)    echo "gl" ;;
       *bitbucket.org*) echo "bb" ;;
-      *)             echo "gh" ;;
+      *)
+        echo "gh"
+        echo -e "${YELLOW}⚠ Could not detect git provider from remote '$remote'; defaulting to 'gh'.${NC}" \
+          "  Set CODACY_ORGANIZATION_PROVIDER to override (gh, gl, ghe, gle, bb, bbs)." >&2
+        ;;
     esac
   }
   REMOTE_URL="$(git remote get-url origin 2>/dev/null || echo "")"
