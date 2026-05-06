@@ -33,7 +33,7 @@ jobs:
             "https://api.codacy.com/2.0/commit/$SHA/quality-status" \
             | grep -oE '"state"[[:space:]]*:[[:space:]]*"[^"]*"' \
             | head -1 \
-            | sed -E 's/.*"state"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/' \
+            | sed -E 's/.*"state"[[:space:]]*:[[:space:]]*"([^"]*)".*/ \1/' \
             || echo "missing")
           STATUS="${STATUS:-missing}"
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
@@ -52,11 +52,15 @@ jobs:
 
       - name: Install Codacy CLI
         if: steps.codacy_status.outputs.status != 'analyzed'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           # Run the upstream installer in "download" mode so it just fetches
           # the binary into $HOME/.cache/codacy/codacy-cli-v2/<version>/ and
           # exits, rather than executing the CLI with no arguments.
+          # GH_TOKEN is passed so the GitHub API call for the latest version
+          # is authenticated (avoids 60 req/hr anonymous rate limit).
           bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh) download
           # The binary is named codacy-cli-v2; expose it on PATH under both
           # that name and the historical "codacy-cli" alias for any caller
