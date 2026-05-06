@@ -124,7 +124,13 @@ else
     local sha="$1"
     local attempt
     for attempt in 1 2; do
-      if codacy-cli upload -s "$SARIF" -c "$sha" -t "$TOKEN"; then
+      if codacy-cli upload \
+        -s "$SARIF" \
+        -c "$sha" \
+        -t "$TOKEN" \
+        -o "${CODACY_USERNAME:-}" \
+        -p "${CODACY_ORGANIZATION_PROVIDER:-gh}" \
+        -r "${CODACY_PROJECT_NAME:-}"; then
         return 0
       fi
       echo -e "${YELLOW}Upload attempt $attempt failed for $sha; retrying in 5s...${NC}"
