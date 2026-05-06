@@ -21,7 +21,7 @@ class CommandRunner:
         env = dict(self.env)
         env["PATH"] = self.path
         # codacy-disable-next-line
-        return subprocess.run(  # nosec B603  # nosemgrep
+        return subprocess.run(  # nosec B603  # nosemgrep: dangerous-subprocess-use-audit
             args,
             check=check,
             capture_output=capture_output,

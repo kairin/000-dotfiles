@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
 import tempfile
@@ -11,6 +12,20 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class DotfilesTestCase(unittest.TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        original_home = os.environ.get("HOME")
+        home = self.make_home()
+        os.environ["HOME"] = str(home)
+
+        def restore_home() -> None:
+            if original_home is None:
+                os.environ.pop("HOME", None)
+            else:
+                os.environ["HOME"] = original_home
+
+        self.addCleanup(restore_home)
+
     def make_home(self) -> Path:
         path = Path(tempfile.mkdtemp(prefix="dotfiles-home-"))
         self.addCleanup(lambda: shutil.rmtree(path, ignore_errors=True))
