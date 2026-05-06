@@ -5,12 +5,13 @@ Complete documentation for Codacy setup, token management, and CI/CD integration
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Issues Fixed](#issues-fixed)
-3. [Token Management](#token-management)
-4. [Local Development](#local-development)
-5. [CI/CD Workflow (GitHub Actions)](#cicd-workflow-github-actions)
-6. [Troubleshooting](#troubleshooting)
-7. [Generalizing to Other Projects](#generalizing-to-other-projects)
+2. [LLM Agent Workflow](#llm-agent-workflow)
+3. [Issues Fixed](#issues-fixed)
+4. [Token Management](#token-management)
+5. [Local Development](#local-development)
+6. [CI/CD Workflow (GitHub Actions)](#cicd-workflow-github-actions)
+7. [Troubleshooting](#troubleshooting)
+8. [Generalizing to Other Projects](#generalizing-to-other-projects)
 
 ---
 
@@ -45,6 +46,55 @@ scripts/quality-pipeline.sh ◄────────────────�
  (codacy-cli analyze)
  (codacy-cli upload)
 ```
+
+---
+
+## LLM Agent Workflow
+
+This section is written for Claude Code agents (and similar LLMs). It documents
+the correct interaction pattern for Codacy operations.
+
+### Token Loading Is Automatic
+
+A user-global `SessionStart` hook (`~/.claude/hooks/load-project-env.sh`)
+sources each project's `.envrc` / `.envrc.local` at session start and exports
+the token allowlist into every Bash tool call. Variables loaded automatically:
+`CODACY_ACCOUNT_TOKEN`, `CODACY_PROJECT_TOKEN`, `CODACY_USERNAME`,
+`CODACY_PROJECT_NAME`, `CODACY_ORGANIZATION_PROVIDER`, `GITHUB_TOKEN`.
+
+**Do not run `direnv allow`, `source .envrc.local`, or `cat ~/.codacy/...`.**
+Tokens are already in the environment. Use tools directly.
+
+If a tool returns 401/404: look for a `[claude-env]` diagnostic in session-start
+output. Recovery command: `./setup repair-codacy-env`.
+
+### Preferred Tool Order for Codacy Operations
+
+1. **Read** — use Codacy MCP first:
+   - `mcp__codacy__codacy_list_pull_request_issues` — issues blocking a PR
+   - `mcp__codacy__codacy_get_repository_pull_request` — PR quality status
+   - `mcp__codacy__codacy_get_file_issues` — issues in a specific file
+
+2. **Analyze + upload** — use CLI + pipeline:
+   - `scripts/quality-pipeline.sh --codacy-only` — analyze and upload current HEAD
+   - `./setup ship <PR#>` — complete merge workflow (SARIF upload + poll + merge)
+
+3. **Diagnose env** — only if tokens are missing:
+   - `./setup repair-codacy-env` — rebuild `.envrc.local` from token files on disk
+   - `./scripts/codacy-setup status` — check what's loaded/missing
+   - `./scripts/codacy-setup repair` — auto-fix common issues
+
+### Merging a PR via `setup ship`
+
+`./setup ship <PR#>` is the canonical merge command. It:
+1. Verifies `CODACY_PROJECT_TOKEN` is set (exits with repair hint if not)
+2. Updates the branch against main
+3. Runs `codacy-cli analyze --tool pylint --format sarif`
+4. Uploads SARIF for HEAD and base SHA with `-o/-p/-r/-c/-t` flags
+5. Polls the four required GitHub checks until all turn green
+6. Squash-merges when status is CLEAN or UNSTABLE-but-green
+
+Do not try to manually re-run individual steps unless `ship` itself is broken.
 
 ---
 
@@ -189,6 +239,20 @@ fi
   1. **Recommended:** Use `fetch-depth: 0` (full history, still fast for most repos)
   2. **Alternative:** Gracefully fall back to HEAD-only upload if merge-base unavailable
   3. **Not Recommended:** Ignore failures silently (leads to silent data corruption)
+
+### Root Cause Catalog
+
+The following table maps recurring failures to their fixes. Each fix is in a
+separate PR. This catalog exists to prevent re-discovering the same root causes.
+
+| Issue | Symptom | Root Cause | Fix PR |
+|-------|---------|------------|--------|
+| Empty SARIF upload / 404 on upload | `codacy-cli upload` returns 404 | Missing `-o/-p/-r` flags; Codacy can't identify project | #192, fixed in ship-flags PR |
+| Auth errors in fresh agent sessions | Agent can't use codacy-cli or Codacy MCP | `direnv` hasn't fired; tokens not in env | #192/#197, fixed by SessionStart hook |
+| Stale `.envrc.local` | CODACY_PROJECT_TOKEN not exported | Managed block missing project token | #197/#198, fixed by `repair-codacy-env` |
+| Shallow clone merge-base failure | `BASE_SHA=origin/main` (string, not SHA) | `fetch-depth: 1` in GitHub Actions | #192, fixed by `fetch-depth: 0` |
+| codacy-cli 404 on analyze | `request to ...tools//patterns failed` | Missing org/project env vars for CLI auth | #192, fixed by env vars in CI workflow |
+| Command injection warning | Codacy blocks PR for security violation | `subprocess.run(list(verify))` without validation | #192, fixed by type-checking verify arg |
 
 ---
 
