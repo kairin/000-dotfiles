@@ -214,6 +214,8 @@ class FontCatalogTests(DotfilesTestCase):
         )
 
     def test_wsl_plans_all_linux_fonts_and_windows_terminal_mono_update_when_detected(self) -> None:
+        from unittest.mock import patch
+
         home = self.make_home()
         install_dir = home / FONT_INSTALL_REL
         install_dir.mkdir(parents=True)
@@ -229,11 +231,12 @@ class FontCatalogTests(DotfilesTestCase):
             release=release_inventory(),
         )
 
-        plan = build_font_plan(home, env=env, path="", runner=runner)
-        op_types = [op["type"] for op in plan["operations"]]
+        with patch("dotfiles_tools.font_windows.check_windows_fonts_installed", return_value=False):
+            plan = build_font_plan(home, env=env, path="", runner=runner)
+            op_types = [op["type"] for op in plan["operations"]]
 
-        self.assertEqual(font_values(plan["fonts"], "nerd_font_release", "asset_name"), {item.asset_name for item in NERD_FONT_CATALOG})
-        self.assertIn("font_install_windows", op_types)
+            self.assertEqual(font_values(plan["fonts"], "nerd_font_release", "asset_name"), {item.asset_name for item in NERD_FONT_CATALOG})
+            self.assertIn("font_install_windows", op_types)
         terminal_update = next(op for op in plan["operations"] if op["type"] == "font_update_windows_terminal")
         self.assertEqual(terminal_update["source"], FONT_FACE)
         self.assertNotIn("Propo", terminal_update["source"])
@@ -456,3 +459,102 @@ class FontReleaseMetadataTests(DotfilesTestCase):
         self.assertEqual(result["tag_name"], "v1.2.3")
         self.assertEqual(result["lookup_error_kind"], "timeout")
         self.assertIn("slow", result["lookup_error"])
+
+
+class WindowsFontVerificationTests(DotfilesTestCase):
+    def test_check_windows_fonts_installed_returns_true_when_font_present(self) -> None:
+        from dotfiles_tools.font_context import check_windows_fonts_installed
+
+        home = self.make_home()
+        source_dir = home / ".local/share/fonts/JetBrainsMonoNerdFont"
+        source_dir.mkdir(parents=True)
+        font_file = source_dir / "JetBrainsMonoNerdFont-Regular.ttf"
+        font_file.write_bytes(b"fake font data")
+
+        users_root = home / "fake_mnt_c_Users"
+        win_fonts = users_root / "kairi/AppData/Local/Microsoft/Windows/Fonts"
+        win_fonts.mkdir(parents=True)
+        (win_fonts / font_file.name).write_bytes(b"fake font data")
+
+        self.assertTrue(check_windows_fonts_installed(source_dir, _users_root=users_root))
+
+    def test_check_windows_fonts_installed_returns_false_when_no_font_present(self) -> None:
+        from dotfiles_tools.font_context import check_windows_fonts_installed
+
+        home = self.make_home()
+        source_dir = home / ".local/share/fonts/JetBrainsMonoNerdFont"
+        source_dir.mkdir(parents=True)
+        (source_dir / "JetBrainsMonoNerdFont-Regular.ttf").write_bytes(b"fake font data")
+
+        users_root = home / "fake_mnt_c_Users"
+        win_fonts = users_root / "kairi/AppData/Local/Microsoft/Windows/Fonts"
+        win_fonts.mkdir(parents=True)
+
+        self.assertFalse(check_windows_fonts_installed(source_dir, _users_root=users_root))
+
+    def test_check_windows_fonts_installed_returns_false_when_source_missing(self) -> None:
+        from dotfiles_tools.font_context import check_windows_fonts_installed
+
+        home = self.make_home()
+        source_dir = home / ".local/share/fonts/JetBrainsMonoNerdFont"
+
+        users_root = home / "fake_mnt_c_Users"
+        users_root.mkdir(parents=True)
+
+        self.assertFalse(check_windows_fonts_installed(source_dir, _users_root=users_root))
+
+    def test_windows_host_operations_skips_copy_but_updates_terminal_when_installed(self) -> None:
+        from dotfiles_tools.font_windows import windows_host_operations
+        from dotfiles_tools.font_catalog import NERD_FONT_CATALOG, WINDOWS_ENTRY_ID
+
+        home = self.make_home()
+        item = NERD_FONT_CATALOG[0]
+        settings = "/mnt/c/Users/kairi/AppData/Local/Packages/Microsoft.WindowsTerminal/settings.json"
+        context = {
+            "powershell": "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+            "windows_terminal_settings": settings,
+        }
+        font_summary: dict = {"state": "installed"}
+
+        ops = windows_host_operations(home, context, item, font_summary, state="installed")
+
+        types = [op["type"] for op in ops]
+        self.assertIn("font_skip", types)
+        self.assertIn("font_update_windows_terminal", types)
+        skip_op = next(op for op in ops if op["type"] == "font_skip")
+        self.assertEqual(skip_op["entry_id"], WINDOWS_ENTRY_ID)
+        self.assertFalse(skip_op["requires_approval"])
+
+    def test_windows_host_operations_skip_only_when_installed_no_settings(self) -> None:
+        from dotfiles_tools.font_windows import windows_host_operations
+        from dotfiles_tools.font_catalog import NERD_FONT_CATALOG, WINDOWS_ENTRY_ID
+
+        home = self.make_home()
+        item = NERD_FONT_CATALOG[0]
+        context = {"powershell": "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"}
+        font_summary: dict = {"state": "installed"}
+
+        ops = windows_host_operations(home, context, item, font_summary, state="installed")
+
+        self.assertEqual(len(ops), 1)
+        self.assertEqual(ops[0]["type"], "font_skip")
+        self.assertEqual(ops[0]["entry_id"], WINDOWS_ENTRY_ID)
+
+    def test_windows_host_operations_returns_install_ops_when_missing(self) -> None:
+        from dotfiles_tools.font_windows import windows_host_operations
+        from dotfiles_tools.font_catalog import NERD_FONT_CATALOG
+
+        home = self.make_home()
+        item = NERD_FONT_CATALOG[0]
+        context = {
+            "powershell": "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+            "windows_terminal_settings": "/mnt/c/Users/kairi/AppData/Local/Packages/Microsoft.WindowsTerminal/settings.json",
+        }
+        font_summary: dict = {"state": "missing"}
+
+        ops = windows_host_operations(home, context, item, font_summary, state="missing")
+
+        types = [op["type"] for op in ops]
+        self.assertIn("font_install_windows", types)
+        self.assertIn("font_update_windows_terminal", types)
+        self.assertTrue(all(op.get("requires_approval") for op in ops))

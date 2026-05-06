@@ -202,7 +202,7 @@ class MachineSummaryTests(DotfilesTestCase):
         text = self.render(plan_report, doctor_report=doctor_report)
 
         self.assertIn("Recommended next step: 4. Show tool and sign-in guidance - Sign-in guidance is the useful next step.", text)
-        self.assertIn("Tool and sign-in guidance: gh auth status.", text)
+        self.assertIn("Pending sign-ins: gh auth status.", text)
 
     def test_current_setup_recommends_exit(self) -> None:
         home = self.make_home()

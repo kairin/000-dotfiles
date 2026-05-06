@@ -91,6 +91,21 @@ def discover_windows_terminal_settings(home: Path, env: Mapping[str, str]) -> st
     return None
 
 
+def check_windows_fonts_installed(source_dir: Path, _users_root: Path | None = None) -> bool:
+    """Return True if at least one font file from source_dir is present in the Windows per-user font store."""
+    users_root = _users_root if _users_root is not None else Path("/mnt/c/Users")
+    if not users_root.exists() or not source_dir.exists():
+        return False
+    font_files = list(source_dir.glob("*.ttf")) + list(source_dir.glob("*.otf"))
+    if not font_files:
+        return False
+    for user_dir in users_root.glob("*"):
+        win_fonts = user_dir / "AppData/Local/Microsoft/Windows/Fonts"
+        if any((win_fonts / f.name).exists() for f in font_files):
+            return True
+    return False
+
+
 def nerd_items_for_platform(platform_name: str) -> tuple:
     if platform_name == "pixel-terminal":
         return (NERD_FONT_CATALOG[0],)

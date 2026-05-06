@@ -565,7 +565,7 @@ exit 64
         self.assertIn("4. Show tool and sign-in guidance. [recommended]", result.stdout)
         self.assertIn("Tool status:", result.stdout)
         self.assertIn("Missing tools:", result.stdout)
-        self.assertIn("Sign-in checks unavailable until the tool is installed:", result.stdout)
+        self.assertIn("Sign-in status:", result.stdout)
         self.assertNotIn("Missing tool install/auth commands:", result.stdout)
 
     def test_no_arg_details_choice_prints_full_diagnostics(self) -> None:
@@ -815,7 +815,12 @@ exit 64
         self.assertEqual(oct(envrc_local.stat().st_mode & 0o777), "0o600")
         self.assertIn("source_env_if_exists .envrc.local", envrc.read_text())
         local_text = envrc_local.read_text()
-        self.assertIn("CODACY_PROJECT_TOKEN", local_text)
+        self.assertIn(
+            'export CODACY_PROJECT_TOKEN="$(cat "$HOME/.codacy/kairin-000-dotfiles.project-token")"',
+            local_text,
+        )
+        self.assertIn("# CODACY_API_TOKEN not exported because no token file exists yet.", local_text)
+        self.assertNotIn("export CODACY_API_TOKEN=", local_text)
         self.assertIn('CODACY_ORGANIZATION_PROVIDER="gh"', local_text)
         self.assertIn('CODACY_USERNAME="kairin"', local_text)
         self.assertIn('CODACY_PROJECT_NAME="000-dotfiles"', local_text)
@@ -836,10 +841,76 @@ exit 64
         self.assertTrue(token_file.exists())
         self.assertEqual(token_file.read_text(), secret + "\n")
         local_text = (project / ".envrc.local").read_text()
-        self.assertIn("CODACY_API_TOKEN", local_text)
+        self.assertIn(
+            'export CODACY_API_TOKEN="$(cat "$HOME/.codacy/account-token")"',
+            local_text,
+        )
+        self.assertIn(
+            "# CODACY_PROJECT_TOKEN not exported because no token file exists yet.",
+            local_text,
+        )
+        self.assertNotIn("export CODACY_PROJECT_TOKEN=", local_text)
         self.assertIn('CODACY_ORGANIZATION_PROVIDER="gh"', local_text)
         self.assertIn('CODACY_USERNAME="kairin"', local_text)
         self.assertIn('CODACY_PROJECT_NAME="000-dotfiles"', local_text)
+        self.assertNotIn(secret, local_text)
+        self.assertNotIn(secret, result.stdout)
+        self.assertNotIn(secret, result.stderr)
+
+    def test_codacy_account_mode_also_exports_project_token_when_file_exists(self) -> None:
+        project = self.make_project()
+        home = self.make_home()
+        codacy_dir = home / ".codacy"
+        codacy_dir.mkdir(parents=True)
+        (codacy_dir / "kairin-000-dotfiles.project-token").write_text("preexisting-project\n")
+        (codacy_dir / "kairin-000-dotfiles.project-token").chmod(0o600)
+        secret = "fresh-account-token"
+        result, _home = self.run_project_setup(
+            project,
+            f"3\n1\n2\nkairin\n000-dotfiles\n{secret}\ny\n2\n5\n",
+            home=home,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn(
+            'export CODACY_PROJECT_TOKEN="$(cat "$HOME/.codacy/kairin-000-dotfiles.project-token")"',
+            local_text,
+        )
+        self.assertIn(
+            'export CODACY_API_TOKEN="$(cat "$HOME/.codacy/account-token")"',
+            local_text,
+        )
+        self.assertNotIn("not exported because no token file exists yet", local_text)
+        self.assertNotIn(secret, local_text)
+        self.assertNotIn(secret, result.stdout)
+        self.assertNotIn(secret, result.stderr)
+
+    def test_codacy_repository_mode_also_exports_account_token_when_file_exists(self) -> None:
+        project = self.make_project()
+        home = self.make_home()
+        codacy_dir = home / ".codacy"
+        codacy_dir.mkdir(parents=True)
+        (codacy_dir / "account-token").write_text("preexisting-account\n")
+        (codacy_dir / "account-token").chmod(0o600)
+        secret = "fresh-repo-token"
+        result, _home = self.run_project_setup(
+            project,
+            f"3\n1\n1\nkairin\n000-dotfiles\n{secret}\ny\n2\n5\n",
+            home=home,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn(
+            'export CODACY_PROJECT_TOKEN="$(cat "$HOME/.codacy/kairin-000-dotfiles.project-token")"',
+            local_text,
+        )
+        self.assertIn(
+            'export CODACY_API_TOKEN="$(cat "$HOME/.codacy/account-token")"',
+            local_text,
+        )
+        self.assertNotIn("not exported because no token file exists yet", local_text)
         self.assertNotIn(secret, local_text)
         self.assertNotIn(secret, result.stdout)
         self.assertNotIn(secret, result.stderr)
