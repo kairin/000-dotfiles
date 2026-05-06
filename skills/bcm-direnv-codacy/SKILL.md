@@ -16,6 +16,8 @@ Use this skill when a task depends on the local shell environment, Codacy tokens
 
 `.envrc` only loads `.envrc.local` with `source_env_if_exists`, so any Codacy variable must be exported there or by another direnv-loaded file.
 
+**IMPORTANT:** `.envrc.local` **must be in `.gitignore`** — it contains machine-specific secrets and tokens that should never be committed to version control.
+
 ## Codacy Tooling
 
 - `codacy-cli analyze` can use `CODACY_API_TOKEN` when fetching Codacy configuration from the API.

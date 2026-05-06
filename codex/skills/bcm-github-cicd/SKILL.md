@@ -18,7 +18,7 @@ Use this skill when the task involves committing, pushing, opening a PR, respond
 7. Open a draft PR first. Use `gh pr create --draft` unless the user asked for a ready PR.
 8. Check CI with `gh pr checks` or `gh run list` / `gh run view`.
 9. If CI fails, read the failing log, fix the smallest correct scope, and rerun the relevant validation.
-10. Merge only after green CI and any required review. Prefer `gh pr merge --merge --delete-branch`.
+10. Merge only after green CI and any required review. Prefer `./setup ship` (squash-merges after polling required checks) or `gh pr merge --squash --delete-branch`.
 
 ## High-Risk Cases
 
@@ -36,7 +36,7 @@ gh pr create --draft
 gh pr checks
 gh run list --limit 10
 gh run view <run-id> --log-failed
-gh pr merge --merge --delete-branch
+gh pr merge --squash --delete-branch
 ```
 
 ## Done Criteria

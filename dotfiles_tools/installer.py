@@ -137,8 +137,11 @@ def _copy_directory_operation(op: dict[str, Any]) -> None:
     source = Path(op["source"])
     target = Path(op["target"])
     target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists():
-        shutil.rmtree(target)
+    if target.exists() or target.is_symlink():
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target)
+        else:
+            target.unlink()
     shutil.copytree(source, target)
 
 

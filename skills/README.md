@@ -20,6 +20,6 @@ Or copy the skill directories manually:
 
 ```bash
 mkdir -p ~/.codex/skills
-cp -R ~/Apps/000-dotfiles-main/skills/bcm-direnv-codacy ~/.codex/skills/
-cp -R ~/Apps/000-dotfiles-main/skills/bcm-github-cicd ~/.codex/skills/
+cp -R ./bcm-direnv-codacy ~/.codex/skills/
+cp -R ./bcm-github-cicd ~/.codex/skills/
 ```
