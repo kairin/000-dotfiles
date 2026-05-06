@@ -1131,6 +1131,143 @@ exit 64
         self.assertIn("required checks are green but mergeStateStatus is UNSTABLE", result.stdout)
         self.assertIn("PR #17 is MERGED", result.stdout)
 
+    def make_repair_project(self, *, with_remote: bool = True) -> Path:
+        project = self.make_project()
+        subprocess.run(  # nosec B603
+            [shutil.which("git") or "git", "init", "-q"],
+            capture_output=True,
+            text=True,
+            cwd=str(project),
+            check=True,
+        )
+        if with_remote:
+            subprocess.run(  # nosec B603
+                [shutil.which("git") or "git", "remote", "add", "origin", "https://github.com/test/test.git"],
+                capture_output=True,
+                text=True,
+                cwd=str(project),
+                check=True,
+            )
+        return project
+
+    def write_codacy_token(self, home: Path, basename: str, value: str) -> Path:
+        token_dir = home / ".codacy"
+        token_dir.mkdir(parents=True, exist_ok=True)
+        token_dir.chmod(0o700)
+        path = token_dir / basename
+        path.write_text(value + "\n")
+        path.chmod(0o600)
+        return path
+
+    def test_repair_codacy_env_regenerates_block_for_existing_token_files(self) -> None:
+        project = self.make_repair_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_codacy_token(home, "account-token", "fake-account")
+        self.write_codacy_token(home, "test-test.project-token", "fake-project")
+
+        result = run_setup(
+            "repair-codacy-env", "--owner", "test", "--repo", "test", "--project", str(project),
+            env=self.env_for(bin_dir, home),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn("# BEGIN DOTFILES CODACY", local_text)
+        self.assertIn("# END DOTFILES CODACY", local_text)
+        self.assertIn('CODACY_ORGANIZATION_PROVIDER="gh"', local_text)
+        self.assertIn('CODACY_USERNAME="test"', local_text)
+        self.assertIn('CODACY_PROJECT_NAME="test"', local_text)
+        self.assertIn("export CODACY_ACCOUNT_TOKEN=", local_text)
+        self.assertIn("export CODACY_API_TOKEN=", local_text)
+        self.assertIn("export CODACY_PROJECT_TOKEN=", local_text)
+        self.assertNotIn("fake-account", local_text)
+        self.assertNotIn("fake-project", local_text)
+        self.assertNotIn("fake-account", result.stdout)
+        self.assertNotIn("fake-project", result.stdout)
+        self.assertEqual(oct((project / ".envrc.local").stat().st_mode & 0o777), "0o600")
+
+    def test_repair_codacy_env_only_one_token(self) -> None:
+        project = self.make_repair_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_codacy_token(home, "test-test.project-token", "fake-project")
+
+        result = run_setup(
+            "repair-codacy-env", "--owner", "test", "--repo", "test", "--project", str(project),
+            env=self.env_for(bin_dir, home),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn("export CODACY_PROJECT_TOKEN=", local_text)
+        self.assertNotIn("export CODACY_API_TOKEN=", local_text)
+        self.assertNotIn("export CODACY_ACCOUNT_TOKEN=", local_text)
+
+    def test_repair_codacy_env_fails_clearly_when_no_token_files_found(self) -> None:
+        project = self.make_repair_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        (home / ".codacy").mkdir()
+
+        result = run_setup(
+            "repair-codacy-env", "--owner", "test", "--repo", "test", "--project", str(project),
+            env=self.env_for(bin_dir, home),
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("no Codacy token files found", result.stderr)
+        self.assertFalse((project / ".envrc.local").exists())
+
+    def test_repair_codacy_env_fails_when_owner_repo_cannot_be_detected(self) -> None:
+        project = self.make_repair_project(with_remote=False)
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_codacy_token(home, "account-token", "fake-account")
+
+        result = run_setup(
+            "repair-codacy-env", "--project", str(project),
+            env=self.env_for(bin_dir, home),
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("could not detect GitHub owner/repo", result.stderr)
+        self.assertFalse((project / ".envrc.local").exists())
+
+    def test_repair_codacy_env_preserves_user_managed_envrc_local_lines(self) -> None:
+        project = self.make_repair_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_codacy_token(home, "account-token", "fake-account")
+        (project / ".envrc.local").write_text("# user header\nexport USER_VAR=1\n")
+
+        result = run_setup(
+            "repair-codacy-env", "--owner", "test", "--repo", "test", "--project", str(project),
+            env=self.env_for(bin_dir, home),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn("# user header", local_text)
+        self.assertIn("export USER_VAR=1", local_text)
+        self.assertEqual(local_text.count("# BEGIN DOTFILES CODACY"), 1)
+        self.assertEqual(local_text.count("# END DOTFILES CODACY"), 1)
+
+    def test_repair_codacy_env_detects_owner_repo_from_origin_remote(self) -> None:
+        project = self.make_repair_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_codacy_token(home, "test-test.project-token", "fake-project")
+
+        env = self.env_for(bin_dir, home)
+        result = run_setup("repair-codacy-env", cwd=project, env=env)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn('CODACY_USERNAME="test"', local_text)
+        self.assertIn('CODACY_PROJECT_NAME="test"', local_text)
+        self.assertIn("export CODACY_PROJECT_TOKEN=", local_text)
+
 
 if __name__ == "__main__":
     import unittest

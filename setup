@@ -73,6 +73,12 @@ Commands:
       base, poll the four required Codacy checks, then squash-merge. Requires
       CODACY_PROJECT_TOKEN and an authenticated gh.
 
+  repair-codacy-env [<project>] [--project PATH] [--owner OWNER] [--repo REPO]
+      Non-interactive: regenerate the managed Codacy block in
+      <project>/.envrc.local based on token files present in \$HOME/.codacy/.
+      Detects owner/repo from the project's origin remote unless provided.
+      Exits non-zero if owner/repo cannot be resolved or no token files exist.
+
   help, -h, --help
       Show this message.
 
@@ -1485,6 +1491,98 @@ EOF
   fi
 }
 
+cmd_repair_codacy_env() {
+  local project="" owner="" repo=""
+  while (($#)); do
+    case "$1" in
+      -h|--help)
+        usage
+        return 0
+        ;;
+      --project)
+        [[ $# -ge 2 ]] || die "--project requires a value"
+        project="$2"; shift 2
+        ;;
+      --owner)
+        [[ $# -ge 2 ]] || die "--owner requires a value"
+        owner="$2"; shift 2
+        ;;
+      --repo)
+        [[ $# -ge 2 ]] || die "--repo requires a value"
+        repo="$2"; shift 2
+        ;;
+      -*)
+        die "unknown flag for repair-codacy-env: $1"
+        ;;
+      *)
+        [[ -z "$project" ]] || die "repair-codacy-env accepts at most one project path"
+        project="$1"; shift
+        ;;
+    esac
+  done
+  [[ -n "$project" ]] || project="$PWD"
+  [[ -d "$project" ]] || die "project path is not a directory: $project"
+  project="$(cd -P "$project" && pwd)"
+  if [[ -z "$owner" || -z "$repo" ]]; then
+    local detected detected_lines
+    if detected="$(detect_github_identity "$project")"; then
+      mapfile -t detected_lines <<<"$detected"
+      [[ -n "$owner" ]] || owner="${detected_lines[0]:-}"
+      [[ -n "$repo"  ]] || repo="${detected_lines[1]:-}"
+    fi
+  fi
+  if [[ -z "$owner" || -z "$repo" ]]; then
+    die "could not detect GitHub owner/repo from origin remote in '$project'; pass --owner and --repo"
+  fi
+
+  local token_dir="$HOME/.codacy"
+  local account_file="$token_dir/account-token"
+  local project_basename="$(codacy_safe_name "$owner")-$(codacy_safe_name "$repo").project-token"
+  local project_file="$token_dir/$project_basename"
+  local has_account=0 has_project=0
+  [[ -f "$account_file" ]] && has_account=1
+  [[ -f "$project_file" ]] && has_project=1
+  if [[ "$has_account" -eq 0 && "$has_project" -eq 0 ]]; then
+    die "no Codacy token files found under '$token_dir'; create $account_file or $project_file first"
+  fi
+
+  local provider owner_escaped repo_escaped
+  provider="$(escape_env_double_quoted "gh")"
+  owner_escaped="$(escape_env_double_quoted "$owner")"
+  repo_escaped="$(escape_env_double_quoted "$repo")"
+
+  local block=""
+  block+="$CODACY_SECTION_BEGIN"$'\n'
+  block+="export CODACY_ORGANIZATION_PROVIDER=\"$provider\""$'\n'
+  block+="export CODACY_USERNAME=\"$owner_escaped\""$'\n'
+  block+="export CODACY_PROJECT_NAME=\"$repo_escaped\""$'\n'
+  local exported=()
+  if [[ "$has_account" -eq 1 ]]; then
+    block+="export CODACY_ACCOUNT_TOKEN=\"\$(cat \"$account_file\")\""$'\n'
+    block+="export CODACY_API_TOKEN=\"\$(cat \"$account_file\")\""$'\n'
+    exported+=("CODACY_ACCOUNT_TOKEN" "CODACY_API_TOKEN")
+  fi
+  if [[ "$has_project" -eq 1 ]]; then
+    block+="export CODACY_PROJECT_TOKEN=\"\$(cat \"$project_file\")\""$'\n'
+    exported+=("CODACY_PROJECT_TOKEN")
+  fi
+  block+="$CODACY_SECTION_END"
+
+  local envrc_local="$project/.envrc.local"
+  local envrc_local_content
+  envrc_local_content="$(build_envrc_local_content "$envrc_local" "$block")"
+  write_file_if_changed "$envrc_local" "$envrc_local_content" 600
+
+  echo "Codacy environment repaired for $owner/$repo"
+  echo "  Project: $project"
+  echo "  Wrote: $envrc_local"
+  echo "  Token files detected:"
+  [[ "$has_account" -eq 1 ]] && echo "    - $account_file"
+  [[ "$has_project" -eq 1 ]] && echo "    - $project_file"
+  local IFS=' '
+  echo "  Exports written: ${exported[*]}"
+}
+
 configure_machine_api_tokens() {
   while true; do
     echo
@@ -1743,6 +1841,7 @@ main() {
     doctor) cmd_doctor "$@" ;;
     quality) cmd_quality "$@" ;;
     ship)   cmd_ship "$@" ;;
+    repair-codacy-env) cmd_repair_codacy_env "$@" ;;
     help|-h|--help) usage ;;
     *)
       if [[ $# -eq 0 && -d "$sub" ]]; then
