@@ -211,6 +211,13 @@ cat "{installer_path}"
             cwd=str(repo),
             check=True,
         )
+        subprocess.run(  # nosec B603
+            ["git", "config", "commit.gpgsign", "false"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
         (repo / "README.md").write_text("# fake ship repo\n")
         subprocess.run(  # nosec B603
             ["git", "add", "setup", "README.md"],
