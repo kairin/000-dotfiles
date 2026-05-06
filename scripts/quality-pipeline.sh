@@ -85,7 +85,23 @@ fi
 # ----------------------------------------------------------------------------
 echo -e "\n${CYAN}[STAGE 3/7] Running pylint analysis...${NC}"
 SARIF="/tmp/pylint-$$.sarif"
-codacy-cli analyze --tool pylint --format sarif -o "$SARIF"
+# codacy-cli analyze propagates pylint's bitmask exit code (28 = W+R+C found),
+# which is not a pipeline failure — violations are expected and reported via
+# SARIF. Only fail if the SARIF file was not produced AND a token is configured
+# (meaning an upload was expected). Without a token the upload is skipped
+# regardless, so a missing SARIF is non-fatal (e.g. CI runtime download issues).
+analyze_rc=0
+codacy-cli analyze --tool pylint --format sarif -o "$SARIF" || analyze_rc=$?
+if (( analyze_rc != 0 )); then
+  echo -e "${YELLOW}⚠ codacy-cli analyze exited $analyze_rc (pylint violations found; will be uploaded to Codacy)${NC}"
+fi
+if [[ ! -s "$SARIF" ]]; then
+  if [[ -n "$TOKEN" ]]; then
+    echo -e "${RED}✗ codacy-cli analyze produced no SARIF output${NC}" >&2
+    exit 1
+  fi
+  echo -e "${YELLOW}⚠ codacy-cli analyze produced no SARIF — upload skipped (no token configured)${NC}"
+fi
 
 # ----------------------------------------------------------------------------
 # Stage 4: coverage upload — handled by .github/workflows/dotfiles-validation.yml
@@ -105,6 +121,8 @@ if [[ -z "$TOKEN" ]]; then
   echo -e "${YELLOW}⚠ CODACY_PROJECT_TOKEN not set — skipping SARIF upload (the GH App may not post the static-analysis check without it).${NC}"
 elif [[ "${SKIP_CODACY_UPLOAD:-0}" = "1" ]]; then
   echo -e "${YELLOW}⚠ SKIP_CODACY_UPLOAD=1 — skipping SARIF upload by request.${NC}"
+elif [[ ! -s "${SARIF:-}" ]]; then
+  echo -e "${YELLOW}⚠ No SARIF to upload — codacy-cli analyze produced no output.${NC}"
 else
   BASE_SHA="$(git merge-base HEAD origin/main 2>/dev/null || git rev-parse origin/main 2>/dev/null || echo "")"
 
@@ -133,7 +151,7 @@ else
   fi
 fi
 
-rm -f "$SARIF"
+rm -f "${SARIF:-}"
 
 # ----------------------------------------------------------------------------
 # Stage 7: server-side gate (informational)
