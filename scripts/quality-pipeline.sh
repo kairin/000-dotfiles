@@ -114,11 +114,13 @@ HEAD_SHA="$(git rev-parse HEAD)"
 # Stages 5-6: SARIF upload for HEAD and merge-base (with retry)
 # ----------------------------------------------------------------------------
 echo -e "\n${CYAN}[STAGE 5/7] CODACY STATIC CODE ANALYSIS — SARIF UPLOAD${NC}"
+echo "DEBUG: HEAD_SHA=$HEAD_SHA" >&2
 
 if [[ "${SKIP_CODACY_UPLOAD:-0}" = "1" ]]; then
   echo -e "${YELLOW}⚠ SKIP_CODACY_UPLOAD=1 — skipping SARIF upload by request.${NC}"
 else
   BASE_SHA="$(git merge-base HEAD origin/main 2>/dev/null || git rev-parse origin/main 2>/dev/null || echo "")"
+  echo "DEBUG: BASE_SHA=$BASE_SHA" >&2
 
   upload_with_retry() {
     local sha="$1"
