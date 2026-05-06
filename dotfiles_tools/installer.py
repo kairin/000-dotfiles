@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -133,7 +134,6 @@ def _copy_operation(op: dict[str, Any], repo_path: Path) -> None:
 
 
 def _copy_directory_operation(op: dict[str, Any]) -> None:
-    import shutil
     source = Path(op["source"])
     target = Path(op["target"])
     target.parent.mkdir(parents=True, exist_ok=True)
