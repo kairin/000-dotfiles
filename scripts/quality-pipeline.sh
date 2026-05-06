@@ -110,6 +110,20 @@ fi
 # ----------------------------------------------------------------------------
 HEAD_SHA="$(git rev-parse HEAD)"
 
+# Validate SHA is a valid commit hash (40-char hex), not a ref name
+validate_sha() {
+  local sha="$1"
+  if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+    echo -e "${RED}✗ FATAL: Invalid commit SHA: '$sha'${NC}" >&2
+    echo "  Expected 40-character hex string, got: $sha" >&2
+    echo "  This usually means git merge-base failed in a shallow clone." >&2
+    echo "  Check GitHub Actions fetch-depth or git configuration." >&2
+    exit 1
+  fi
+}
+
+validate_sha "$HEAD_SHA" || exit 1
+
 # ----------------------------------------------------------------------------
 # Stages 5-6: SARIF upload for HEAD and merge-base (with retry)
 # ----------------------------------------------------------------------------
@@ -119,6 +133,8 @@ echo "DEBUG: HEAD_SHA=$HEAD_SHA" >&2
 if [[ "${SKIP_CODACY_UPLOAD:-0}" = "1" ]]; then
   echo -e "${YELLOW}⚠ SKIP_CODACY_UPLOAD=1 — skipping SARIF upload by request.${NC}"
 else
+  # In shallow clones (GitHub Actions with fetch-depth=1), git merge-base may fail.
+  # Gracefully fall back to empty BASE_SHA to skip base upload if merge-base unavailable.
   BASE_SHA=""
   if git merge-base HEAD origin/main >/dev/null 2>&1; then
     BASE_SHA="$(git merge-base HEAD origin/main)"
@@ -151,6 +167,7 @@ else
 
   echo -e "\n${CYAN}[STAGE 6/7] SARIF upload for merge-base...${NC}"
   if [[ -n "$BASE_SHA" && "$BASE_SHA" != "$HEAD_SHA" ]]; then
+    validate_sha "$BASE_SHA" || exit 1
     upload_with_retry "$BASE_SHA" || exit 1
     echo -e "${GREEN}✓ SARIF uploaded for HEAD ($HEAD_SHA) and base ($BASE_SHA).${NC}"
   else
