@@ -80,7 +80,7 @@ class SetupScriptTests(DotfilesTestCase):
         if not (bin_dir / "gh").exists():
             self.write_executable(
                 bin_dir / "gh",
-                "#!/usr/bin/env bash\n[[ \"${1:-}\" == auth && \"${2:-}\" == status ]] && exit 0\nexit 1\n",
+                "#!/usr/bin/env bash\n[[\"${1:-}\" == auth && \"${2:-}\" == status ]] && exit 0\nexit 1\n",
             )
         return bin_dir
 
@@ -211,6 +211,13 @@ cat "{installer_path}"
             cwd=str(repo),
             check=True,
         )
+        subprocess.run(  # nosec B603
+            ["git", "config", "commit.gpgsign", "false"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
         (repo / "README.md").write_text("# fake ship repo\n")
         subprocess.run(  # nosec B603
             ["git", "add", "setup", "README.md"],
@@ -321,7 +328,7 @@ cmd="${{1:-}}"
 shift || true
 case "$cmd" in
   auth)
-    [[ "${{1:-}}" == "status" ]] && exit 0
+    [["${{1:-}}" == "status" ]] && exit 0
     ;;
   pr)
     sub="${{1:-}}"
@@ -374,26 +381,26 @@ JSON
           printf '%s\\n' "$count" > "{check_count_file}"
           if [[ "$count" == "1" ]]; then
             cat <<'JSON'
-Codacy Coverage Variation	success
-Codacy Diff Coverage	success
-codacy-safety-net	success
+Codacy Coverage Variation\tsuccess
+Codacy Diff Coverage\tsuccess
+codacy-safety-net\tsuccess
 JSON
             exit 0
           fi
         fi
         if [[ "${{FAKE_GH_CHECK_MODE:-}}" == "missing-static" ]]; then
           cat <<'JSON'
-Codacy Coverage Variation	success
-Codacy Diff Coverage	success
-codacy-safety-net	success
+Codacy Coverage Variation\tsuccess
+Codacy Diff Coverage\tsuccess
+codacy-safety-net\tsuccess
 JSON
           exit 0
         fi
         cat <<'JSON'
-Codacy Static Code Analysis	success
-Codacy Coverage Variation	success
-Codacy Diff Coverage	success
-codacy-safety-net	success
+Codacy Static Code Analysis\tsuccess
+Codacy Coverage Variation\tsuccess
+Codacy Diff Coverage\tsuccess
+codacy-safety-net\tsuccess
 JSON
         exit 0
         ;;
