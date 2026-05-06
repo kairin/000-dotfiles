@@ -108,11 +108,40 @@ elif [[ "${SKIP_CODACY_UPLOAD:-0}" = "1" ]]; then
 else
   BASE_SHA="$(git merge-base HEAD origin/main 2>/dev/null || git rev-parse origin/main 2>/dev/null || echo "")"
 
+  # Resolve project coordinates from env or git remote so the upload is always
+  # attributed to the right Codacy project regardless of where the script runs.
+  _codacy_provider() {
+    local remote="${1:-}"
+    case "$remote" in
+      *github.com*)  echo "gh" ;;
+      *gitlab.com*)  echo "gl" ;;
+      *bitbucket.org*) echo "bb" ;;
+      *)             echo "gh" ;;
+    esac
+  }
+  REMOTE_URL="$(git remote get-url origin 2>/dev/null || echo "")"
+  if [[ "$REMOTE_URL" =~ [:/]([^/:][^/]*)/([^/.]+)(\.git)?$ ]]; then
+    _OWNER="${BASH_REMATCH[1]}"
+    _REPO="${BASH_REMATCH[2]}"
+  else
+    _OWNER=""
+    _REPO=""
+  fi
+  UPLOAD_OWNER="${CODACY_USERNAME:-${_OWNER}}"
+  UPLOAD_PROVIDER="${CODACY_ORGANIZATION_PROVIDER:-$(_codacy_provider "$REMOTE_URL")}"
+  UPLOAD_REPO="${CODACY_PROJECT_NAME:-${_REPO}}"
+
   upload_with_retry() {
     local sha="$1"
     local attempt
     for attempt in 1 2; do
-      if codacy-cli upload -s "$SARIF" -c "$sha" -t "$TOKEN"; then
+      if codacy-cli upload \
+          -s "$SARIF" \
+          -c "$sha" \
+          -t "$TOKEN" \
+          ${UPLOAD_OWNER:+-o "$UPLOAD_OWNER"} \
+          ${UPLOAD_PROVIDER:+-p "$UPLOAD_PROVIDER"} \
+          ${UPLOAD_REPO:+-r "$UPLOAD_REPO"}; then
         return 0
       fi
       echo -e "${YELLOW}Upload attempt $attempt failed for $sha; retrying in 5s...${NC}"
