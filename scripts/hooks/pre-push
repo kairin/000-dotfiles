@@ -118,10 +118,9 @@ if [[ -z "${CODACY_PROJECT_TOKEN:-}" ]]; then
 elif [[ "${SKIP_CODACY_UPLOAD:-0}" == "1" ]]; then
     echo -e "${GREEN}✓ SKIP_CODACY_UPLOAD=1 — skipping by request.${NC}"
 else
-    # Run in a subshell; failure is informational — the commit isn't on
-    # GitHub yet when pre-push runs, so Codacy's API returns 404 for new
-    # SHAs. Actual enforcement is via ./setup ship and the CI workflow.
-    if bash "$REPO_ROOT/scripts/quality-pipeline.sh" --codacy-only; then
+    # Run analysis only here. The commit is not on GitHub yet during pre-push,
+    # so the upload stage is guaranteed to 404 and only adds noise.
+    if SKIP_CODACY_UPLOAD=1 bash "$REPO_ROOT/scripts/quality-pipeline.sh" --codacy-only; then
         echo -e "${GREEN}✓ Codacy SARIF uploaded${NC}"
     else
         echo -e "${YELLOW}⚠ Codacy SARIF upload failed (commit not yet on GitHub — expected). Use ./setup ship after merge.${NC}"
