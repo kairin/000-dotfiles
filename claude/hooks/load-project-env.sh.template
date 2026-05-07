@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+log() {
+  printf '[claude-env] %s\n' "$*"
+}
+
+finish() {
+  return 0 2>/dev/null || exit 0
+}
+
+find_project_root() {
+  local dir="${1:-$PWD}"
+  while [[ "$dir" != "/" ]]; do
+    if [[ -f "$dir/.envrc" || -f "$dir/.envrc.local" || -f "$dir/.claude/env-allowlist" ]]; then
+      printf '%s\n' "$dir"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+  return 1
+}
+
+project_root="$(find_project_root "$PWD" 2>/dev/null || true)"
+if [[ -z "$project_root" ]]; then
+  log "no project env files found"
+  finish
+fi
+
+if ! command -v direnv >/dev/null 2>&1; then
+  log "direnv not installed; skipping"
+  finish
+fi
+
+if ! cd "$project_root"; then
+  log "could not enter project root: $project_root"
+  finish
+fi
+
+direnv_output="$(direnv export bash 2>/dev/null || true)"
+if [[ -z "$direnv_output" ]]; then
+  log "direnv export failed for $project_root"
+  finish
+fi
+
+eval "$direnv_output"
+
+allowlist_file="$project_root/.claude/env-allowlist"
+if [[ -f "$allowlist_file" ]]; then
+  exported=()
+  while IFS= read -r env_name || [[ -n "$env_name" ]]; do
+    [[ -z "$env_name" || "$env_name" == \#* ]] && continue
+    if [[ -n "${!env_name:-}" ]]; then
+      exported+=("$env_name")
+    fi
+  done < "$allowlist_file"
+  if [[ ${#exported[@]} -gt 0 ]]; then
+    log "loaded project env from $project_root (${exported[*]})"
+  else
+    log "loaded project env from $project_root"
+  fi
+else
+  log "loaded project env from $project_root"
+fi
+

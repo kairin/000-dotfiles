@@ -47,10 +47,14 @@ TOOL_BASELINE = (
             "keyring_url": "https://cli.github.com/packages/githubcli-archive-keyring.gpg",
             "keyring_path": "/etc/apt/keyrings/githubcli-archive-keyring.gpg",
             "source_line": (
-                "deb [arch={ARCH} signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg]"
-                " https://cli.github.com/packages stable main"
+                "Types: deb\n"
+                "URIs: https://cli.github.com/packages/\n"
+                "Suites: stable\n"
+                "Components: main\n"
+                "Architectures: {ARCH}\n"
+                "Signed-By: /etc/apt/keyrings/githubcli-archive-keyring.gpg"
             ),
-            "source_path": "/etc/apt/sources.list.d/github-cli.list",
+            "source_path": "/etc/apt/sources.list.d/github-cli.sources",
         },
         "requires_sudo": True,
         "install_hint": "Installed by the setup tool-install menu option (GitHub keyring repo).",

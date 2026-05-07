@@ -10,6 +10,7 @@ class ApplyInstallTests(DotfilesTestCase):
         report = apply_plan(REPO_ROOT, home, backup_dir=home / ".dotfiles-backups", yes=True)
         self.assertEqual(report.status, "warning")
         self.assertTrue((home / ".claude" / "settings.json").exists())
+        self.assertTrue((home / ".claude" / "hooks" / "load-project-env.sh").exists())
         self.assertTrue((home / ".config" / "fish" / "functions" / "direnv.fish").exists())
         self.assertFalse((home / ".config" / "git" / "config").exists())
 

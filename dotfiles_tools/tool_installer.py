@@ -498,6 +498,10 @@ def _execute_apt_keyring(op: dict[str, Any], runner: CommandRunner, cache_dir: P
     cached_source = cache_dir / source_path.name
     cached_source.write_text(rendered_source + "\n")
     runner.run([*prefix, "install", "-D", "-m", "0644", str(cached_source), str(source_path)])
+    if source_path.suffix == ".sources":
+        legacy_source = source_path.with_suffix(".list")
+        if legacy_source.exists():
+            runner.run([*prefix, "rm", "-f", str(legacy_source)])
 
     _apt_update_then_install(runner, prefix, apt_get, packages, mode=op.get("mode", "install"))
     return 1

@@ -135,6 +135,17 @@ class ToolInstallPlanTests(DotfilesTestCase):
         self.assertEqual(len(gh_ops), 1)
         self.assertEqual(gh_ops[0]["mode"], "upgrade")
 
+    def test_apt_keyring_for_gh_uses_deb822_source_file(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"dpkg-query": "/usr/bin/dpkg-query"})
+        plan = build_tool_install_plan(home, runner=runner)
+        gh_entry = next(entry for entry in plan["entries"] if entry.get("entry_id") == "tools.gh")
+        gh_ops = [op for op in plan["operations"] if op.get("entry_id") == "tools.gh"]
+        self.assertEqual(gh_entry["install_method"], "apt_keyring")
+        self.assertEqual(gh_entry["action"], "install")
+        self.assertEqual(gh_ops[0]["source_path"], "/etc/apt/sources.list.d/github-cli.sources")
+        self.assertIn("Types: deb", gh_ops[0]["source_line"])
+
     def test_curl_installer_for_claude_install(self) -> None:
         home = self.make_home()
         runner = FakeRunner(which={"dpkg-query": "/usr/bin/dpkg-query"})
@@ -483,8 +494,15 @@ class ToolInstallExecuteTests(DotfilesTestCase):
             "packages": ["gh"],
             "keyring_url": "https://example.test/keyring.gpg",
             "keyring_path": str(home / "keyrings" / "gh.gpg"),
-            "source_line": "deb [arch={ARCH} signed-by=...] https://example.test stable main",
-            "source_path": str(home / "sources.list.d" / "gh.list"),
+            "source_line": (
+                "Types: deb\n"
+                "URIs: https://example.test/\n"
+                "Suites: stable\n"
+                "Components: main\n"
+                "Architectures: {ARCH}\n"
+                "Signed-By: ..."
+            ),
+            "source_path": str(home / "sources.list.d" / "gh.sources"),
             "cache_dir": str(cache_dir),
         }
         execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
@@ -492,9 +510,42 @@ class ToolInstallExecuteTests(DotfilesTestCase):
         # First install command should be the keyring file.
         install_cmds = [cmd for cmd in runner.commands if cmd[:1] == ["sudo"] and "install" in cmd]
         self.assertGreaterEqual(len(install_cmds), 2)
-        # Source line was rendered with the architecture.
-        rendered_source_path = cache_dir / "gh.list"
-        self.assertIn("arch=amd64", rendered_source_path.read_text())
+        # Source document was rendered with the architecture.
+        rendered_source_path = cache_dir / "gh.sources"
+        self.assertIn("Architectures: amd64", rendered_source_path.read_text())
+
+    def test_apt_keyring_removes_legacy_list_when_sources_file_is_used(self) -> None:
+        home = self.make_home()
+        cache_dir = home / ".cache" / "tool-installers"
+        source_dir = home / "sources.list.d"
+        source_dir.mkdir(parents=True, exist_ok=True)
+        legacy_source = source_dir / "gh.list"
+        legacy_source.write_text("deb https://example.test stable main\n")
+        keyring_path = home / "keyrings" / "gh.gpg"
+        keyring_path.parent.mkdir(parents=True, exist_ok=True)
+        keyring_path.write_text("fake-keyring")
+        runner = FakeRunner(which={"apt-get": "/usr/bin/apt-get", "dpkg": "/usr/bin/dpkg"})
+        op = {
+            "entry_id": "tools.gh",
+            "recipe": "tool_installs",
+            "type": "tool_install_apt_keyring",
+            "mode": "install",
+            "packages": ["gh"],
+            "keyring_url": "https://example.test/keyring.gpg",
+            "keyring_path": str(keyring_path),
+            "source_line": (
+                "Types: deb\n"
+                "URIs: https://example.test/\n"
+                "Suites: stable\n"
+                "Components: main\n"
+                "Architectures: {ARCH}\n"
+                "Signed-By: ..."
+            ),
+            "source_path": str(source_dir / "gh.sources"),
+            "cache_dir": str(cache_dir),
+        }
+        execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
+        self.assertIn(["sudo", "rm", "-f", str(legacy_source)], runner.commands)
 
     def test_sudo_gating_as_root(self) -> None:
         home = self.make_home()

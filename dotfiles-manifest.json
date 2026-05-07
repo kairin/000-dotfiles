@@ -7,6 +7,7 @@
         "claude.settings",
         "claude.keybindings",
         "claude.global-instructions",
+        "claude.load-project-env",
         "claude.mcp-servers",
         "codex.config",
         "codex.default-rules",
@@ -61,6 +62,16 @@
       "profiles": ["machine"],
       "protected": false,
       "user_customizable": true,
+      "placeholders": "none"
+    },
+    {
+      "id": "claude.load-project-env",
+      "source": "claude/hooks/load-project-env.sh.template",
+      "target": ".claude/hooks/load-project-env.sh",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "user_customizable": false,
       "placeholders": "none"
     },
     {
