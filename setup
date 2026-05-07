@@ -1324,10 +1324,10 @@ verify_codacy_environment() {
       verification_cmd='[[ -n "${CODACY_ORGANIZATION_PROVIDER:-}" && -n "${CODACY_USERNAME:-}" && -n "${CODACY_PROJECT_NAME:-}" && -n "${CODACY_PROJECT_TOKEN:-}" && -n "${CODACY_API_TOKEN:-}" ]]'
       ;;
     account)
-      verification_cmd='[[ -n "${CODACY_ORGANIZATION_PROVIDER:-}" && -n "${CODACY_USERNAME:-}" && -n "${CODACY_PROJECT_NAME:-}" && -n "${CODACY_ACCOUNT_TOKEN:-}" && -n "${CODACY_API_TOKEN:-}" ]]'
+      verification_cmd='[[ -n "${CODACY_ORGANIZATION_PROVIDER:-}" && -n "${CODACY_USERNAME:-}" && -n "${CODACY_PROJECT_NAME:-}" && -n "${CODACY_API_TOKEN:-}" ]]'
       ;;
     both)
-      verification_cmd='[[ -n "${CODACY_ORGANIZATION_PROVIDER:-}" && -n "${CODACY_USERNAME:-}" && -n "${CODACY_PROJECT_NAME:-}" && -n "${CODACY_PROJECT_TOKEN:-}" && -n "${CODACY_ACCOUNT_TOKEN:-}" && -n "${CODACY_API_TOKEN:-}" ]]'
+      verification_cmd='[[ -n "${CODACY_ORGANIZATION_PROVIDER:-}" && -n "${CODACY_USERNAME:-}" && -n "${CODACY_PROJECT_NAME:-}" && -n "${CODACY_PROJECT_TOKEN:-}" && -n "${CODACY_API_TOKEN:-}" ]]'
       ;;
     *)
       echo "✗ Codacy $mode_label environment verification failed: unknown verification mode '$verification_kind'."
