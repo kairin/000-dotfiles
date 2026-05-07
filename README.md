@@ -192,7 +192,7 @@ A good dotfiles repo should:
 | Directory | Target on disk | Contents |
 |---|---|---|
 | `agents/` | a project root | `AGENTS.md` + `CLAUDE.md`/`GEMINI.md`/`copilot-instructions.md` templates |
-| `claude/` | `~/.claude/` | `settings.json`, `keybindings.json`, global `CLAUDE.md` |
+| `claude/` | `~/.claude/` | `settings.json`, `keybindings.json`, global `CLAUDE.md`, `hooks/load-project-env.sh` |
 | `codex/` | `~/.codex/` | `config.toml`, `rules/default.rules` |
 | `gemini/` | `~/.gemini/` | `settings.json`, global `GEMINI.md` |
 | `gh/` | `~/.config/gh/` | `config.yml` |

@@ -366,9 +366,33 @@ check_api_credentials() {
     echo "  HuggingFace          ✗ Not configured"
   fi
 
-  # Check Codacy token (account token or any project token)
-  if [[ -f "$HOME/.codacy/account-token" ]] || ls "$HOME/.codacy"/*.project-token >/dev/null 2>&1; then
-    echo "  Codacy               ✓ Token found"
+  # Check Codacy account token — prefer env var, fall back to file
+  local codacy_token="${CODACY_ACCOUNT_TOKEN:-}"
+  if [[ -z "$codacy_token" && -f "$HOME/.codacy/account-token" ]]; then
+    codacy_token="$(cat "$HOME/.codacy/account-token")"
+  fi
+  if [[ -n "$codacy_token" ]] && command -v curl >/dev/null 2>&1; then
+    local codacy_response codacy_name
+    codacy_response="$(curl -sf --max-time 5 \
+      -H "api-token: $codacy_token" \
+      "https://app.codacy.com/api/v3/user" 2>/dev/null || true)"
+    if [[ -n "$codacy_response" ]]; then
+      if command -v jq >/dev/null 2>&1; then
+        codacy_name="$(printf '%s' "$codacy_response" | jq -r '.data.name // empty' 2>/dev/null || true)"
+      else
+        codacy_name="$(printf '%s' "$codacy_response" | python3 -c \
+          'import json,sys; d=json.load(sys.stdin); print(d["data"]["name"])' 2>/dev/null || true)"
+      fi
+      if [[ -n "$codacy_name" ]]; then
+        echo "  Codacy               ✓ Authenticated as $codacy_name"
+      else
+        echo "  Codacy               ✗ Token invalid (API call failed)"
+      fi
+    else
+      echo "  Codacy               ✗ Token invalid (no response from API)"
+    fi
+  elif [[ -n "$codacy_token" ]]; then
+    echo "  Codacy               ✓ Token found (curl unavailable, skipping live check)"
   else
     echo "  Codacy               ✗ Not configured"
   fi
@@ -1028,7 +1052,7 @@ machine_menu_loop() {
     local opt2="  2. Apply safe non-protected dotfiles and approved install/update recipes."
     local opt3="  3. Show full technical details."
     local opt4="  4. Show tool and sign-in guidance."
-    local opt5="  5. Configure API tokens (GitHub, HuggingFace, Codacy)."
+    local opt5="  5. Configure / verify API tokens (GitHub, HuggingFace, Codacy)."
     local opt6="  6. Exit without writing."
     [[ "$rec_opt" == "1" ]] && opt1+=" [recommended]"
     [[ "$rec_opt" == "2" ]] && opt2+=" [recommended]"
@@ -1292,6 +1316,83 @@ build_envrc_local_content() {
   printf '%s' "$output"
 }
 
+verify_codacy_environment() {
+  local project="$1" verification_kind="$2" mode_label="$3"
+  local verification_cmd
+  case "$verification_kind" in
+    project)
+      verification_cmd='[[ -n "${CODACY_ORGANIZATION_PROVIDER:-}" && -n "${CODACY_USERNAME:-}" && -n "${CODACY_PROJECT_NAME:-}" && -n "${CODACY_PROJECT_TOKEN:-}" && -n "${CODACY_API_TOKEN:-}" ]]'
+      ;;
+    account)
+      verification_cmd='[[ -n "${CODACY_ORGANIZATION_PROVIDER:-}" && -n "${CODACY_USERNAME:-}" && -n "${CODACY_PROJECT_NAME:-}" && -n "${CODACY_API_TOKEN:-}" ]]'
+      ;;
+    both)
+      verification_cmd='[[ -n "${CODACY_ORGANIZATION_PROVIDER:-}" && -n "${CODACY_USERNAME:-}" && -n "${CODACY_PROJECT_NAME:-}" && -n "${CODACY_PROJECT_TOKEN:-}" && -n "${CODACY_API_TOKEN:-}" ]]'
+      ;;
+    *)
+      echo "✗ Codacy $mode_label environment verification failed: unknown verification mode '$verification_kind'."
+      return 1
+      ;;
+  esac
+
+  if ! command -v direnv >/dev/null 2>&1; then
+    echo "✗ Codacy $mode_label environment verification failed: direnv is not installed."
+    return 1
+  fi
+
+  if direnv exec "$project" bash -lc "$verification_cmd" >/dev/null 2>&1; then
+    echo "✓ Codacy $mode_label environment verified for $project"
+    return 0
+  fi
+
+  echo "✗ Codacy $mode_label environment verification failed for $project"
+  echo "  Run: direnv allow \"$project\""
+  return 1
+}
+
+verify_github_environment() {
+  local project="$1"
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "✗ GitHub authentication verification failed: gh is not installed."
+    return 1
+  fi
+
+  if [[ -n "$project" && -d "$project" ]] && command -v direnv >/dev/null 2>&1; then
+    if direnv exec "$project" bash -lc '[[ -n "${GITHUB_TOKEN:-}" ]] && gh auth status >/dev/null 2>&1' >/dev/null 2>&1; then
+      echo "✓ GitHub authentication verified for $project"
+      return 0
+    fi
+    echo "✗ GitHub authentication verification failed for $project"
+    echo "  Run: gh auth status -h github.com"
+    return 1
+  fi
+
+  if gh auth status >/dev/null 2>&1; then
+    echo "✓ GitHub authentication verified"
+    return 0
+  fi
+
+  echo "✗ GitHub authentication verification failed"
+  echo "  Run: gh auth login -h github.com"
+  return 1
+}
+
+verify_huggingface_environment() {
+  if ! command -v hf >/dev/null 2>&1; then
+    echo "✗ HuggingFace Hub authentication verification failed: hf is not installed."
+    return 1
+  fi
+
+  if hf auth status >/dev/null 2>&1; then
+    echo "✓ HuggingFace Hub authentication verified"
+    return 0
+  fi
+
+  echo "✗ HuggingFace Hub authentication verification failed"
+  echo "  Run: hf auth login"
+  return 1
+}
+
 backup_existing_file() {
   local path="$1" ts backup counter=0
   ts="$(date +%Y%m%d%H%M%S)"
@@ -1500,6 +1601,8 @@ EOF
     echo "Note: direnv not installed. Install via './setup' (machine setup)."
     echo "Once installed, run: direnv allow \"$project\""
   fi
+
+  verify_codacy_environment "$project" "$token_name" "$mode_label" || true
 }
 
 cmd_repair_codacy_env() {
@@ -1592,29 +1695,46 @@ cmd_repair_codacy_env() {
   [[ "$has_project" -eq 1 ]] && echo "    - $project_file"
   local IFS=' '
   echo "  Exports written: ${exported[*]}"
+
+  local verification_kind verification_label
+  if [[ "$has_account" -eq 1 && "$has_project" -eq 1 ]]; then
+    verification_kind="both"
+    verification_label="Codacy repository/account token"
+  elif [[ "$has_project" -eq 1 ]]; then
+    verification_kind="project"
+    verification_label="Codacy repository token"
+  else
+    verification_kind="account"
+    verification_label="Codacy account token"
+  fi
+
+  if command -v direnv >/dev/null 2>&1; then
+    direnv allow "$project" >/dev/null 2>&1 || true
+  fi
+  verify_codacy_environment "$project" "$verification_kind" "$verification_label" || true
 }
 
 configure_machine_api_tokens() {
   while true; do
     echo
     echo "Machine-level API Authentication:"
-    local gh_status="Configure" hf_status="Configure" codacy_status="Configure"
+    local gh_status="needs setup" hf_status="needs setup" codacy_status="needs setup"
 
     # Check status for display
     if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-      gh_status="Reconfigure"
+      gh_status="verified"
     fi
     if [[ -f "$HOME/.cache/huggingface/token" ]]; then
-      hf_status="Reconfigure"
+      hf_status="verified"
     fi
     if [[ -f "$HOME/.codacy/account-token" ]] || ls "$HOME/.codacy"/*.project-token >/dev/null 2>&1; then
-      codacy_status="Reconfigure"
+      codacy_status="verified"
     fi
 
     cat <<EOF
-  1. $gh_status GitHub (gh) authentication
-  2. $hf_status HuggingFace Hub access
-  3. $codacy_status Codacy API access (account token + project token)
+  1. GitHub (gh) authentication [$gh_status]
+  2. HuggingFace Hub access [$hf_status]
+  3. Codacy API access (account token + project token) [$codacy_status]
   4. Back to main menu
 EOF
 
@@ -1681,6 +1801,7 @@ configure_gh_auth() {
           ensure_github_token_in_envrc_local "$envrc_local"
         fi
       fi
+      verify_github_environment "$project" || true
     fi
   fi
 }
@@ -1703,6 +1824,7 @@ configure_huggingface_global() {
     hf auth login
     if [[ -f "$HOME/.cache/huggingface/token" ]]; then
       echo "✓ HuggingFace token configured"
+      verify_huggingface_environment || true
     fi
   fi
 }

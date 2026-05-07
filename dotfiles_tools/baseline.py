@@ -47,10 +47,14 @@ TOOL_BASELINE = (
             "keyring_url": "https://cli.github.com/packages/githubcli-archive-keyring.gpg",
             "keyring_path": "/etc/apt/keyrings/githubcli-archive-keyring.gpg",
             "source_line": (
-                "deb [arch={ARCH} signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg]"
-                " https://cli.github.com/packages stable main"
+                "Types: deb\n"
+                "URIs: https://cli.github.com/packages/\n"
+                "Suites: stable\n"
+                "Components: main\n"
+                "Architectures: {ARCH}\n"
+                "Signed-By: /etc/apt/keyrings/githubcli-archive-keyring.gpg"
             ),
-            "source_path": "/etc/apt/sources.list.d/github-cli.list",
+            "source_path": "/etc/apt/sources.list.d/github-cli.sources",
         },
         "requires_sudo": True,
         "install_hint": "Installed by the setup tool-install menu option (GitHub keyring repo).",
@@ -364,9 +368,6 @@ def _tool_check(item: dict[str, Any], search_path: str) -> dict[str, Any]:
 
 def _auth_check(item: dict[str, str], search_path: str, home: Path) -> dict[str, str]:
     tool = item.get("tool")
-    found = shutil.which(tool, path=search_path) if tool else None
-    tool_present = bool(found) or tool is None
-
     base: dict[str, Any] = {
         "id": item["id"],
         "tool": tool,
@@ -374,36 +375,53 @@ def _auth_check(item: dict[str, str], search_path: str, home: Path) -> dict[str,
         "guidance": item["guidance"],
     }
 
-    if not tool_present:
+    if not _auth_tool_present(tool, search_path):
         return {**base, "state": "tool_missing"}
 
     verify_file = item.get("verify_file")
     if verify_file:
-        # Resolve ~ against the audited home, not the process home.
-        p = home / verify_file.lstrip("~/") if verify_file.startswith("~/") else Path(verify_file)
-        if p.exists() and p.read_text().strip():
-            return {**base, "state": "signed_in", "signed_in_detail": f"token present at {verify_file}"}
-        return {**base, "state": "available"}
+        return _auth_check_verify_file(base, verify_file, home)
 
     verify = item.get("verify")
     if verify:
-        try:
-            # Use the same PATH the tool was found on so the right binary is called.
-            env = {**os.environ, "PATH": search_path, "HOME": str(home)}
-            result = subprocess.run(  # nosec B603
-                list(verify),
-                capture_output=True,
-                text=True,
-                timeout=8,
-                env=env,
-            )
-            if result.returncode == 0:
-                detail = _extract_signed_in_detail(result.stdout + result.stderr)
-                return {**base, "state": "signed_in", "signed_in_detail": detail}
-        except Exception:  # noqa: BLE001
-            pass
-        return {**base, "state": "available"}
+        return _auth_check_verify_command(base, verify, search_path, home)
 
+    return {**base, "state": "available"}
+
+
+def _auth_tool_present(tool: str | None, search_path: str) -> bool:
+    return bool(shutil.which(tool, path=search_path)) if tool else True
+
+
+def _auth_check_verify_file(base: dict[str, Any], verify_file: str, home: Path) -> dict[str, Any]:
+    # Resolve ~ against the audited home, not the process home.
+    p = home / verify_file.lstrip("~/") if verify_file.startswith("~/") else Path(verify_file)
+    if p.exists() and p.read_text().strip():
+        return {**base, "state": "signed_in", "signed_in_detail": f"token present at {verify_file}"}
+    return {**base, "state": "available"}
+
+
+def _auth_check_verify_command(
+    base: dict[str, Any],
+    verify: tuple[str, ...],
+    search_path: str,
+    home: Path,
+) -> dict[str, Any]:
+    try:
+        # Use the same PATH the tool was found on so the right binary is called.
+        env = {**os.environ, "PATH": search_path, "HOME": str(home)}
+        result = subprocess.run(  # nosec B603
+            list(verify),
+            capture_output=True,
+            text=True,
+            timeout=8,
+            env=env,
+        )
+        if result.returncode == 0:
+            detail = _extract_signed_in_detail(result.stdout + result.stderr)
+            return {**base, "state": "signed_in", "signed_in_detail": detail}
+    except Exception:  # noqa: BLE001
+        pass
     return {**base, "state": "available"}
 
 

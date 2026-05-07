@@ -10,10 +10,14 @@ class DoctorReportTests(DotfilesTestCase):
         target = home / ".claude" / ".mcp.json"
         target.parent.mkdir(parents=True)
         target.write_text('{"mcpServers": {}}')
+        hook_target = home / ".claude" / "hooks" / "load-project-env.sh"
+        hook_target.parent.mkdir(parents=True)
+        hook_target.write_text((REPO_ROOT / "claude" / "hooks" / "load-project-env.sh.template").read_text())
         report = run_doctor(REPO_ROOT, home)
         data = json.loads(report.to_json())
         states = {entry["entry_id"]: entry["state"] for entry in data["entries"]}
         self.assertEqual(states["claude.mcp-servers"], "needs_merge")
+        self.assertEqual(states["claude.load-project-env"], "current")
         self.assertEqual(states["git.config"], "protected")
         self.assertIn("summary", data)
 

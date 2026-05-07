@@ -80,7 +80,66 @@ class SetupScriptTests(DotfilesTestCase):
         if not (bin_dir / "gh").exists():
             self.write_executable(
                 bin_dir / "gh",
-                "#!/usr/bin/env bash\n[[ \"${1:-}\" == auth && \"${2:-}\" == status ]] && exit 0\nexit 1\n",
+                "#!/usr/bin/env bash\nset -euo pipefail\ncase \"${1:-}\" in\n  auth)\n    if [[ \"${2:-}\" == status ]]; then\n      exit 0\n    fi\n    if [[ \"${2:-}\" == token ]]; then\n      echo \"gho_fake_token\"\n      exit 0\n    fi\n    if [[ \"${2:-}\" == login ]]; then\n      exit 0\n    fi\n    ;;\nesac\nexit 1\n",
+            )
+        if not (bin_dir / "direnv").exists():
+            self.write_executable(
+                bin_dir / "direnv",
+                """#!/usr/bin/env bash
+set -euo pipefail
+cmd="${1:-}"
+shift || true
+case "$cmd" in
+  allow)
+    exit 0
+    ;;
+  exec)
+    project="${1:-}"
+    shift || true
+    if [[ -z "$project" ]]; then
+      exit 64
+    fi
+    if [[ -f "$project/.envrc.local" ]]; then
+      set -a
+      # shellcheck disable=SC1090
+      source "$project/.envrc.local"
+      set +a
+    fi
+    exec "$@"
+    ;;
+  export)
+    exit 0
+    ;;
+esac
+exit 64
+""",
+            )
+        if not (bin_dir / "hf").exists():
+            self.write_executable(
+                bin_dir / "hf",
+                """#!/usr/bin/env bash
+set -euo pipefail
+cmd="${1:-}"
+shift || true
+case "$cmd" in
+  auth)
+    sub="${1:-}"
+    shift || true
+    case "$sub" in
+      login)
+        mkdir -p "$HOME/.cache/huggingface"
+        printf 'hf_fake_token\n' > "$HOME/.cache/huggingface/token"
+        exit 0
+        ;;
+      status)
+        [[ -f "$HOME/.cache/huggingface/token" ]]
+        exit $?
+        ;;
+    esac
+    ;;
+esac
+exit 64
+""",
             )
         return bin_dir
 
@@ -885,6 +944,7 @@ exit 64
         self.assertNotIn(secret, local_text)
         self.assertNotIn(secret, result.stdout)
         self.assertNotIn(secret, result.stderr)
+        self.assertIn("✓ Codacy account token environment verified for", result.stdout)
 
     def test_codacy_repository_mode_also_exports_account_token_when_file_exists(self) -> None:
         project = self.make_project()
@@ -914,6 +974,7 @@ exit 64
         self.assertNotIn(secret, local_text)
         self.assertNotIn(secret, result.stdout)
         self.assertNotIn(secret, result.stderr)
+        self.assertIn("✓ Codacy repository token environment verified for", result.stdout)
 
     def test_codacy_mode_cancel_returns_to_optional_menu_without_writes(self) -> None:
         project = self.make_project()
@@ -965,6 +1026,7 @@ exit 64
         self.assertIn("CODACY_PROJECT_TOKEN not exported", local_text)
         self.assertNotIn("export CODACY_PROJECT_TOKEN=", local_text)
         self.assertIn("A Codacy token is required before activation.", result.stdout)
+        self.assertIn("✗ Codacy repository token environment verification failed for", result.stdout)
 
     def test_codacy_existing_env_files_are_backed_up_before_changes(self) -> None:
         project = self.make_project()
@@ -1007,6 +1069,30 @@ exit 64
         self.assertEqual(local_text.count("# END DOTFILES CODACY"), 1)
         self.assertIn("# user managed line", local_text)
         self.assertEqual((home / ".codacy" / "kairin-000-dotfiles.project-token").read_text(), "repo-token\n")
+
+    def test_machine_api_github_auth_prints_explicit_verification(self) -> None:
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n1\n4\n6\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("✓ GitHub authentication configured", result.stdout)
+        self.assertIn("✓ GitHub authentication verified", result.stdout)
+        self.assertIn("GitHub (gh) authentication [verified]", result.stdout)
+
+    def test_machine_api_huggingface_auth_prints_explicit_verification(self) -> None:
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n2\n4\n6\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("✓ HuggingFace token configured", result.stdout)
+        self.assertIn("✓ HuggingFace Hub authentication verified", result.stdout)
+        self.assertIn("HuggingFace Hub access [verified]", result.stdout)
 
     def test_ship_help_and_extra_args(self) -> None:
         help_result = run_setup("ship", "--help")
