@@ -416,19 +416,36 @@ def _auth_check_verify_file(
     verify_json_paths: tuple[tuple[str, ...], ...] | None,
     signed_in_detail: str | None,
 ) -> dict[str, Any]:
-    # Resolve ~ against the audited home, not the process home.
-    p = home / verify_file.lstrip("~/") if verify_file.startswith("~/") else Path(verify_file)
-    if not p.exists():
-        return {**base, "state": "available"}
+    path = _resolve_auth_verify_file(home, verify_file)
     if verify_json_paths:
-        try:
-            data = json.loads(p.read_text())
-        except (OSError, json.JSONDecodeError):
-            return {**base, "state": "available"}
-        if _json_paths_present(data, verify_json_paths):
-            return {**base, "state": "signed_in", "signed_in_detail": signed_in_detail or "cached credentials present"}
+        return _auth_check_verify_json_file(base, path, verify_json_paths, signed_in_detail)
+    return _auth_check_verify_text_file(base, path, signed_in_detail)
+
+
+def _resolve_auth_verify_file(home: Path, verify_file: str) -> Path:
+    # Resolve ~ against the audited home, not the process home.
+    return home / verify_file.lstrip("~/") if verify_file.startswith("~/") else Path(verify_file)
+
+
+def _auth_check_verify_json_file(
+    base: dict[str, Any],
+    path: Path,
+    verify_json_paths: tuple[tuple[str, ...], ...],
+    signed_in_detail: str | None,
+) -> dict[str, Any]:
+    if not path.exists():
         return {**base, "state": "available"}
-    if p.read_text().strip():
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {**base, "state": "available"}
+    if _json_paths_present(data, verify_json_paths):
+        return {**base, "state": "signed_in", "signed_in_detail": signed_in_detail or "cached credentials present"}
+    return {**base, "state": "available"}
+
+
+def _auth_check_verify_text_file(base: dict[str, Any], path: Path, signed_in_detail: str | None) -> dict[str, Any]:
+    if path.exists() and path.read_text().strip():
         return {**base, "state": "signed_in", "signed_in_detail": signed_in_detail or "cached credentials present"}
     return {**base, "state": "available"}
 

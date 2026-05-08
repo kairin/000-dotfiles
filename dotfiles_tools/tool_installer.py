@@ -678,6 +678,48 @@ def collect_post_install_summary(
     if mode not in {"all", "verify", "auto", "guidance"}:
         raise ValueError(f"unknown tool post-install mode: {mode}")
 
+    if mode == "verify":
+        return _collect_post_install_verify_summary(home, env=env, runner=runner)
+
+    return _collect_post_install_action_summary(
+        home,
+        mode=mode,
+        yes=yes,
+        env=env,
+        runner=runner,
+        repo_path=repo_path,
+        backup_dir=backup_dir,
+    )
+
+
+def _collect_post_install_verify_summary(
+    home: Path | str,
+    *,
+    env: Mapping[str, str] | None,
+    runner: CommandRunner | None,
+) -> dict[str, Any]:
+    effective_env, effective_runner, _, home_path, _ = _post_install_context(
+        home,
+        env=env,
+        runner=runner,
+        repo_path=None,
+        backup_dir=None,
+    )
+    verification = verify_installed_tools(home_path, runner=effective_runner, env=effective_env)
+    status = "warning" if any(not item["verified"] for item in verification) else "ok"
+    return {"verification": verification, "post_install_actions": [], "backups": [], "status": status}
+
+
+def _collect_post_install_action_summary(
+    home: Path | str,
+    *,
+    mode: str,
+    yes: bool,
+    env: Mapping[str, str] | None,
+    runner: CommandRunner | None,
+    repo_path: Path | str | None,
+    backup_dir: Path | str | None,
+) -> dict[str, Any]:
     effective_env, effective_runner, repo, home_path, backup = _post_install_context(
         home,
         env=env,
@@ -685,15 +727,7 @@ def collect_post_install_summary(
         repo_path=repo_path,
         backup_dir=backup_dir,
     )
-
     summary: dict[str, Any] = {"verification": [], "post_install_actions": [], "backups": [], "status": "ok"}
-    if mode == "verify":
-        verification = verify_installed_tools(home_path, runner=effective_runner, env=effective_env)
-        summary["verification"] = verification
-        if any(not item["verified"] for item in verification):
-            summary["status"] = "warning"
-        return summary
-
     verification = verify_installed_tools(home_path, runner=effective_runner, env=effective_env) if mode == "all" else []
     actions = run_post_install_actions(
         home_path,
