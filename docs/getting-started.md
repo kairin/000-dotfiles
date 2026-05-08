@@ -52,40 +52,62 @@ cd ~/000-dotfiles
 ./setup
 ```
 
-You'll see a summary of your machine state and a 5-option menu:
+You'll see a summary of your machine state and a 6-option menu:
 
 ```
 1. Install / update developer tools        [recommended]
-2. Apply safe non-protected dotfiles
+2. Apply safe non-protected dotfiles.
 3. Show full technical details
 4. Show tool and sign-in guidance
-5. Exit without writing
+5. Configure / verify API tokens
+6. Exit without writing
 ```
 
 Since tools are missing on a fresh machine, **option 1 is highlighted**. Choose it.
 
 ```
-Choose [1-5]: 1
+Choose [1-6]: 1
 ```
 
-### Step 3: Preview and confirm
+### Step 3: Pick a tool phase
 
-You'll see a preview of all tools that will be installed:
-
-```
-Already installed (will be updated where possible):
-  - Git: git version 2.x → apt --only-upgrade
-  - GitHub CLI: gh version 2.x → apt --only-upgrade
-  ... etc ...
-```
-
-Review the list and confirm:
+Option 1 opens a submenu so you can isolate the slow step before you write
+anything:
 
 ```
-Apply tool install/update actions? [y/N]: y
+Developer tool phases:
+1. Preview dev-base packages.
+2. Apply dev-base packages.
+3. Preview individual tool installers.
+4. Apply individual tool installers.
+5. Split post-install verification and guidance.
+6. Back to main menu.
 ```
 
-The installer will run for 2–5 minutes. Once done, you'll see a summary with sign-in commands to run:
+Choose the phase you want to inspect or apply. For example, start with the
+dev-base package preview:
+
+```
+Choose [1-6]: 1
+```
+
+You'll see the dev-base package preview:
+
+```
+Preparing dev-base package preview...
+```
+
+Then confirm the apply step if you want to write the dev-base changes:
+
+```
+Choose [1-6]: 2
+Apply dev-base packages actions? [y/N]: y
+```
+
+If you want the tool installers instead, choose option 3 or 4. After the
+selected phase finishes, you can run option 5 for a second submenu that splits
+post-install verification, auto actions, and manual guidance. Once the relevant
+phase completes, you'll see a summary with sign-in commands to run:
 
 ```
 Auth/setup guidance:
@@ -116,37 +138,28 @@ The menu is now back. Option 2 is now highlighted:
 
 ```
 1. Install / update developer tools
-2. Apply safe non-protected dotfiles        [recommended]
+2. Apply safe non-protected dotfiles.       [recommended]
 3. Show full technical details
 4. Show tool and sign-in guidance
-5. Exit without writing
-Choose [1-5]: 2
+5. Configure / verify API tokens
+6. Exit without writing
+Choose [1-6]: 2
 ```
 
-Choose option 2:
+Choose option 2 to open the safe-changes submenu:
 
 ```
-Choose [1-5]: 2
+Safe setup changes:
+1. Dotfiles and config files.
+2. Fonts and terminal setup.
+3. Apply all safe changes now.
+4. Back to main menu.
 ```
 
-You'll see a preview of config files and fonts to install:
+Choose `1` to review dotfiles or `2` to review fonts, then `3` to apply:
 
 ```
-Update existing files with backups:
-  - ~/.claude/settings.json
-  - ~/.codex/config.toml
-  - (other config templates)
-
-Fonts:
-  - JetBrainsMono Nerd Font
-  - FiraCode Nerd Font
-  - ... etc ...
-```
-
-Confirm to apply:
-
-```
-Apply these changes? [y/N]: y
+Choose [1-4]: 3
 ```
 
 Configs and fonts are now installed.
@@ -217,13 +230,15 @@ Machine setup summary
   - Configs: 2 drifted, 8 current
 
 1. Install / update developer tools
-2. Apply safe non-protected dotfiles        [recommended]
+2. Apply safe non-protected dotfiles.       [recommended]
 3. Show full technical details
 4. Show tool and sign-in guidance
-5. Exit without writing
+5. Configure / verify API tokens
+6. Exit without writing
 ```
 
-Option 2 is highlighted because configs have drifted. Choose it to review and apply the changes.
+Option 2 is highlighted because configs have drifted. Choose it to review the dotfiles/fonts
+split and then apply the changes.
 
 ### Update tools
 
@@ -231,12 +246,12 @@ To upgrade installed tools:
 
 ```bash
 ~/000-dotfiles/setup
-Choose [1-5]: 1
+Choose [1-6]: 1
 ```
 
 This runs:
 - `apt --only-upgrade` for OS packages (git, gh, fish, direnv)
-- `npm update -g` for globally-installed npm tools (codex, gemini, copilot)
+- `npm update -g --prefix ~/.local` for user-local npm tools (codex, gemini, copilot)
 - Self-update for curl installers (claude)
 - `uv tool upgrade` for uv-managed tools (specify)
 
@@ -245,7 +260,7 @@ This runs:
 If you want to inspect cache paths, font versions, or the full operation plan without applying:
 
 ```bash
-Choose [1-5]: 3
+Choose [1-6]: 3
 ```
 
 Shows raw cache state, package versions, and all pending operations.
@@ -380,7 +395,7 @@ Most tools install via `apt`, `npm`, or `uv`. If one fails:
 
 1. Check the error message (scroll back in your terminal)
 2. Run the tool doctor to see state: `./setup doctor`
-3. Try the install command manually, e.g. `apt install git` or `npm install -g @github/copilot`
+3. Try the install command manually, e.g. `apt install git` or `npm install -g --prefix ~/.local @github/copilot`
 4. Re-run `./setup`
 
 ### `Config drift: file X differs`

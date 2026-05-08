@@ -40,6 +40,7 @@ class FakeRunner:
         *,
         capture_output: bool = False,
         check: bool = True,
+        timeout: float | None = None,
     ) -> subprocess.CompletedProcess[str]:
         self.commands.append(list(args))
         if args and Path(args[0]).name in self.run_failures:
@@ -91,6 +92,44 @@ class ToolInstallPlanTests(DotfilesTestCase):
         op = dev_base_ops[0]
         self.assertEqual(op["type"], "tool_install_apt")
         self.assertEqual(set(op["packages"]), set(DEV_BASE_PACKAGES))
+
+    def test_dev_base_phase_excludes_tool_baseline(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"dpkg-query": "/usr/bin/dpkg-query"})
+        plan = build_tool_install_plan(home, phase="dev-base", runner=runner)
+        self.assertTrue(plan["operations"])
+        self.assertEqual({entry["entry_id"] for entry in plan["entries"]}, {DEV_BASE_ENTRY_ID})
+        self.assertEqual({op["entry_id"] for op in plan["operations"]}, {DEV_BASE_ENTRY_ID})
+
+    def test_tool_phase_excludes_dev_base_bundle(self) -> None:
+        home = self.make_home()
+        runner = FakeRunner(which={"dpkg-query": "/usr/bin/dpkg-query"})
+        plan = build_tool_install_plan(home, phase="tools", runner=runner)
+        self.assertTrue(plan["operations"])
+        self.assertNotIn(DEV_BASE_ENTRY_ID, {entry["entry_id"] for entry in plan["entries"]})
+        self.assertNotIn(DEV_BASE_ENTRY_ID, {op["entry_id"] for op in plan["operations"]})
+
+    def test_codacy_cli_version_timeout_does_not_block_preview(self) -> None:
+        home = self.make_home()
+
+        class TimeoutRunner(FakeRunner):
+            def run(
+                self,
+                args: list[str],
+                *,
+                capture_output: bool = False,
+                check: bool = True,
+                timeout: float | None = None,
+            ) -> subprocess.CompletedProcess[str]:
+                if args and Path(args[0]).name == "codacy-cli" and "--version" in args:
+                    raise subprocess.TimeoutExpired(args, timeout or 5)
+                return super().run(args, capture_output=capture_output, check=check, timeout=timeout)
+
+        runner = TimeoutRunner(which={"dpkg-query": "/usr/bin/dpkg-query", "codacy-cli": "/usr/local/bin/codacy-cli"})
+        plan = build_tool_install_plan(home, phase="tools", runner=runner)
+        codacy_entry = next(entry for entry in plan["entries"] if entry.get("entry_id") == "tools.codacy-cli")
+        self.assertEqual(codacy_entry["state"], "installed")
+        self.assertEqual(codacy_entry["current_version"], "")
 
     def test_dev_base_partial_install(self) -> None:
         home = self.make_home()
@@ -178,6 +217,7 @@ class ToolInstallPlanTests(DotfilesTestCase):
         copilot_ops = [op for op in plan["operations"] if op.get("entry_id") == "tools.copilot"]
         self.assertEqual(codex_ops[0]["type"], "tool_install_npm")
         self.assertEqual(codex_ops[0]["package"], "@openai/codex")
+        self.assertEqual(codex_ops[0]["prefix"], str(home / ".local"))
         self.assertEqual(gemini_ops[0]["package"], "@google/gemini-cli")
         self.assertEqual(copilot_ops[0]["type"], "tool_install_npm")
         self.assertEqual(copilot_ops[0]["package"], "@github/copilot")
@@ -203,6 +243,7 @@ class ToolInstallPlanTests(DotfilesTestCase):
         plan = build_tool_install_plan(home, runner=runner)
         codex_ops = [op for op in plan["operations"] if op.get("entry_id") == "tools.codex"]
         self.assertEqual(codex_ops[0]["type"], "tool_install_npm_upgrade")
+        self.assertEqual(codex_ops[0]["prefix"], str(home / ".local"))
 
     def test_entries_include_installed_for_preview(self) -> None:
         home = self.make_home()
@@ -399,8 +440,9 @@ class ToolInstallExecuteTests(DotfilesTestCase):
             "recipe": "tool_installs",
             "type": "tool_install_npm",
             "package": "@openai/codex",
+            "prefix": str(home / ".local"),
             "cache_dir": str(home / ".cache"),
-            "requires_sudo": True,
+            "requires_sudo": False,
         }
         result = execute_tool_install_operation(op, runner=runner, cache_dir=Path(op["cache_dir"]))
         self.assertEqual(result, 0)
@@ -414,13 +456,14 @@ class ToolInstallExecuteTests(DotfilesTestCase):
             "recipe": "tool_installs",
             "type": "tool_install_npm",
             "package": "@openai/codex",
+            "prefix": str(home / ".local"),
             "cache_dir": str(home / ".cache"),
-            "requires_sudo": True,
+            "requires_sudo": False,
         }
         execute_tool_install_operation(op, runner=runner, cache_dir=Path(op["cache_dir"]))
         self.assertEqual(
             runner.commands[0],
-            ["sudo", "/usr/bin/npm", "install", "-g", "@openai/codex"],
+            ["/usr/bin/npm", "install", "-g", "--prefix", str(home / ".local"), "@openai/codex"],
         )
 
     def test_uv_tool_missing_skips(self) -> None:

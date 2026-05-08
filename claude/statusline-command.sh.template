@@ -1,0 +1,411 @@
+#!/usr/bin/env bash
+# Tide-styled Claude Code status line — 4-line layout
+# Colors derived from ~/.config/fish/fish_variables (Tide v6 theme)
+# Lines 1+2: match Claude Code shipped defaults; lines 3+4: extended info
+
+# Ensure common tool paths are available regardless of Claude Code's PATH
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+
+input=$(cat)
+
+# Bail-safe: if jq is not available, emit a minimal status line and exit
+if ! command -v jq >/dev/null 2>&1; then
+  printf '%s\n' "$(pwd) | status line (jq not found)"
+  exit 0
+fi
+
+# --- Extract JSON fields ---
+cwd=$(echo "$input"           | jq -r '.workspace.current_dir // .cwd // empty')
+model=$(echo "$input"         | jq -r '.model.display_name // empty')
+model_id=$(echo "$input"      | jq -r '.model.id // empty')
+used=$(echo "$input"          | jq -r '.context_window.used_percentage // empty')
+remaining=$(echo "$input"     | jq -r '.context_window.remaining_percentage // empty')
+ctx_total=$(echo "$input"     | jq -r '.context_window.context_window_size // empty')
+in_tokens=$(echo "$input"     | jq -r '.context_window.total_input_tokens // empty')
+out_tokens=$(echo "$input"    | jq -r '.context_window.total_output_tokens // empty')
+cache_write=$(echo "$input"   | jq -r '.context_window.current_usage.cache_creation_input_tokens // empty')
+cache_read=$(echo "$input"    | jq -r '.context_window.current_usage.cache_read_input_tokens // empty')
+version=$(echo "$input"       | jq -r '.version // empty')
+vim_mode=$(echo "$input"      | jq -r '.vim.mode // empty')
+effort=$(echo "$input"        | jq -r '.effort.level // empty')
+thinking=$(echo "$input"      | jq -r '.thinking.enabled // empty')
+worktree_name=$(echo "$input" | jq -r '.workspace.git_worktree // empty')
+session=$(echo "$input"       | jq -r '.session_name // empty')
+session_id=$(echo "$input"    | jq -r '.session_id // empty')
+five_h=$(echo "$input"        | jq -r '.rate_limits.five_hour.used_percentage // empty')
+five_h_reset=$(echo "$input"  | jq -r '.rate_limits.five_hour.resets_at // empty')
+seven_d=$(echo "$input"       | jq -r '.rate_limits.seven_day.used_percentage // empty')
+seven_d_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
+transcript=$(echo "$input"    | jq -r '.transcript_path // empty')
+output_style=$(echo "$input"  | jq -r '.output_style.name // empty')
+added_dirs=$(echo "$input"    | jq -r '.workspace.added_dirs // [] | join(", ")')
+wt_name=$(echo "$input"       | jq -r '.worktree.name // empty')
+wt_branch=$(echo "$input"     | jq -r '.worktree.branch // empty')
+wt_path=$(echo "$input"       | jq -r '.worktree.path // empty')
+agent_name=$(echo "$input"    | jq -r '.agent.name // empty')
+agent_type=$(echo "$input"    | jq -r '.agent.type // empty')
+project_dir=$(echo "$input"   | jq -r '.workspace.project_dir // empty')
+
+[ -z "$cwd" ] && cwd="$(pwd)"
+
+# --- Fish-specific live data (not in JSON input) ---
+# fish_bind_mode universal var is not accessible via --no-config; skip to avoid subprocess timeout
+fish_bind_mode=""
+# VIRTUAL_ENV and DIRENV_DIR are exported by fish into bash's env
+venv_name=""
+[ -n "$VIRTUAL_ENV" ] && venv_name="$(basename "$VIRTUAL_ENV")"
+direnv_active=""
+[ -n "$DIRENV_DIR" ] && direnv_active="$(basename "${DIRENV_DIR#-}")"
+
+# --- ANSI helpers ---
+R='\033[0m'
+pill() {
+  # pill <bg_hex> <fg_hex> <text>
+  local bh="${1}" fh="${2}" txt="${3}"
+  local br gr bb fr fg_g fb
+  br=$((16#${bh:0:2})); bg=$((16#${bh:2:2})); bb=$((16#${bh:4:2}))
+  fr=$((16#${fh:0:2})); fg_g=$((16#${fh:2:2})); fb=$((16#${fh:4:2}))
+  printf '\033[38;2;%d;%d;%dm\033[48;2;%d;%d;%dm %s \033[0m' \
+    "$fr" "$fg_g" "$fb" "$br" "$bg" "$bb" "$txt"
+}
+
+# Tide palette (hex, no #)
+PWD_BG="3465A4";     PWD_FG="E4E4E4"
+GIT_BG="4E9A06";     GIT_FG="000000"
+GIT_DIRTY_BG="C4A000"; GIT_DIRTY_FG="000000"
+GIT_URGENT_BG="CC0000"; GIT_URGENT_FG="000000"
+CTX_BG="444444";     CTX_FG="D7AF87"
+TIME_BG="D3D7CF";    TIME_FG="000000"
+RATE_BG="C4A000";    RATE_FG="000000"
+VIM_INS_BG="87AFAF"; VIM_NRM_BG="949494"; VIM_VIS_BG="FF8700"; VIM_RPL_BG="87AF87"; VIM_FG="000000"
+VENV_BG="444444";   VENV_FG="00AFAF"
+DIRENV_BG="D7AF00"; DIRENV_FG="000000"
+EFF_BG="800080";     EFF_FG="FFFFFF"
+WT_BG="613583";      WT_FG="FFFFFF"
+OS_BG="D4D4D4";      OS_FG_HEX="E95420"
+FRAME="808080"
+DIM='\033[2m'
+BOLD='\033[1m'
+
+# ── git state helper ──────────────────────────────────────────────────────────
+git_info() {
+  local dir="$1"
+  timeout 2s git -C "$dir" rev-parse --git-dir >/dev/null 2>&1 || return
+  local branch
+  branch=$(timeout 2s git -C "$dir" -c core.fsmonitor=false symbolic-ref --short HEAD 2>/dev/null \
+           || timeout 2s git -C "$dir" -c core.fsmonitor=false rev-parse --short HEAD 2>/dev/null)
+  local gs staged unstaged untracked conflicts
+  gs=$(timeout 2s git -C "$dir" -c core.fsmonitor=false status --porcelain 2>/dev/null)
+  staged=$(echo "$gs"    | grep -c '^[MADRCU]' 2>/dev/null || echo 0)
+  unstaged=$(echo "$gs"  | grep -c '^.[MD]'    2>/dev/null || echo 0)
+  untracked=$(echo "$gs" | grep -c '^??'       2>/dev/null || echo 0)
+  conflicts=$(echo "$gs" | grep -cE '^(UU|AA|DD)' 2>/dev/null || echo 0)
+
+  local gbg gfg
+  if   [ "$conflicts" -gt 0 ]; then gbg="$GIT_URGENT_BG"; gfg="$GIT_URGENT_FG"
+  elif [ "$staged" -gt 0 ] || [ "$unstaged" -gt 0 ] || [ "$untracked" -gt 0 ]; then
+    gbg="$GIT_DIRTY_BG"; gfg="$GIT_DIRTY_FG"
+  else
+    gbg="$GIT_BG"; gfg="$GIT_FG"
+  fi
+
+  local dirt=""
+  [ "$staged"    -gt 0 ] && dirt+=" *${staged}"
+  [ "$unstaged"  -gt 0 ] && dirt+=" ~${unstaged}"
+  [ "$untracked" -gt 0 ] && dirt+=" ?${untracked}"
+
+  local label=" $branch"
+  [ -n "$worktree_name" ] && label+=" (wt)"
+  pill "$gbg" "$gfg" "${label}${dirt}"
+}
+
+# ── context bar (matches Claude Code default line-2 bar) ──────────────────────
+ctx_bar() {
+  local used_pct="$1"
+  local used_int bar_filled bar_empty bar_fg
+  used_int=$(printf '%.0f' "$used_pct")
+  local bar_width=20
+  bar_filled=$(( used_int * bar_width / 100 ))
+  bar_empty=$(( bar_width - bar_filled ))
+
+  if   [ "$used_int" -ge 80 ]; then bar_fg='\033[38;2;204;0;0m'
+  elif [ "$used_int" -ge 50 ]; then bar_fg='\033[38;2;196;160;0m'
+  else                               bar_fg='\033[38;2;78;154;6m'
+  fi
+
+  printf '%b' "$bar_fg"
+  printf '%0.s█' $(seq 1 "$bar_filled") 2>/dev/null || printf '%0.s█' $(seq 1 $bar_filled)
+  printf '\033[38;2;68;68;68m'
+  printf '%0.s░' $(seq 1 "$bar_empty") 2>/dev/null || printf '%0.s░' $(seq 1 $bar_empty)
+  printf '%b' "$R"
+}
+
+# ── time-until helper for rate limit resets ───────────────────────────────────
+time_until() {
+  local epoch="$1"
+  [ -z "$epoch" ] && return
+  local now delta
+  now=$(date +%s)
+  delta=$(( epoch - now ))
+  [ "$delta" -le 0 ] && echo "now" && return
+  local h m
+  h=$(( delta / 3600 ))
+  m=$(( (delta % 3600) / 60 ))
+  if [ "$h" -gt 0 ]; then printf '%dh%dm' "$h" "$m"
+  else printf '%dm' "$m"
+  fi
+}
+
+# =============================================================================
+# LINE 1 — matches Claude Code default line 1:  cwd  |  model  v<version>
+# =============================================================================
+line1=""
+
+# CWD segment (Tide pwd style)
+dir_display="${cwd/#$HOME/\~}"
+line1+="$(pill "$PWD_BG" "$PWD_FG" " $dir_display")"
+
+# git
+git_seg="$(git_info "$cwd")"
+[ -n "$git_seg" ] && line1+="$git_seg"
+
+# model
+[ -n "$model" ] && line1+=" $(pill "$CTX_BG" "$CTX_FG" " $model")"
+
+# version (dim, as Claude Code default)
+[ -n "$version" ] && line1+=" ${DIM}\033[38;2;128;128;128mv${version}${R}"
+
+# =============================================================================
+# LINE 2 — matches Claude Code default line 2, always dynamic
+# Must never be blank: shows context bar + % + at least one live datum
+# =============================================================================
+line2=""
+
+# No pre-usage time pill here; the always-present time pill at line 238 covers it.
+
+# Rate limits — dynamic, only present from claude.ai subscription
+if [ -n "$five_h" ] || [ -n "$seven_d" ]; then
+  line2+="  "
+  if [ -n "$five_h" ]; then
+    pct=$(printf '%.0f' "$five_h")
+    until=$(time_until "$five_h_reset")
+    label="5h:${pct}%"
+    [ -n "$until" ] && label+=" (resets ${until})"
+    line2+="$(pill "$RATE_BG" "$RATE_FG" "$label")"
+  fi
+  if [ -n "$seven_d" ]; then
+    pct=$(printf '%.0f' "$seven_d")
+    until=$(time_until "$seven_d_reset")
+    label="7d:${pct}%"
+    [ -n "$until" ] && label+=" (resets ${until})"
+    line2+=" $(pill "$RATE_BG" "$RATE_FG" "$label")"
+  fi
+fi
+
+# Vim mode — always dynamic (changes as you type)
+if [ -n "$vim_mode" ]; then
+  case "$vim_mode" in
+    INSERT)  vm_bg="$VIM_INS_BG" ;;
+    NORMAL)  vm_bg="$VIM_NRM_BG" ;;
+    VISUAL*) vm_bg="$VIM_VIS_BG" ;;
+    *)       vm_bg="$VIM_NRM_BG" ;;
+  esac
+  line2+=" $(pill "$vm_bg" "$VIM_FG" "$vim_mode")"
+fi
+
+# Fish bind mode (vi mode in the parent fish shell; only show when not default insert)
+if [ -n "$fish_bind_mode" ] && [ "$fish_bind_mode" != "insert" ]; then
+  case "$fish_bind_mode" in
+    default) fb_bg="$VIM_NRM_BG"; fb_label="FISH:N" ;;
+    replace) fb_bg="$VIM_RPL_BG"; fb_label="FISH:R" ;;
+    visual)  fb_bg="$VIM_VIS_BG"; fb_label="FISH:V" ;;
+    *)       fb_bg="$VIM_NRM_BG"; fb_label="FISH:${fish_bind_mode}" ;;
+  esac
+  line2+=" $(pill "$fb_bg" "$VIM_FG" "$fb_label")"
+fi
+
+# Effort / thinking — changes per-session
+eff_label=""
+[ -n "$effort" ] && eff_label="effort:$effort"
+[ "$thinking" = "true" ] && { [ -n "$eff_label" ] && eff_label+=" "; eff_label+="thinking:on"; }
+[ -n "$eff_label" ] && line2+=" $(pill "$EFF_BG" "$EFF_FG" "$eff_label")"
+
+# Current time — always live; ensures line 2 is never static
+line2+="  $(pill "$TIME_BG" "$TIME_FG" " $(date +%H:%M:%S)")"
+
+# =============================================================================
+# LINE 3 — extended info: cache tokens, total tokens, transcript, added dirs,
+#           output style, worktree details
+# =============================================================================
+line3=""
+sep='\033[38;2;128;128;128m · \033[0m'
+
+# Token counts
+if [ -n "$in_tokens" ] && [ "$in_tokens" != "0" ]; then
+  line3+="${DIM}in:${in_tokens}${R}"
+fi
+if [ -n "$out_tokens" ] && [ "$out_tokens" != "0" ]; then
+  [ -n "$line3" ] && line3+="$sep"
+  line3+="${DIM}out:${out_tokens}${R}"
+fi
+if [ -n "$cache_write" ] && [ "$cache_write" != "0" ]; then
+  [ -n "$line3" ] && line3+="$sep"
+  line3+="${DIM}cache-w:${cache_write}${R}"
+fi
+if [ -n "$cache_read" ] && [ "$cache_read" != "0" ]; then
+  [ -n "$line3" ] && line3+="$sep"
+  line3+="${DIM}cache-r:${cache_read}${R}"
+fi
+
+# Context window size
+if [ -n "$ctx_total" ] && [ "$ctx_total" != "0" ]; then
+  [ -n "$line3" ] && line3+="$sep"
+  line3+="${DIM}ctx-size:${ctx_total}${R}"
+fi
+
+# Transcript path (truncated)
+if [ -n "$transcript" ]; then
+  [ -n "$line3" ] && line3+="$sep"
+  short_transcript="...$(echo "$transcript" | rev | cut -c1-30 | rev)"
+  line3+="${DIM}transcript:${short_transcript}${R}"
+fi
+
+# Python virtual environment
+if [ -n "$venv_name" ]; then
+  [ -n "$line3" ] && line3+="$sep"
+  line3+="$(pill "$VENV_BG" "$VENV_FG" "venv:$venv_name")"
+fi
+
+# Direnv (active when DIRENV_DIR is set)
+if [ -n "$direnv_active" ]; then
+  [ -n "$line3" ] && line3+="$sep"
+  line3+="$(pill "$DIRENV_BG" "$DIRENV_FG" "direnv:$direnv_active")"
+fi
+
+# Output style moved to line 4 (always shown)
+
+# Worktree (from workspace.git_worktree or worktree object)
+if [ -n "$wt_name" ]; then
+  [ -n "$line3" ] && line3+="$sep"
+  wt_label="wt:$wt_name"
+  [ -n "$wt_branch" ] && wt_label+=" ($wt_branch)"
+  line3+="$(pill "$WT_BG" "$WT_FG" "$wt_label")"
+elif [ -n "$worktree_name" ]; then
+  [ -n "$line3" ] && line3+="$sep"
+  line3+="$(pill "$WT_BG" "$WT_FG" "wt:$worktree_name")"
+fi
+
+# Added dirs
+if [ -n "$added_dirs" ]; then
+  [ -n "$line3" ] && line3+="$sep"
+  line3+="${DIM}+dirs: $added_dirs${R}"
+fi
+
+# =============================================================================
+# LINE 4 — remaining dynamic data: agent info, session, project dir, worktree
+#           original branch, session ID (short)
+# =============================================================================
+line4=""
+
+# Agent info (only present with --agent flag)
+if [ -n "$agent_name" ]; then
+  agent_label="agent:$agent_name"
+  [ -n "$agent_type" ] && agent_label+=" ($agent_type)"
+  line4+="$(pill "$EFF_BG" "$EFF_FG" "$agent_label")"
+fi
+
+# Session name (when renamed via /rename)
+if [ -n "$session" ]; then
+  [ -n "$line4" ] && line4+=" "
+  line4+="$(pill "$CTX_BG" "$CTX_FG" "\"$session\"")"
+fi
+
+# Project dir (when different from cwd)
+if [ -n "$project_dir" ] && [ "$project_dir" != "$cwd" ]; then
+  [ -n "$line4" ] && line4+="$sep"
+  proj_display="${project_dir/#$HOME/\~}"
+  line4+="${DIM}project:${proj_display}${R}"
+fi
+
+# Worktree original branch (when in a worktree session)
+if [ -n "$wt_path" ]; then
+  [ -n "$line4" ] && line4+="$sep"
+  wt_orig=$(echo "$input" | jq -r '.worktree.original_branch // empty')
+  wt_orig_cwd=$(echo "$input" | jq -r '.worktree.original_cwd // empty')
+  wt_extra="wt-path:${wt_path/#$HOME/\~}"
+  [ -n "$wt_orig" ] && wt_extra+=" from:$wt_orig"
+  line4+="${DIM}${wt_extra}${R}"
+fi
+
+# Session ID (short — last 8 chars)
+if [ -n "$session_id" ]; then
+  short_id="${session_id: -8}"
+  [ -n "$line4" ] && line4+="$sep"
+  line4+="${DIM}sid:${short_id}${R}"
+fi
+
+# Output style (always shown on line 4)
+if [ -n "$output_style" ]; then
+  [ -n "$line4" ] && line4+="$sep"
+  line4+="${DIM}style:${output_style}${R}"
+fi
+
+# =============================================================================
+# LINE 5 — full-width context window bar
+#   Format: "Context Window usage   18% used  [████░░░░░░░░░░░░░░░░]  82% left"
+#   Bar expands to fill terminal width; falls back to 40 cols if tput unavailable.
+# =============================================================================
+line5=""
+if [ -n "$used" ]; then
+  used_int=$(printf '%.0f' "$used")
+  rem_int=0
+  [ -n "$remaining" ] && rem_int=$(printf '%.0f' "$remaining")
+
+  label_left="Context Window usage"
+  label_used="${used_int}% used"
+  label_right="${rem_int}% left"
+
+  # Fixed-width text portions (no ANSI): "Context Window usage   18% used  [" + "]  82% left"
+  # bracket open "[" + bracket close "]" = 2; "   " between label and used = 3; "  " before bracket = 2; "  " after bracket = 2
+  fixed_len=$(( ${#label_left} + 3 + ${#label_used} + 2 + 1 + 1 + 2 + ${#label_right} ))
+  # fixed_len = len("Context Window usage") + 3 + len("18% used") + 2 + 1("[") + 1("]") + 2 + len("82% left")
+
+  term_cols=$(tput cols 2>/dev/null || echo 80)
+  bar_width=$(( term_cols - fixed_len ))
+  [ "$bar_width" -lt 4 ] && bar_width=4
+
+  bar_filled=$(( used_int * bar_width / 100 ))
+  bar_empty=$(( bar_width - bar_filled ))
+
+  # Color: green filled, grey empty
+  GREEN='\033[38;2;78;154;6m'
+  GREY='\033[38;2;100;100;100m'
+
+  bar_str=""
+  if [ "$bar_filled" -gt 0 ]; then
+    bar_str+="${GREEN}"
+    bar_str+=$(printf '%0.s█' $(seq 1 "$bar_filled"))
+  fi
+  if [ "$bar_empty" -gt 0 ]; then
+    bar_str+="${GREY}"
+    bar_str+=$(printf '%0.s░' $(seq 1 "$bar_empty"))
+  fi
+  bar_str+="${R}"
+
+  line5="${label_left}   ${label_used}  [${bar_str}]  ${label_right}"
+fi
+
+# =============================================================================
+# Emit — multi-line output, one line per logical section.
+# Claude Code statusLine renders all newline-delimited lines from the command.
+# =============================================================================
+if [ -z "$line1" ] && [ -z "$line2" ]; then
+  printf '%s\n' "$(pwd)"
+  exit 0
+fi
+
+printf '%b\n' "$line1"
+[ -n "$line2" ] && printf '%b\n' "$line2"
+[ -n "$line3" ] && printf '%b\n' "$line3"
+[ -n "$line4" ] && printf '%b\n' "$line4"
+[ -n "$line5" ] && printf '%b\n' "$line5"

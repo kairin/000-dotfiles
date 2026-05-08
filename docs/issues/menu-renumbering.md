@@ -1,6 +1,6 @@
 # Issue: menu option numbers change between first and subsequent runs
 
-**Status:** Fixed in PR #82 — stable 5-option menu with [recommended] tag
+**Status:** Fixed in PR #82 — stable 6-option menu with [recommended] tag
 **Affects:** Users who run setup more than once
 
 ## Problem
@@ -17,17 +17,21 @@ options will shift after a successful install.
 
 ## Fix applied
 
-Implemented stable 5-option menu regardless of machine state:
+Implemented stable 6-option menu regardless of machine state:
 
 ```
 1. Install / update developer tools  [recommended when tools missing]
 2. Apply safe non-protected dotfiles  [recommended when tools present]
 3. Show full technical details
 4. Show tool and sign-in guidance
-5. Exit without writing
+5. Configure / verify API tokens
+6. Exit without writing
 ```
 
 Option numbers are fixed on every run. The `[recommended]` tag moves to indicate
 the best action for the current state (option 1 when tools are missing, option 2
-when tools are present and configs have drifted). A user who ran option 1 on
-first run finds option 1 in the same position on every subsequent run.
+when tools are present and configs have drifted). Option 1 now opens a phased
+submenu so the tool install/update work can be split into dev-base packages,
+tool installers, and post-install verification without changing the top-level
+menu numbers. Option 5 now opens a second submenu so verification-only,
+auto post-install actions, and manual guidance can be inspected separately.

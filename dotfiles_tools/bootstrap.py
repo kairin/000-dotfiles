@@ -18,6 +18,8 @@ from .tool_installer import (
 
 WARNING_STATES = {"missing", "drifted", "protected", "manual", "unsupported", "needs_update"}
 FAILED_STATES = {"invalid", "blocked"}
+TOOL_INSTALL_PHASES = {"all", "dev-base", "tools"}
+TOOL_POST_INSTALL_MODES = {"all", "verify", "auto", "guidance"}
 
 
 def build_bootstrap_plan(
@@ -104,12 +106,13 @@ def build_tool_install_subplan(
     repo: Path | str,
     home: Path | str,
     *,
+    phase: str = "all",
     env: Mapping[str, str] | None = None,
     runner: CommandRunner | None = None,
 ) -> Report:
     repo_path = Path(repo).resolve()
     home_path = Path(home).resolve()
-    tool_plan = build_tool_install_plan(home_path, env=env, runner=runner)
+    tool_plan = build_tool_install_plan(home_path, phase=phase, env=env, runner=runner)
     operations = list(tool_plan["operations"])
     _renumber_operations(operations)
     entries = list(tool_plan["entries"])
@@ -130,6 +133,7 @@ def apply_tool_installs(
     repo: Path | str,
     home: Path | str,
     *,
+    phase: str = "all",
     backup_dir: Path | str | None = None,
     yes: bool = False,
     env: Mapping[str, str] | None = None,
@@ -148,13 +152,64 @@ def apply_tool_installs(
             errors=[{"message": "bootstrap-install-tools requires --yes before writing"}],
         )
 
-    plan = build_tool_install_subplan(repo_path, home_path, env=env, runner=runner)
+    plan = build_tool_install_subplan(repo_path, home_path, phase=phase, env=env, runner=runner)
     plan.command = "bootstrap-install-tools"
     if plan.errors or any(entry.get("state") in FAILED_STATES for entry in plan.entries):
         plan.status = "failed"
         return plan
     report = _execute_bootstrap_operations(plan, repo_path, backup_path, runner)
-    _attach_verification_and_post_install(report, repo_path, home_path, yes, env, runner, backup_path)
+    if phase == "all":
+        _attach_verification_and_post_install(report, repo_path, home_path, yes, env, runner, backup_path)
+    return report
+
+
+def run_tool_install_post_install(
+    repo: Path | str,
+    home: Path | str,
+    *,
+    mode: str = "all",
+    yes: bool = False,
+    env: Mapping[str, str] | None = None,
+    runner: CommandRunner | None = None,
+    backup_dir: Path | str | None = None,
+) -> Report:
+    repo_path = Path(repo).resolve()
+    home_path = Path(home).resolve()
+    backup_path = Path(backup_dir).expanduser().resolve() if backup_dir else home_path / ".dotfiles-backups"
+    if mode not in TOOL_POST_INSTALL_MODES:
+        raise ValueError(f"unknown tool post-install mode: {mode}")
+    report = Report(
+        "bootstrap-install-tools-verify" if mode == "verify" else "bootstrap-install-tools-post",
+        "ok",
+        str(repo_path),
+        home=str(home_path),
+        profile="machine",
+    )
+    if mode == "verify":
+        verification = verify_installed_tools(home_path, runner=runner, env=env)
+        report.extra["verification"] = verification
+        if any(not item["verified"] for item in verification):
+            report.status = "warning"
+        return report
+
+    verification = verify_installed_tools(home_path, runner=runner, env=env) if mode == "all" else []
+    actions = run_post_install_actions(
+        home_path,
+        yes=yes if mode == "all" else mode == "auto",
+        runner=runner,
+        env=env,
+        repo_path=repo_path,
+        backup_dir=backup_path,
+    )
+    actions = _filter_post_install_actions(actions, mode)
+    if verification:
+        report.extra["verification"] = verification
+    report.extra["post_install_actions"] = actions
+    report.backups.extend(_collect_post_install_backups(actions))
+    if mode == "all" and any(not item["verified"] for item in verification):
+        report.status = "warning"
+    if mode in {"auto", "all"} and any(item.get("status") == "failed" for item in actions):
+        report.status = "warning"
     return report
 
 
@@ -186,6 +241,14 @@ def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[st
     for action in actions:
         collected.extend(action.get("backups") or [])
     return collected
+
+
+def _filter_post_install_actions(actions: list[dict[str, Any]], mode: str) -> list[dict[str, Any]]:
+    if mode == "auto":
+        return [action for action in actions if action.get("kind") == "auto"]
+    if mode == "guidance":
+        return [action for action in actions if action.get("kind") == "guidance"]
+    return actions
 
 
 def _execute_bootstrap_operations(

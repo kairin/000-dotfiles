@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import shutil
+import subprocess  # nosec B404
 import sys
 from typing import Any, Mapping
 
@@ -32,6 +33,7 @@ __all__ = (
 def build_tool_install_plan(
     home: Path | str,
     *,
+    phase: str = "all",
     env: Mapping[str, str] | None = None,
     path: str | None = None,
     runner: CommandRunner | None = None,
@@ -44,13 +46,17 @@ def build_tool_install_plan(
 
     if not _is_linux(effective_env):
         return _unsupported_plan(effective_runner)
+    if phase not in {"all", "dev-base", "tools"}:
+        raise ValueError(f"unknown tool install phase: {phase}")
 
     entries: list[dict[str, Any]] = []
     operations: list[dict[str, Any]] = []
     tools: list[dict[str, Any]] = []
 
-    _extend_dev_base_plan(effective_runner, cache_dir, entries, operations, tools)
-    _extend_tool_baseline_plan(effective_runner, cache_dir, entries, operations, tools)
+    if phase in {"all", "dev-base"}:
+        _extend_dev_base_plan(effective_runner, cache_dir, entries, operations, tools)
+    if phase in {"all", "tools"}:
+        _extend_tool_baseline_plan(effective_runner, cache_dir, home_path, entries, operations, tools)
 
     return {"entries": entries, "operations": operations, "tools": tools}
 
@@ -228,6 +234,7 @@ def _dev_base_operations(
 def _extend_tool_baseline_plan(
     runner: CommandRunner,
     cache_dir: Path,
+    home: Path,
     entries: list[dict[str, Any]],
     operations: list[dict[str, Any]],
     tools: list[dict[str, Any]],
@@ -235,7 +242,7 @@ def _extend_tool_baseline_plan(
     for item in TOOL_BASELINE:
         if not item.get("bootstrap") or item["install_method"] == "manual":
             continue
-        entry, ops = _plan_tool_entry(item, runner, cache_dir)
+        entry, ops = _plan_tool_entry(item, runner, cache_dir, home)
         entries.append(entry)
         tools.append(entry)
         operations.extend(ops)
@@ -245,6 +252,7 @@ def _plan_tool_entry(
     item: Mapping[str, Any],
     runner: CommandRunner,
     cache_dir: Path,
+    home: Path,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     method = item["install_method"]
     found_path = runner.which(item["command"])
@@ -257,21 +265,28 @@ def _plan_tool_entry(
         "requires_sudo": item.get("requires_sudo", False),
     }
     if found_path:
+        current_version = _current_version_for_tool(item["command"], found_path, runner)
         base_entry.update(
             {
                 "state": "installed",
                 "current_path": found_path,
-                "current_version": _detect_version(item["command"], found_path, runner),
+                "current_version": current_version,
                 "action": "upgrade",
             }
         )
     else:
         base_entry.update({"state": "missing", "action": "install"})
-    ops = _tool_operations(item, cache_dir, mode="upgrade" if found_path else "install")
+    ops = _tool_operations(item, cache_dir, home, mode="upgrade" if found_path else "install")
     return base_entry, ops
 
 
-def _tool_operations(item: Mapping[str, Any], cache_dir: Path, *, mode: str) -> list[dict[str, Any]]:
+def _tool_operations(
+    item: Mapping[str, Any],
+    cache_dir: Path,
+    home: Path,
+    *,
+    mode: str,
+) -> list[dict[str, Any]]:
     method = item["install_method"]
     iargs = dict(item.get("install_args", {}))
     entry_id = f"tools.{item['id']}"
@@ -291,7 +306,7 @@ def _tool_operations(item: Mapping[str, Any], cache_dir: Path, *, mode: str) -> 
     if method == "curl_installer":
         return [_curl_op(entry_id, item, iargs, cache_dir, mode=mode)]
     if method == "npm":
-        return [_npm_op(entry_id, item, iargs, cache_dir, mode=mode)]
+        return [_npm_op(entry_id, item, iargs, cache_dir, home, mode=mode)]
     if method == "uv_tool":
         return [_uv_tool_op(entry_id, item, iargs, cache_dir, mode=mode)]
     return []
@@ -380,21 +395,24 @@ def _npm_op(
     item: Mapping[str, Any],
     args: Mapping[str, Any],
     cache_dir: Path,
+    home: Path,
     *,
     mode: str,
 ) -> dict[str, Any]:
     op_type = "tool_install_npm" if mode == "install" else "tool_install_npm_upgrade"
+    prefix = home / ".local"
     return {
         "entry_id": entry_id,
         "recipe": "tool_installs",
         "type": op_type,
         "mode": mode,
         "package": args["package"],
-        "requires_sudo": item.get("requires_sudo", True),
+        "prefix": str(prefix),
+        "requires_sudo": item.get("requires_sudo", False),
         "requires_network": True,
         "requires_approval": True,
         "cache_dir": str(cache_dir),
-        "reason": f"{mode} {item['label']} via npm",
+        "reason": f"{mode} {item['label']} via npm in {prefix}",
     }
 
 
@@ -445,12 +463,33 @@ def _dpkg_installed(runner: CommandRunner, package: str) -> bool:
 
 
 def _detect_version(command: str, found_path: str, runner: CommandRunner) -> str:
+    if command == "codacy-cli":
+        return _detect_codacy_cli_version(found_path)
     try:
-        result = runner.run([found_path, "--version"], capture_output=True, check=False)
-    except (OSError, RuntimeError):
+        result = runner.run([found_path, "--version"], capture_output=True, check=False, timeout=5)
+    except (OSError, RuntimeError, subprocess.TimeoutExpired):
         return ""
     output = (result.stdout or "").strip().splitlines()
     return output[0] if output else ""
+
+
+def _current_version_for_tool(command: str, found_path: str, runner: CommandRunner) -> str:
+    return _detect_version(command, found_path, runner)
+
+
+def _detect_codacy_cli_version(found_path: str) -> str:
+    version_file = Path(found_path).expanduser().resolve().parent.parent / "version.yaml"
+    try:
+        text = version_file.read_text()
+    except OSError:
+        return ""
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("version:"):
+            _, _, raw_value = line.partition(":")
+            version = raw_value.strip().strip('"')
+            return version
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -552,11 +591,12 @@ def _execute_npm(op: dict[str, Any], runner: CommandRunner, *, mode: str) -> int
     if not npm:
         op["result"] = "npm not found; install Node first or re-run option 1 after dev-base completes"
         return 0
+    prefix_dir = str(op.get("prefix") or (Path.home() / ".local"))
     prefix = _sudo_prefix() if op.get("requires_sudo", True) else []
     if mode == "upgrade":
-        runner.run([*prefix, npm, "update", "-g", package])
+        runner.run([*prefix, npm, "update", "-g", "--prefix", prefix_dir, package])
     else:
-        runner.run([*prefix, npm, "install", "-g", package])
+        runner.run([*prefix, npm, "install", "-g", "--prefix", prefix_dir, package])
     return 1
 
 

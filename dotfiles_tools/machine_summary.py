@@ -240,8 +240,8 @@ def _extend_auth_guidance_context(lines: list[str], doctor: Report) -> None:
     pending = [item for item in auth_guidance if item.get("state") == "available"]
     signed_in = [item for item in auth_guidance if item.get("state") == "signed_in"]
     if signed_in:
-        names = ", ".join(str(item.get("id")) for item in signed_in)
-        lines.append(f"  - Already signed in: {names}.")
+        identities = ", ".join(_auth_identity_label(item) for item in signed_in)
+        lines.append(f"  - Verified sign-ins: {identities}.")
     if pending:
         commands = ", ".join(str(item.get("command")) for item in pending)
         lines.append(f"  - Pending sign-ins: {commands}.")
@@ -475,13 +475,20 @@ def _extend_auth_summary_line(lines: list[str], auth_guidance: list[dict[str, An
     pending = [item for item in auth_guidance if item.get("state") == "available"]
     signed_in = [item for item in auth_guidance if item.get("state") == "signed_in"]
     if signed_in:
-        names = ", ".join(str(item.get("id")) for item in signed_in)
-        lines.append(f"  - Verified sign-ins: {names}.")
+        identities = ", ".join(_auth_identity_label(item) for item in signed_in)
+        lines.append(f"  - Verified sign-ins: {identities}.")
     if pending:
         commands = ", ".join(str(item.get("command")) for item in pending)
         lines.append(f"  - Auth checks are manual: {commands}.")
     elif not signed_in:
         lines.append("  - No auth guidance items applicable.")
+
+
+def _auth_identity_label(item: dict[str, Any]) -> str:
+    detail = item.get("signed_in_detail")
+    if detail:
+        return f"{item.get('id')}={detail}"
+    return str(item.get("id"))
 
 
 def _target_label(entry: dict[str, Any], manifest_entries: dict[str, ManifestEntry]) -> str:

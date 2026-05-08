@@ -46,7 +46,7 @@ Two MCP servers are available to agents when the required tokens are set.
 
 ### Token loading — automatic
 
-A user-global `SessionStart` hook (`~/.claude/hooks/load-project-env.sh`) sources
+A user-global `SessionStart` hook (`~/.claude/hooks/load-project-env.sh`) loads
 each project's `.envrc` / `.envrc.local` at session start and exports the token
 allowlist into every Bash tool call for the session. The allowlist covers:
 `CODACY_ACCOUNT_TOKEN`, `CODACY_API_TOKEN`, `CODACY_PROJECT_TOKEN`,

@@ -354,7 +354,7 @@ check_api_credentials() {
 
   # Check gh CLI
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-    echo "  GitHub (gh)          ✓ Authenticated"
+    echo "  GitHub (gh)          ✓ verified: $(gh_identity_summary)"
   else
     echo "  GitHub (gh)          ✗ Not configured"
   fi
@@ -367,34 +367,98 @@ check_api_credentials() {
   fi
 
   # Check Codacy account token — prefer env var, fall back to file
-  local codacy_token="${CODACY_ACCOUNT_TOKEN:-}"
-  if [[ -z "$codacy_token" && -f "$HOME/.codacy/account-token" ]]; then
-    codacy_token="$(cat "$HOME/.codacy/account-token")"
-  fi
-  if [[ -n "$codacy_token" ]] && command -v curl >/dev/null 2>&1; then
-    local codacy_response codacy_name
-    codacy_response="$(curl -sf --max-time 5 \
-      -H "api-token: $codacy_token" \
-      "https://app.codacy.com/api/v3/user" 2>/dev/null || true)"
-    if [[ -n "$codacy_response" ]]; then
-      if command -v jq >/dev/null 2>&1; then
-        codacy_name="$(printf '%s' "$codacy_response" | jq -r '.data.name // empty' 2>/dev/null || true)"
-      else
-        codacy_name="$(printf '%s' "$codacy_response" | python3 -c \
-          'import json,sys; d=json.load(sys.stdin); print(d["data"]["name"])' 2>/dev/null || true)"
-      fi
-      if [[ -n "$codacy_name" ]]; then
-        echo "  Codacy               ✓ Authenticated as $codacy_name"
-      else
-        echo "  Codacy               ✗ Token invalid (API call failed)"
-      fi
-    else
-      echo "  Codacy               ✗ Token invalid (no response from API)"
-    fi
-  elif [[ -n "$codacy_token" ]]; then
-    echo "  Codacy               ✓ Token found (curl unavailable, skipping live check)"
+  local codacy_details
+  codacy_details="$(codacy_account_details "$PWD")"
+  if [[ -n "$codacy_details" ]]; then
+    echo "  Codacy               ✓ $codacy_details"
   else
     echo "  Codacy               ✗ Not configured"
+  fi
+}
+
+gh_identity_summary() {
+  local response login name
+  response="$(gh api user --jq '{login: .login, name: .name}' 2>/dev/null || true)"
+  if [[ -z "$response" ]]; then
+    echo "Authenticated"
+    return 0
+  fi
+  login="$(printf '%s' "$response" | jq -r '.login // empty' 2>/dev/null || true)"
+  name="$(printf '%s' "$response" | jq -r '.name // empty' 2>/dev/null || true)"
+  if [[ -n "$login" && -n "$name" ]]; then
+    printf '%s (%s)' "$login" "$name"
+  elif [[ -n "$login" ]]; then
+    printf '%s' "$login"
+  else
+    echo "authenticated"
+  fi
+}
+
+codacy_account_token_value() {
+  local token="${CODACY_ACCOUNT_TOKEN:-}"
+  if [[ -z "$token" && -f "$HOME/.codacy/account-token" ]]; then
+    token="$(cat "$HOME/.codacy/account-token")"
+  fi
+  printf '%s' "$token"
+}
+
+codacy_account_identity() {
+  local token="$1" codacy_response codacy_name
+  [[ -n "$token" ]] || return 1
+  command -v curl >/dev/null 2>&1 || return 1
+  codacy_response="$(curl -sf --max-time 5 \
+    -H "api-token: $token" \
+    "https://app.codacy.com/api/v3/user" 2>/dev/null || true)"
+  [[ -n "$codacy_response" ]] || return 1
+  if command -v jq >/dev/null 2>&1; then
+    codacy_name="$(printf '%s' "$codacy_response" | jq -r '.data.name // .data.username // empty' 2>/dev/null || true)"
+  else
+    codacy_name="$(printf '%s' "$codacy_response" | python3 -c \
+      'import json,sys; d=json.load(sys.stdin); print(d["data"].get("name") or d["data"].get("username") or "")' 2>/dev/null || true)"
+  fi
+  [[ -n "$codacy_name" ]] || return 1
+  printf '%s' "$codacy_name"
+}
+
+codacy_project_scope() {
+  local project="$1" identity owner repo project_token_file
+  identity="$(detect_github_identity "$project" 2>/dev/null || true)"
+  [[ -n "$identity" ]] || return 1
+  local -a identity_lines=()
+  mapfile -t identity_lines <<<"$identity"
+  owner="${identity_lines[0]:-}"
+  repo="${identity_lines[1]:-}"
+  [[ -n "$owner" && -n "$repo" ]] || return 1
+  project_token_file="$HOME/.codacy/$(codacy_safe_name "$owner")-$(codacy_safe_name "$repo").project-token"
+  [[ -f "$project_token_file" ]] || return 1
+  printf '%s/%s' "$owner" "$repo"
+}
+
+codacy_account_details() {
+  local project="$1" token account_name project_scope details=()
+  token="$(codacy_account_token_value)"
+  if [[ -n "$token" ]]; then
+    account_name="$(codacy_account_identity "$token" || true)"
+    [[ -n "$account_name" ]] && details+=("account=$account_name")
+  fi
+  project_scope="$(codacy_project_scope "$project" || true)"
+  [[ -n "$project_scope" ]] && details+=("project=$project_scope")
+  if [[ ${#details[@]} -gt 0 ]]; then
+    printf '%s' "${details[0]}"
+    local i
+    for ((i = 1; i < ${#details[@]}; i++)); do
+      printf ', %s' "${details[i]}"
+    done
+  fi
+}
+
+codacy_account_status() {
+  local details
+  details="$(codacy_account_details "$1")"
+  if [[ -n "$details" ]]; then
+    printf 'verified: %s' "$details"
+  else
+    printf 'needs setup'
   fi
 }
 
@@ -948,33 +1012,189 @@ run_machine_apply() {
 }
 
 run_machine_install_tools_preview() {
+  local phase="${1:-all}"
   (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools bootstrap-install-tools-plan \
     --repo "$DOTFILES_REPO" \
-    --home "$HOME")
+    --home "$HOME" \
+    --phase "$phase")
 }
 
 run_machine_install_tools_apply() {
+  local phase="${1:-all}"
   (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools bootstrap-install-tools \
     --repo "$DOTFILES_REPO" \
     --home "$HOME" \
     --backup-dir "$HOME/.dotfiles-backups" \
+    --phase "$phase" \
     --yes)
 }
 
-run_machine_install_tools_with_confirm() {
+run_machine_install_tools_post_install_verify() {
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools bootstrap-install-tools-post \
+    --repo "$DOTFILES_REPO" \
+    --home "$HOME" \
+    --backup-dir "$HOME/.dotfiles-backups" \
+    --mode verify)
+}
+
+run_machine_install_tools_post_install_auto() {
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools bootstrap-install-tools-post \
+    --repo "$DOTFILES_REPO" \
+    --home "$HOME" \
+    --backup-dir "$HOME/.dotfiles-backups" \
+    --mode auto \
+    --yes)
+}
+
+run_machine_install_tools_post_install_guidance() {
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools bootstrap-install-tools-post \
+    --repo "$DOTFILES_REPO" \
+    --home "$HOME" \
+    --backup-dir "$HOME/.dotfiles-backups" \
+    --mode guidance)
+}
+
+run_machine_install_tools_phase_with_confirm() {
+  local phase="$1"
+  local label="$2"
   echo
-  run_machine_install_tools_preview
+  echo "Preparing ${label} preview..."
+  run_machine_install_tools_preview "$phase"
   echo
-  printf 'Apply tool install/update actions? [y/N]: '
+  echo "Preview complete."
+  printf 'Apply %s actions? [y/N]: ' "$label"
   local confirm
   if read -r -e confirm && [[ "$confirm" =~ ^[Yy]$ ]]; then
     echo
-    run_machine_install_tools_apply || return $?
+    run_machine_install_tools_apply "$phase" || return $?
     return 2
   else
     echo "No tool changes applied."
     return 2
   fi
+}
+
+run_machine_install_tools_apply_with_confirm() {
+  local phase="$1"
+  local label="$2"
+  echo
+  echo "Preparing ${label} for apply..."
+  run_machine_install_tools_preview "$phase"
+  echo
+  echo "Preview complete."
+  printf 'Apply %s actions? [y/N]: ' "$label"
+  local confirm
+  if read -r -e confirm && [[ "$confirm" =~ ^[Yy]$ ]]; then
+    echo
+    run_machine_install_tools_apply "$phase" || return $?
+    return 2
+  else
+    echo "No tool changes applied."
+    return 2
+  fi
+}
+
+run_machine_install_tools_post_install_verify_only() {
+  echo
+  echo "Verifying installed tools only..."
+  run_machine_install_tools_post_install_verify || return $?
+  return 2
+}
+
+run_machine_install_tools_post_install_auto_with_confirm() {
+  echo
+  echo "Preparing auto post-install actions..."
+  printf 'Run auto post-install actions? [y/N]: '
+  local confirm
+  if read -r -e confirm && [[ "$confirm" =~ ^[Yy]$ ]]; then
+    echo
+    run_machine_install_tools_post_install_auto || return $?
+    return 2
+  else
+    echo "No tool changes applied."
+    return 2
+  fi
+}
+
+run_machine_install_tools_post_install_guidance_only() {
+  echo
+  echo "Manual post-install guidance:"
+  run_machine_install_tools_post_install_guidance || return $?
+  return 2
+}
+
+tool_install_phase_menu_loop() {
+  while true; do
+    echo
+    echo "Developer tool phases:"
+    cat <<EOF
+  1. Preview dev-base packages.
+  2. Apply dev-base packages.
+  3. Preview individual tool installers.
+  4. Apply individual tool installers.
+  5. Split post-install verification and guidance.
+  6. Back to main menu.
+EOF
+    printf 'Choose [1-6]: '
+    local choice
+    if ! read -r -e choice; then
+      echo
+      return 0
+    fi
+    case "$choice" in
+      1)
+        echo
+        echo "Preparing dev-base package preview..."
+        run_machine_install_tools_preview dev-base || { echo "Dev-base preview failed." >&2; continue; }
+        echo
+        echo "Preview complete."
+        ;;
+      2)
+        run_machine_install_tools_phase_with_confirm dev-base "dev-base packages" || return $?
+        ;;
+      3)
+        echo
+        echo "Preparing individual tool installer preview..."
+        run_machine_install_tools_preview tools || { echo "Tool installer preview failed." >&2; continue; }
+        echo
+        echo "Preview complete."
+        ;;
+      4)
+        run_machine_install_tools_apply_with_confirm tools "individual tool installers" || return $?
+      ;;
+      5)
+        while true; do
+          echo
+          echo "Post-install phases:"
+          cat <<EOF
+  1. Verify installed tools only.
+  2. Run auto post-install actions.
+  3. Show manual post-install guidance.
+  4. Back to main menu.
+EOF
+          printf 'Choose [1-4]: '
+          local post_choice
+          if ! read -r -e post_choice; then
+            echo
+            return 0
+          fi
+          case "$post_choice" in
+            1) run_machine_install_tools_post_install_verify_only || return $? ;;
+            2) run_machine_install_tools_post_install_auto_with_confirm || return $? ;;
+            3) run_machine_install_tools_post_install_guidance_only || return $? ;;
+            4|"") return 0 ;;
+            *) echo "Unknown choice: $post_choice" >&2 ;;
+          esac
+        done
+        ;;
+      6|"")
+        return 0
+        ;;
+      *)
+        echo "Unknown choice: $choice" >&2
+        ;;
+    esac
+  done
 }
 
 ensure_project_envrc_local() {
@@ -1044,12 +1264,68 @@ show_tool_auth_commands() {
   (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools.baseline)
 }
 
+print_summary_section() {
+  local summary_text="$1"
+  local section_title="$2"
+  printf '%s\n' "$summary_text" | awk -v title="$section_title" '
+    $0 == title ":" { printing = 1; print; next }
+    printing && /^[^ ]/ { exit }
+    printing { print }
+  '
+}
+
+show_safe_changes_preview() {
+  local summary_text="$1"
+  local preview_kind="$2"
+  case "$preview_kind" in
+    dotfiles)
+      echo "Dotfiles and config files:"
+      print_summary_section "$summary_text" "Update existing files with backups"
+      print_summary_section "$summary_text" "Create missing files"
+      print_summary_section "$summary_text" "Protected/manual files"
+      print_summary_section "$summary_text" "Needs attention before apply"
+      ;;
+    fonts)
+      echo "Fonts and terminal setup:"
+      print_summary_section "$summary_text" "Fonts"
+      ;;
+  esac
+}
+
+safe_changes_menu_loop() {
+  local summary_text="$1"
+  while true; do
+    echo
+    echo "Safe setup changes:"
+    cat <<EOF
+  1. Preview dotfiles and config files.
+  2. Preview fonts and terminal setup.
+  3. Apply all safe changes now.
+  4. Back to main menu.
+EOF
+    printf 'Choose [1-4]: '
+    local choice
+    if ! read -r -e choice; then
+      echo
+      return 0
+    fi
+    case "$choice" in
+      1) echo; show_safe_changes_preview "$summary_text" dotfiles; echo; echo "Preview complete; returning to main menu."; return 2 ;;
+      2) echo; show_safe_changes_preview "$summary_text" fonts; echo; echo "Preview complete; returning to main menu."; return 2 ;;
+      3) run_machine_apply_with_message; return $? ;;
+      4|"") return 0 ;;
+      *) echo "Unknown choice: $choice" >&2 ;;
+    esac
+  done
+}
+
 machine_menu_loop() {
   local recommendation_body="$1"
   local rec_opt="$2"
+  local summary_text="$3"
   while true; do
-    local opt1="  1. Install / update developer tools (preview, then apply)."
-    local opt2="  2. Apply safe non-protected dotfiles and approved install/update recipes."
+    local opt1="  1. Install / update developer tools (phased submenu, preview, then apply)."
+    local opt2="  2. Apply safe non-protected dotfiles."
     local opt3="  3. Show full technical details."
     local opt4="  4. Show tool and sign-in guidance."
     local opt5="  5. Configure / verify API tokens (GitHub, HuggingFace, Codacy)."
@@ -1078,8 +1354,14 @@ EOF
       return 0
     fi
     case "$choice" in
-      1) run_machine_install_tools_with_confirm; return $? ;;
-      2) run_machine_apply_with_message; return $? ;;
+      1)
+        tool_install_phase_menu_loop
+        [[ $? -eq 2 ]] && return 2
+        ;;
+      2)
+        safe_changes_menu_loop "$summary_text"
+        [[ $? -eq 2 ]] && return 2
+        ;;
       3) echo; run_machine_details ;;
       4) echo; show_tool_auth_commands ;;
       5) echo; configure_machine_api_tokens ;;
@@ -1092,7 +1374,8 @@ EOF
 machine_menu() {
   local recommendation_body="${1:-5. Exit without writing - Setup is current and no write action is needed.}"
   local rec_opt="${2:-5}"
-  machine_menu_loop "$recommendation_body" "$rec_opt"
+  local summary_text="${3:-}"
+  machine_menu_loop "$recommendation_body" "$rec_opt" "$summary_text"
 }
 
 cmd_machine_setup() {
@@ -1106,7 +1389,7 @@ cmd_machine_setup() {
     recommendation_body="$(extract_machine_recommendation "$summary_output")"
     rec_opt="${recommendation_body%%.*}"
     [[ "$rec_opt" =~ ^[1-5]$ ]] || rec_opt="5"
-    if machine_menu "$recommendation_body" "$rec_opt"; then
+    if machine_menu "$recommendation_body" "$rec_opt" "$summary_output"; then
       menu_status=0
     else
       menu_status=$?
@@ -1715,27 +1998,26 @@ cmd_repair_codacy_env() {
 }
 
 configure_machine_api_tokens() {
+  local project="${1:-$PWD}"
   while true; do
     echo
-    echo "Machine-level API Authentication:"
+    echo "Tool and sign-in guidance:"
     local gh_status="needs setup" hf_status="needs setup" codacy_status="needs setup"
 
     # Check status for display
     if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-      gh_status="verified"
+      gh_status="verified: $(gh_identity_summary)"
     fi
     if [[ -f "$HOME/.cache/huggingface/token" ]]; then
       hf_status="verified"
     fi
-    if [[ -f "$HOME/.codacy/account-token" ]] || ls "$HOME/.codacy"/*.project-token >/dev/null 2>&1; then
-      codacy_status="verified"
-    fi
+    codacy_status="$(codacy_account_status "$project")"
 
     cat <<EOF
-  1. GitHub (gh) authentication [$gh_status]
-  2. HuggingFace Hub access [$hf_status]
-  3. Codacy API access (account token + project token) [$codacy_status]
-  4. Back to main menu
+  1. GitHub (gh) authentication. [$gh_status]
+  2. HuggingFace Hub access. [$hf_status]
+  3. Codacy API access (account token + project token). [$codacy_status]
+  4. Back to main menu.
 EOF
 
     printf "Choose [1-4]: "
@@ -1748,7 +2030,7 @@ EOF
     case "$choice" in
       1) configure_gh_auth ;;
       2) configure_huggingface_global ;;
-      3) configure_codacy_env "$(pwd)" ;;
+      3) configure_codacy_env "$project" ;;
       4|"") return 0 ;;
       *) echo "Unknown choice: $choice" >&2 ;;
     esac
