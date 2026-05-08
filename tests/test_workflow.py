@@ -30,7 +30,7 @@ class WorkflowTests(DotfilesTestCase):
         self.assertIn("name: Dotfiles Validation", workflow)
         # job name must stay codacy-safety-net — required by branch protection ruleset
         self.assertIn("codacy-safety-net:", workflow)
-        self.assertIn("CODACY_PROJECT_TOKEN", workflow)
+        self.assertIn("CODACY_ACCOUNT_TOKEN", workflow)
         self.assertIn("concurrency:", workflow)
         self.assertIn("coverage run -m unittest discover -s tests", workflow)
         self.assertIn("coverage xml", workflow)

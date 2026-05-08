@@ -15,7 +15,7 @@ jobs:
   codacy-safety-net:
     runs-on: ubuntu-latest
     env:
-      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+      CODACY_ACCOUNT_TOKEN: ${{ secrets.CODACY_ACCOUNT_TOKEN }}
     steps:
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -30,9 +30,9 @@ jobs:
         run: uv run --with coverage==7.5.4 coverage xml
 
       - name: Upload coverage to Codacy
-        if: ${{ env.CODACY_PROJECT_TOKEN != '' }}
+        if: ${{ env.CODACY_ACCOUNT_TOKEN != '' }}
         continue-on-error: true
         run: |
           bash <(curl -Ls https://coverage.codacy.com/get.sh) report \
-            --project-token "$CODACY_PROJECT_TOKEN" \
+            --api-token "$CODACY_ACCOUNT_TOKEN" \
             -r coverage.xml
