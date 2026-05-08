@@ -24,6 +24,7 @@ __all__ = (
     "build_tool_install_plan",
     "execute_tool_install_operation",
     "verify_installed_tools",
+    "collect_post_install_summary",
     "run_post_install_actions",
     "TOOL_CACHE_REL",
     "DEV_BASE_ENTRY_ID",
@@ -662,6 +663,68 @@ def verify_installed_tools(
             "version": version,
         })
     return results
+
+
+def collect_post_install_summary(
+    home: Path | str,
+    *,
+    mode: str = "all",
+    yes: bool = False,
+    runner: CommandRunner | None = None,
+    env: Mapping[str, str] | None = None,
+    repo_path: Path | str | None = None,
+    backup_dir: Path | str | None = None,
+) -> dict[str, Any]:
+    if mode not in {"all", "verify", "auto", "guidance"}:
+        raise ValueError(f"unknown tool post-install mode: {mode}")
+
+    effective_env = dict(os.environ if env is None else env)
+    effective_runner = runner or CommandRunner(env=effective_env, path=effective_env.get("PATH", ""))
+    repo = Path(repo_path).resolve() if repo_path else None
+    home_path = Path(home).expanduser().resolve()
+    backup = Path(backup_dir).expanduser().resolve() if backup_dir else None
+
+    summary: dict[str, Any] = {"verification": [], "post_install_actions": [], "backups": [], "status": "ok"}
+    if mode == "verify":
+        verification = verify_installed_tools(home_path, runner=effective_runner, env=effective_env)
+        summary["verification"] = verification
+        if any(not item["verified"] for item in verification):
+            summary["status"] = "warning"
+        return summary
+
+    verification = verify_installed_tools(home_path, runner=effective_runner, env=effective_env) if mode == "all" else []
+    actions = run_post_install_actions(
+        home_path,
+        yes=yes if mode == "all" else mode == "auto",
+        runner=effective_runner,
+        env=effective_env,
+        repo_path=repo,
+        backup_dir=backup,
+    )
+    actions = _filter_post_install_actions(actions, mode)
+    summary["verification"] = verification
+    summary["post_install_actions"] = actions
+    summary["backups"] = _collect_post_install_backups(actions)
+    if mode == "all" and any(not item["verified"] for item in verification):
+        summary["status"] = "warning"
+    if mode in {"auto", "all"} and any(item.get("status") == "failed" for item in actions):
+        summary["status"] = "warning"
+    return summary
+
+
+def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    collected: list[dict[str, Any]] = []
+    for action in actions:
+        collected.extend(action.get("backups") or [])
+    return collected
+
+
+def _filter_post_install_actions(actions: list[dict[str, Any]], mode: str) -> list[dict[str, Any]]:
+    if mode == "auto":
+        return [action for action in actions if action.get("kind") == "auto"]
+    if mode == "guidance":
+        return [action for action in actions if action.get("kind") == "guidance"]
+    return actions
 
 
 def run_post_install_actions(

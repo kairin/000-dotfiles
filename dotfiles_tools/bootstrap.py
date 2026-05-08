@@ -9,10 +9,9 @@ from .installer import build_plan, execute_manifest_operation
 from .reports import Report
 from .tool_installer import (
     TOOL_CACHE_REL,
+    collect_post_install_summary,
     build_tool_install_plan,
     execute_tool_install_operation,
-    run_post_install_actions,
-    verify_installed_tools,
 )
 
 
@@ -159,7 +158,20 @@ def apply_tool_installs(
         return plan
     report = _execute_bootstrap_operations(plan, repo_path, backup_path, runner)
     if phase == "all":
-        _attach_verification_and_post_install(report, repo_path, home_path, yes, env, runner, backup_path)
+        summary = collect_post_install_summary(
+            home_path,
+            mode="all",
+            yes=yes,
+            runner=runner,
+            env=env,
+            repo_path=repo_path,
+            backup_dir=backup_path,
+        )
+        report.extra["verification"] = summary["verification"]
+        report.extra["post_install_actions"] = summary["post_install_actions"]
+        report.backups.extend(summary["backups"])
+        if summary["status"] == "warning":
+            report.status = "warning"
     return report
 
 
@@ -185,55 +197,23 @@ def run_tool_install_post_install(
         home=str(home_path),
         profile="machine",
     )
-    if mode == "verify":
-        verification = verify_installed_tools(home_path, runner=runner, env=env)
-        report.extra["verification"] = verification
-        if any(not item["verified"] for item in verification):
-            report.status = "warning"
-        return report
-
-    verification = verify_installed_tools(home_path, runner=runner, env=env) if mode == "all" else []
-    actions = run_post_install_actions(
+    summary = collect_post_install_summary(
         home_path,
-        yes=yes if mode == "all" else mode == "auto",
+        mode=mode,
+        yes=yes,
         runner=runner,
         env=env,
         repo_path=repo_path,
         backup_dir=backup_path,
     )
-    actions = _filter_post_install_actions(actions, mode)
-    if verification:
-        report.extra["verification"] = verification
-    report.extra["post_install_actions"] = actions
-    report.backups.extend(_collect_post_install_backups(actions))
-    if mode == "all" and any(not item["verified"] for item in verification):
-        report.status = "warning"
-    if mode in {"auto", "all"} and any(item.get("status") == "failed" for item in actions):
+    if summary["verification"]:
+        report.extra["verification"] = summary["verification"]
+    if summary["post_install_actions"]:
+        report.extra["post_install_actions"] = summary["post_install_actions"]
+    report.backups.extend(summary["backups"])
+    if summary["status"] == "warning":
         report.status = "warning"
     return report
-
-
-def _attach_verification_and_post_install(
-    report: Report,
-    repo_path: Path,
-    home_path: Path,
-    yes: bool,
-    env: Mapping[str, str] | None,
-    runner: CommandRunner | None,
-    backup_dir: Path,
-) -> None:
-    if report.status == "failed":
-        return
-    verification = verify_installed_tools(home_path, runner=runner, env=env)
-    actions = run_post_install_actions(
-        home_path, yes=yes, runner=runner, env=env,
-        repo_path=repo_path, backup_dir=backup_dir,
-    )
-    report.extra["verification"] = verification
-    report.extra["post_install_actions"] = actions
-    report.backups.extend(_collect_post_install_backups(actions))
-    if any(not item["verified"] for item in verification):
-        report.status = "warning"
 
 
 def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -241,14 +221,6 @@ def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[st
     for action in actions:
         collected.extend(action.get("backups") or [])
     return collected
-
-
-def _filter_post_install_actions(actions: list[dict[str, Any]], mode: str) -> list[dict[str, Any]]:
-    if mode == "auto":
-        return [action for action in actions if action.get("kind") == "auto"]
-    if mode == "guidance":
-        return [action for action in actions if action.get("kind") == "guidance"]
-    return actions
 
 
 def _execute_bootstrap_operations(
