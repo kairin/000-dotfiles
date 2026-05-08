@@ -678,11 +678,13 @@ def collect_post_install_summary(
     if mode not in {"all", "verify", "auto", "guidance"}:
         raise ValueError(f"unknown tool post-install mode: {mode}")
 
-    effective_env = dict(os.environ if env is None else env)
-    effective_runner = runner or CommandRunner(env=effective_env, path=effective_env.get("PATH", ""))
-    repo = Path(repo_path).resolve() if repo_path else None
-    home_path = Path(home).expanduser().resolve()
-    backup = Path(backup_dir).expanduser().resolve() if backup_dir else None
+    effective_env, effective_runner, repo, home_path, backup = _post_install_context(
+        home,
+        env=env,
+        runner=runner,
+        repo_path=repo_path,
+        backup_dir=backup_dir,
+    )
 
     summary: dict[str, Any] = {"verification": [], "post_install_actions": [], "backups": [], "status": "ok"}
     if mode == "verify":
@@ -710,6 +712,22 @@ def collect_post_install_summary(
     if mode in {"auto", "all"} and any(item.get("status") == "failed" for item in actions):
         summary["status"] = "warning"
     return summary
+
+
+def _post_install_context(
+    home: Path | str,
+    *,
+    env: Mapping[str, str] | None,
+    runner: CommandRunner | None,
+    repo_path: Path | str | None,
+    backup_dir: Path | str | None,
+) -> tuple[dict[str, str], CommandRunner, Path | None, Path, Path | None]:
+    effective_env = dict(os.environ if env is None else env)
+    effective_runner = runner or CommandRunner(env=effective_env, path=effective_env.get("PATH", ""))
+    repo = Path(repo_path).resolve() if repo_path else None
+    home_path = Path(home).expanduser().resolve()
+    backup = Path(backup_dir).expanduser().resolve() if backup_dir else None
+    return effective_env, effective_runner, repo, home_path, backup
 
 
 def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:

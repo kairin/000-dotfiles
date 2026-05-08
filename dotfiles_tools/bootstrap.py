@@ -167,11 +167,7 @@ def apply_tool_installs(
             repo_path=repo_path,
             backup_dir=backup_path,
         )
-        report.extra["verification"] = summary["verification"]
-        report.extra["post_install_actions"] = summary["post_install_actions"]
-        report.backups.extend(summary["backups"])
-        if summary["status"] == "warning":
-            report.status = "warning"
+        _attach_post_install_summary(report, summary)
     return report
 
 
@@ -206,13 +202,7 @@ def run_tool_install_post_install(
         repo_path=repo_path,
         backup_dir=backup_path,
     )
-    if summary["verification"]:
-        report.extra["verification"] = summary["verification"]
-    if summary["post_install_actions"]:
-        report.extra["post_install_actions"] = summary["post_install_actions"]
-    report.backups.extend(summary["backups"])
-    if summary["status"] == "warning":
-        report.status = "warning"
+    _attach_post_install_summary(report, summary)
     return report
 
 
@@ -221,6 +211,16 @@ def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[st
     for action in actions:
         collected.extend(action.get("backups") or [])
     return collected
+
+
+def _attach_post_install_summary(report: Report, summary: dict[str, Any]) -> None:
+    if summary["verification"]:
+        report.extra["verification"] = summary["verification"]
+    if summary["post_install_actions"]:
+        report.extra["post_install_actions"] = summary["post_install_actions"]
+    report.backups.extend(summary["backups"])
+    if summary["status"] == "warning":
+        report.status = "warning"
 
 
 def _execute_bootstrap_operations(
