@@ -727,25 +727,14 @@ def _collect_post_install_action_summary(
         repo_path=repo_path,
         backup_dir=backup_dir,
     )
-    summary: dict[str, Any] = {"verification": [], "post_install_actions": [], "backups": [], "status": "ok"}
-    verification = verify_installed_tools(home_path, runner=effective_runner, env=effective_env) if mode == "all" else []
-    actions = run_post_install_actions(
-        home_path,
-        yes=yes if mode == "all" else mode == "auto",
-        runner=effective_runner,
-        env=effective_env,
-        repo_path=repo,
-        backup_dir=backup,
-    )
-    actions = _filter_post_install_actions(actions, mode)
-    summary["verification"] = verification
-    summary["post_install_actions"] = actions
-    summary["backups"] = _collect_post_install_backups(actions)
-    if mode == "all" and any(not item["verified"] for item in verification):
-        summary["status"] = "warning"
-    if mode in {"auto", "all"} and any(item.get("status") == "failed" for item in actions):
-        summary["status"] = "warning"
-    return summary
+    verification = _collect_post_install_verification(mode, home_path, effective_env, effective_runner)
+    actions = _collect_post_install_actions(mode, yes, home_path, effective_env, effective_runner, repo, backup)
+    return {
+        "verification": verification,
+        "post_install_actions": actions,
+        "backups": _collect_post_install_backups(actions),
+        "status": _post_install_summary_status(mode, verification, actions),
+    }
 
 
 def _post_install_context(
@@ -769,6 +758,49 @@ def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[st
     for action in actions:
         collected.extend(action.get("backups") or [])
     return collected
+
+
+def _collect_post_install_verification(
+    mode: str,
+    home_path: Path,
+    env: Mapping[str, str],
+    runner: CommandRunner,
+) -> list[dict[str, Any]]:
+    if mode != "all":
+        return []
+    return verify_installed_tools(home_path, runner=runner, env=env)
+
+
+def _collect_post_install_actions(
+    mode: str,
+    yes: bool,
+    home_path: Path,
+    env: Mapping[str, str],
+    runner: CommandRunner,
+    repo: Path | None,
+    backup: Path | None,
+) -> list[dict[str, Any]]:
+    actions = run_post_install_actions(
+        home_path,
+        yes=yes if mode == "all" else mode == "auto",
+        runner=runner,
+        env=env,
+        repo_path=repo,
+        backup_dir=backup,
+    )
+    return _filter_post_install_actions(actions, mode)
+
+
+def _post_install_summary_status(
+    mode: str,
+    verification: list[dict[str, Any]],
+    actions: list[dict[str, Any]],
+) -> str:
+    if mode == "all" and any(not item["verified"] for item in verification):
+        return "warning"
+    if mode in {"auto", "all"} and any(item.get("status") == "failed" for item in actions):
+        return "warning"
+    return "ok"
 
 
 def _filter_post_install_actions(actions: list[dict[str, Any]], mode: str) -> list[dict[str, Any]]:
