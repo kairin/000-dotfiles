@@ -17,7 +17,14 @@ class CommandRunner:
     def which(self, command: str) -> str | None:
         return shutil.which(command, path=self.path)
 
-    def run(self, args: list[str], *, capture_output: bool = False, check: bool = True) -> subprocess.CompletedProcess[str]:
+    def run(
+        self,
+        args: list[str],
+        *,
+        capture_output: bool = False,
+        check: bool = True,
+        timeout: float | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         env = dict(self.env)
         env["PATH"] = self.path
         # codacy-disable-next-line
@@ -27,6 +34,7 @@ class CommandRunner:
             capture_output=capture_output,
             text=True,
             env=env,
+            timeout=timeout,
             shell=False,
         )
 

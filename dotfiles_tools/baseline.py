@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess  # nosec B404
@@ -116,8 +117,8 @@ TOOL_BASELINE = (
         "bootstrap": True,
         "install_method": "npm",
         "install_args": {"package": "@openai/codex"},
-        "requires_sudo": True,
-        "install_hint": "Installed by the setup tool-install menu option (npm install -g @openai/codex).",
+        "requires_sudo": False,
+        "install_hint": "Installed by the setup tool-install menu option (npm install -g --prefix ~/.local @openai/codex).",
         "post_install": (
             {
                 "kind": "guidance",
@@ -154,8 +155,8 @@ TOOL_BASELINE = (
         "bootstrap": True,
         "install_method": "npm",
         "install_args": {"package": "@google/gemini-cli"},
-        "requires_sudo": True,
-        "install_hint": "Installed by the setup tool-install menu option (npm install -g @google/gemini-cli).",
+        "requires_sudo": False,
+        "install_hint": "Installed by the setup tool-install menu option (npm install -g --prefix ~/.local @google/gemini-cli).",
         "post_install": (
             {
                 "kind": "guidance",
@@ -171,8 +172,8 @@ TOOL_BASELINE = (
         "bootstrap": True,
         "install_method": "npm",
         "install_args": {"package": "@github/copilot"},
-        "requires_sudo": True,
-        "install_hint": "Installed by the setup tool-install menu option (npm install -g @github/copilot).",
+        "requires_sudo": False,
+        "install_hint": "Installed by the setup tool-install menu option (npm install -g --prefix ~/.local @github/copilot).",
         "post_install": (
             {
                 "kind": "guidance",
@@ -271,18 +272,25 @@ AUTH_GUIDANCE = (
         "tool": "codex",
         "command": "codex auth",
         "guidance": "Run when Codex CLI is installed and needs user authentication.",
+        "verify_file": "~/.codex/auth.json",
+        "verify_json_paths": (("tokens", "access_token"), ("tokens", "refresh_token")),
+        "signed_in_detail": "cached credentials present",
     },
     {
         "id": "claude",
         "tool": "claude",
         "command": "claude login",
         "guidance": "Run when Claude Code CLI is installed and needs user authentication.",
+        "verify": ("claude", "auth", "status"),
     },
     {
         "id": "gemini",
         "tool": "gemini",
         "command": "gemini",
         "guidance": "Start Gemini CLI and complete its login/setup prompt if needed.",
+        "verify_file": "~/.gemini/oauth_creds.json",
+        "verify_json_paths": (("access_token",), ("refresh_token",)),
+        "signed_in_detail": "cached OAuth credentials present",
     },
     {
         "id": "copilot",
@@ -337,20 +345,28 @@ def _extend_auth_status(lines: list[str], auth_items: list[dict[str, Any]]) -> N
     if not visible:
         return
     lines.append("")
-    lines.append("Sign-in status:")
-    all_ok = all(item["state"] == "signed_in" for item in visible)
-    for item in visible:
-        state = item["state"]
-        if state == "signed_in":
-            marker = "[+]"
+    signed_in = [item for item in visible if item["state"] == "signed_in"]
+    pending = [item for item in visible if item["state"] == "available"]
+
+    if signed_in:
+        lines.append("Verified sign-ins:")
+        for item in signed_in:
             detail = item.get("signed_in_detail") or "signed in"
-        else:
-            marker = "[ ]"
-            detail = item["guidance"]
-        lines.append(f"  {marker} {item['command']}: {detail}")
-    if all_ok:
+            lines.append(f"  [+] {item['command']}: {detail}")
+        if not pending:
+            lines.append("")
+            lines.append("  All verifiable sign-ins confirmed.")
+
+    if pending:
+        if signed_in:
+            lines.append("")
+        lines.append("Pending sign-ins:")
+        for item in pending:
+            lines.append(f"  [ ] {item['command']}: {item['guidance']}")
+
+    if not signed_in and not pending:
         lines.append("")
-        lines.append("  All verifiable sign-ins confirmed.")
+        lines.append("  No auth guidance items applicable.")
 
 
 def _tool_check(item: dict[str, Any], search_path: str) -> dict[str, Any]:
@@ -380,7 +396,7 @@ def _auth_check(item: dict[str, str], search_path: str, home: Path) -> dict[str,
 
     verify_file = item.get("verify_file")
     if verify_file:
-        return _auth_check_verify_file(base, verify_file, home)
+        return _auth_check_verify_file(base, verify_file, home, item.get("verify_json_paths"), item.get("signed_in_detail"))
 
     verify = item.get("verify")
     if verify:
@@ -393,11 +409,44 @@ def _auth_tool_present(tool: str | None, search_path: str) -> bool:
     return bool(shutil.which(tool, path=search_path)) if tool else True
 
 
-def _auth_check_verify_file(base: dict[str, Any], verify_file: str, home: Path) -> dict[str, Any]:
+def _auth_check_verify_file(
+    base: dict[str, Any],
+    verify_file: str,
+    home: Path,
+    verify_json_paths: tuple[tuple[str, ...], ...] | None,
+    signed_in_detail: str | None,
+) -> dict[str, Any]:
+    path = _resolve_auth_verify_file(home, verify_file)
+    if verify_json_paths:
+        return _auth_check_verify_json_file(base, path, verify_json_paths, signed_in_detail)
+    return _auth_check_verify_text_file(base, path, signed_in_detail)
+
+
+def _resolve_auth_verify_file(home: Path, verify_file: str) -> Path:
     # Resolve ~ against the audited home, not the process home.
-    p = home / verify_file.lstrip("~/") if verify_file.startswith("~/") else Path(verify_file)
-    if p.exists() and p.read_text().strip():
-        return {**base, "state": "signed_in", "signed_in_detail": f"token present at {verify_file}"}
+    return home / verify_file.lstrip("~/") if verify_file.startswith("~/") else Path(verify_file)
+
+
+def _auth_check_verify_json_file(
+    base: dict[str, Any],
+    path: Path,
+    verify_json_paths: tuple[tuple[str, ...], ...],
+    signed_in_detail: str | None,
+) -> dict[str, Any]:
+    if not path.exists():
+        return {**base, "state": "available"}
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {**base, "state": "available"}
+    if _json_paths_present(data, verify_json_paths):
+        return {**base, "state": "signed_in", "signed_in_detail": signed_in_detail or "cached credentials present"}
+    return {**base, "state": "available"}
+
+
+def _auth_check_verify_text_file(base: dict[str, Any], path: Path, signed_in_detail: str | None) -> dict[str, Any]:
+    if path.exists() and path.read_text().strip():
+        return {**base, "state": "signed_in", "signed_in_detail": signed_in_detail or "cached credentials present"}
     return {**base, "state": "available"}
 
 
@@ -425,7 +474,35 @@ def _auth_check_verify_command(
     return {**base, "state": "available"}
 
 
+def _json_paths_present(data: Any, paths: tuple[tuple[str, ...], ...]) -> bool:
+    for path in paths:
+        node = data
+        for key in path:
+            if not isinstance(node, dict) or key not in node:
+                return False
+            node = node[key]
+        if node in (None, "", [], {}):
+            return False
+    return True
+
+
 def _extract_signed_in_detail(output: str) -> str:
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError:
+        data = None
+    if isinstance(data, dict) and data.get("loggedIn") is True:
+        email = data.get("email")
+        org_name = data.get("orgName")
+        auth_method = data.get("authMethod")
+        if email and org_name:
+            return f"{email} ({org_name})"
+        if email:
+            return str(email)
+        if org_name:
+            return str(org_name)
+        if auth_method:
+            return str(auth_method)
     for line in output.splitlines():
         line = line.strip()
         if "logged in" in line.lower() or "account" in line.lower():

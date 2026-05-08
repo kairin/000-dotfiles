@@ -246,7 +246,7 @@ def _tool_installed_line(item: dict[str, Any]) -> str:
         "apt": "apt --only-upgrade",
         "apt_keyring": "apt --only-upgrade (keyring repo)",
         "curl_installer": "re-run installer (self-update)",
-        "npm": "npm update -g",
+        "npm": "npm update -g --prefix ~/.local",
     }.get(method, "skip")
     label = item.get("label") or item.get("command") or item.get("entry_id")
     path = item.get("current_path") or ""
@@ -261,7 +261,7 @@ def _tool_missing_line(item: dict[str, Any]) -> str:
         "apt": "apt (sudo)",
         "apt_keyring": "apt + keyring repo (sudo)",
         "curl_installer": "curl installer (no sudo)",
-        "npm": "npm install -g (sudo)",
+        "npm": "npm install -g --prefix ~/.local",
     }.get(method, method or "manual")
     label = item.get("label") or item.get("command") or item.get("entry_id")
     return f"    - {label}: {method_label}"

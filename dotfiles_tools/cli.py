@@ -9,6 +9,7 @@ from .bootstrap import (
     apply_tool_installs,
     build_bootstrap_plan,
     build_tool_install_subplan,
+    run_tool_install_post_install,
 )
 from .doctor import run_doctor
 from .installer import apply_plan, build_plan
@@ -65,6 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _common(install_tools_plan)
     install_tools_plan.add_argument("--home", required=True)
+    install_tools_plan.add_argument("--phase", choices=("all", "dev-base", "tools"), default="all")
 
     install_tools_apply = subparsers.add_parser(
         "bootstrap-install-tools",
@@ -74,6 +76,17 @@ def build_parser() -> argparse.ArgumentParser:
     install_tools_apply.add_argument("--home", required=True)
     install_tools_apply.add_argument("--backup-dir")
     install_tools_apply.add_argument("--yes", action="store_true")
+    install_tools_apply.add_argument("--phase", choices=("all", "dev-base", "tools"), default="all")
+
+    install_tools_post = subparsers.add_parser(
+        "bootstrap-install-tools-post",
+        help="Run tool verification and post-install actions",
+    )
+    _common(install_tools_post)
+    install_tools_post.add_argument("--home", required=True)
+    install_tools_post.add_argument("--backup-dir")
+    install_tools_post.add_argument("--yes", action="store_true")
+    install_tools_post.add_argument("--mode", choices=("all", "verify", "auto", "guidance"), default="all")
 
     project = subparsers.add_parser("init-project", help="Initialize project-level agent docs")
     _common(project)
@@ -137,9 +150,15 @@ def _dispatch_bootstrap(args: argparse.Namespace, repo: Path):
             yes=args.yes, include_protected=args.include_protected,
         )
     elif cmd == "bootstrap-install-tools-plan":
-        report = build_tool_install_subplan(repo, args.home)
+        report = build_tool_install_subplan(repo, args.home, phase=args.phase)
     elif cmd == "bootstrap-install-tools":
-        report = apply_tool_installs(repo, args.home, backup_dir=args.backup_dir, yes=args.yes)
+        report = apply_tool_installs(
+            repo, args.home, phase=args.phase, backup_dir=args.backup_dir, yes=args.yes
+        )
+    elif cmd == "bootstrap-install-tools-post":
+        report = run_tool_install_post_install(
+            repo, args.home, mode=args.mode, backup_dir=args.backup_dir, yes=args.yes
+        )
     else:
         raise SystemExit(f"unknown command: {cmd}")
     return report

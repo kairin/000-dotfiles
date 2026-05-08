@@ -35,7 +35,7 @@ other tools know your codebase conventions.
 ```bash
 git clone https://github.com/kairin/000-dotfiles.git ~/000-dotfiles
 ~/000-dotfiles/setup
-# → Menu appears. Choose 1 (install tools), then 2 (apply configs). Done in ~5 min.
+# → Menu appears. Choose 1 (open the phased tool submenu), then 2 (open safe changes). Done in ~5 min.
 ```
 
 ### Scaffold AI agent docs in a project
@@ -57,9 +57,10 @@ cd ~/Apps/my-project
 
 ## How it works — setup flow
 
-When you run `./setup`, the script audits your machine and shows a **5-option menu**. The
+When you run `./setup`, the script audits your machine and shows a **6-option menu**. The
 option numbers **never change**, but the `[recommended]` tag highlights which action fits
-your current state.
+your current state. Option 2 opens a safe-changes submenu so you can see which files and
+fonts are affected before you apply anything.
 
 ### Fresh machine (tools missing)
 
@@ -74,32 +75,59 @@ $ ~/000-dotfiles/setup
         ╚═══════════════════════════════════════╝
                          ↓
    1. Install / update developer tools   [recommended] ← CHOOSE THIS
-   2. Apply safe non-protected dotfiles
+   2. Apply safe non-protected dotfiles.
    3. Show full technical details
    4. Show tool and sign-in guidance
-   5. Exit without writing
+   5. Configure / verify API tokens
+   6. Exit without writing
                          ↓
-        Choose [1-5]: 1
+        Choose [1-6]: 1
                          ↓
-   [Preview shows: uv, git, gh, fish, direnv, claude,
-    codex, gemini, copilot, specify to be installed]
+   [Developer tool phases submenu opens]
+   1. Preview dev-base packages
+   2. Apply dev-base packages
+   3. Preview individual tool installers
+   4. Apply individual tool installers
+   5. Split post-install verification and guidance
+   6. Back to main menu
                          ↓
-   Apply tool install/update actions? [y/N]: y
+   Choose [1-6]: 2
                          ↓
-   [Tools installed; 5 min...]
-   [Prints sign-in commands: gh auth login, claude /login, etc.]
+   [Preview shows the dev-base apt bundle]
                          ↓
-   Menu reappears. Now tool count shows 10/10.
+   Apply dev-base packages actions? [y/N]: y
+                         ↓
+   [Dev-base packages updated]
+   [Return to the submenu or run option 5 for verification/sign-in guidance]
+                         ↓
+   Menu reappears. Now tool count reflects the phase you just applied.
                          ↓
    1. Install / update developer tools
-   2. Apply safe non-protected dotfiles   [recommended] ← NOW CHOOSE THIS
+   2. Apply safe non-protected dotfiles.  [recommended] ← NOW CHOOSE THIS
    3. Show full technical details
    4. Show tool and sign-in guidance
-   5. Exit without writing
+   5. Configure / verify API tokens
+   6. Exit without writing
                          ↓
-        Choose [1-5]: 2
+        Choose [1-6]: 2
+                         ↓
+   [Safe changes submenu shows dotfiles vs fonts]
+                         ↓
+        Choose [1-4]: 3
                          ↓
    [Configs + fonts installed; backups created]
+                         ↓
+   1. Install / update developer tools
+   2. Apply safe non-protected dotfiles.
+   3. Show full technical details
+   4. Show tool and sign-in guidance
+   5. Configure / verify API tokens. Opens a submenu that splits
+      verification-only, auto post-install actions, and manual guidance.
+   6. Exit without writing
+                         ↓
+        Choose [1-6]: 5
+                         ↓
+   [Post-install submenu shows verify / auto / guidance]
                          ↓
         DONE. Run these sign-in commands:
         $ gh auth login
@@ -122,12 +150,17 @@ $ ~/000-dotfiles/setup
         ╚═══════════════════════════════════════╝
                          ↓
    1. Install / update developer tools
-   2. Apply safe non-protected dotfiles   [recommended] ← CHOOSE THIS
+   2. Apply safe non-protected dotfiles.  [recommended] ← CHOOSE THIS
    3. Show full technical details
    4. Show tool and sign-in guidance
-   5. Exit without writing
+   5. Configure / verify API tokens
+   6. Exit without writing
                          ↓
-        Choose [1-5]: 2
+        Choose [1-6]: 2
+                         ↓
+   [Safe changes submenu shows dotfiles vs fonts]
+                         ↓
+        Choose [1-4]: 3
                          ↓
    [2 files written with backups]
    [Fonts already installed, no changes]
@@ -212,7 +245,7 @@ Files ending in `.template` are copy-and-customize sources. Placeholders follow 
 
 | Command | What it does |
 |---|---|
-| `./setup` | Audit machine, present a menu, optionally apply non-protected dotfiles + font recipes |
+| `./setup` | Audit machine, present a menu, optionally apply a safe-changes submenu for non-protected dotfiles + fonts |
 | `./setup /path/to/project` | Inspect project folder, offer agent-doc actions |
 | `./setup init [--project PATH] [--vars FILE] [--copilot] --yes` | Render `AGENTS.md` + `CLAUDE.md`/`GEMINI.md` symlinks; auto-discovers `project-vars.json` or `.dotfiles/project-vars.json` and infers defaults from `package.json`/`pyproject.toml`/`Cargo.toml`/`go.mod`/Makefile when missing |
 | `./setup verify [--project PATH] [--copilot]` | Read-only check: requires no `uv`, suitable for CI |
@@ -221,8 +254,11 @@ Files ending in `.template` are copy-and-customize sources. Placeholders follow 
 | `./setup ship [<pr-number>]` | Finalize a PR: refresh branch, re-upload Codacy SARIF, poll required checks, squash-merge |
 
 Menu options during `./setup`:
-- **Option 1:** Install or update developer tools
-- **Option 2:** Apply safe non-protected dotfiles (backed up before overwrite)
+- **Option 1:** Install or update developer tools. Opens a submenu that
+  splits dev-base packages, tool installers, and post-install verification so
+  you can isolate slow phases.
+- **Option 2:** Apply safe non-protected dotfiles. Opens a submenu that separates
+  dotfiles/config files from fonts before applying the combined safe changes.
 - **Option 3:** Show full technical details (machine state, versions, all pending operations)
 - **Option 4:** Manage optional integrations (GitHub auth, HuggingFace token configuration, Codacy setup). GitHub CLI installs via `apt`; HuggingFace CLI (`hf`) installs via `uv tool install huggingface-hub`; use `hf auth login` to authenticate. Machine bootstrap calls `ensure_mcp_servers()`, which auto-registers the **GitHub MCP** server (uses `GITHUB_TOKEN`) and **Codacy MCP** server (uses `CODACY_ACCOUNT_TOKEN`) with the Claude CLI.
 
@@ -329,7 +365,7 @@ uv run --with coverage coverage run -m unittest discover -s tests
 uv run --with coverage coverage xml
 ```
 
-CI runs the same validation suite on pushes and pull requests and generates `coverage.xml`. Codacy upload is attempted on push events only when the `CODACY_PROJECT_TOKEN` GitHub secret is configured. See `docs/codacy-coverage-rollout.md` for replicating this pattern in other repos.
+CI runs the same validation suite on pushes and pull requests and generates `coverage.xml`. Codacy upload is attempted on push events only when the `CODACY_ACCOUNT_TOKEN` GitHub secret is configured. See `docs/codacy-coverage-rollout.md` for replicating this pattern in other repos.
 
 ---
 

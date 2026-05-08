@@ -71,7 +71,14 @@ class FakeRunner:
         item = next(item for item in NERD_FONT_CATALOG if item.asset_name == asset_name)
         write_font_zip(target, item.expected_regular)
 
-    def run(self, args: list[str], *, capture_output: bool = False, check: bool = True) -> subprocess.CompletedProcess[str]:
+    def run(
+        self,
+        args: list[str],
+        *,
+        capture_output: bool = False,
+        check: bool = True,
+        timeout: float | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         self.commands.append(args)
         command = Path(args[0]).name
         if command == "fc-match":

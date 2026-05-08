@@ -107,6 +107,24 @@ class CodacyCliPlanTests(DotfilesTestCase):
         ops = [op for op in plan["operations"] if op.get("entry_id") == CODACY_ENTRY_ID]
         self.assertFalse(ops[0]["requires_sudo"])
 
+    def test_plan_reads_codacy_version_from_cache_without_execing_binary(self) -> None:
+        home = self.make_home()
+        version_dir = home / ".cache" / "codacy" / "codacy-cli-v2" / "1.0.0-main.376.sha.799aab5"
+        version_dir.mkdir(parents=True)
+        (home / ".cache" / "codacy" / "codacy-cli-v2" / "version.yaml").write_text(
+            'version: "1.0.0-main.376.sha.799aab5"\n'
+        )
+        codacy_bin = version_dir / "codacy-cli-v2"
+        codacy_bin.write_text("#!/usr/bin/env bash\nexit 0\n")
+        codacy_bin.chmod(0o755)
+        runner = FakeRunner(
+            which={"dpkg-query": "/usr/bin/dpkg-query", "codacy-cli": str(codacy_bin)},
+            run_failures={"codacy-cli": AssertionError("codacy-cli should not be executed for version lookup")},
+        )
+        plan = build_tool_install_plan(home, runner=runner)
+        entry = next(e for e in plan["entries"] if e.get("entry_id") == CODACY_ENTRY_ID)
+        self.assertEqual(entry["current_version"], "1.0.0-main.376.sha.799aab5")
+
 
 class CodacyCliExecuteTests(DotfilesTestCase):
     def setUp(self) -> None:

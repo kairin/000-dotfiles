@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import shutil
+import subprocess  # nosec B404
 import sys
 from typing import Any, Mapping
 
@@ -23,6 +24,7 @@ __all__ = (
     "build_tool_install_plan",
     "execute_tool_install_operation",
     "verify_installed_tools",
+    "collect_post_install_summary",
     "run_post_install_actions",
     "TOOL_CACHE_REL",
     "DEV_BASE_ENTRY_ID",
@@ -32,6 +34,7 @@ __all__ = (
 def build_tool_install_plan(
     home: Path | str,
     *,
+    phase: str = "all",
     env: Mapping[str, str] | None = None,
     path: str | None = None,
     runner: CommandRunner | None = None,
@@ -44,13 +47,17 @@ def build_tool_install_plan(
 
     if not _is_linux(effective_env):
         return _unsupported_plan(effective_runner)
+    if phase not in {"all", "dev-base", "tools"}:
+        raise ValueError(f"unknown tool install phase: {phase}")
 
     entries: list[dict[str, Any]] = []
     operations: list[dict[str, Any]] = []
     tools: list[dict[str, Any]] = []
 
-    _extend_dev_base_plan(effective_runner, cache_dir, entries, operations, tools)
-    _extend_tool_baseline_plan(effective_runner, cache_dir, entries, operations, tools)
+    if phase in {"all", "dev-base"}:
+        _extend_dev_base_plan(effective_runner, cache_dir, entries, operations, tools)
+    if phase in {"all", "tools"}:
+        _extend_tool_baseline_plan(effective_runner, cache_dir, home_path, entries, operations, tools)
 
     return {"entries": entries, "operations": operations, "tools": tools}
 
@@ -228,6 +235,7 @@ def _dev_base_operations(
 def _extend_tool_baseline_plan(
     runner: CommandRunner,
     cache_dir: Path,
+    home: Path,
     entries: list[dict[str, Any]],
     operations: list[dict[str, Any]],
     tools: list[dict[str, Any]],
@@ -235,7 +243,7 @@ def _extend_tool_baseline_plan(
     for item in TOOL_BASELINE:
         if not item.get("bootstrap") or item["install_method"] == "manual":
             continue
-        entry, ops = _plan_tool_entry(item, runner, cache_dir)
+        entry, ops = _plan_tool_entry(item, runner, cache_dir, home)
         entries.append(entry)
         tools.append(entry)
         operations.extend(ops)
@@ -245,6 +253,7 @@ def _plan_tool_entry(
     item: Mapping[str, Any],
     runner: CommandRunner,
     cache_dir: Path,
+    home: Path,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     method = item["install_method"]
     found_path = runner.which(item["command"])
@@ -257,21 +266,28 @@ def _plan_tool_entry(
         "requires_sudo": item.get("requires_sudo", False),
     }
     if found_path:
+        current_version = _current_version_for_tool(item["command"], found_path, runner)
         base_entry.update(
             {
                 "state": "installed",
                 "current_path": found_path,
-                "current_version": _detect_version(item["command"], found_path, runner),
+                "current_version": current_version,
                 "action": "upgrade",
             }
         )
     else:
         base_entry.update({"state": "missing", "action": "install"})
-    ops = _tool_operations(item, cache_dir, mode="upgrade" if found_path else "install")
+    ops = _tool_operations(item, cache_dir, home, mode="upgrade" if found_path else "install")
     return base_entry, ops
 
 
-def _tool_operations(item: Mapping[str, Any], cache_dir: Path, *, mode: str) -> list[dict[str, Any]]:
+def _tool_operations(
+    item: Mapping[str, Any],
+    cache_dir: Path,
+    home: Path,
+    *,
+    mode: str,
+) -> list[dict[str, Any]]:
     method = item["install_method"]
     iargs = dict(item.get("install_args", {}))
     entry_id = f"tools.{item['id']}"
@@ -291,7 +307,7 @@ def _tool_operations(item: Mapping[str, Any], cache_dir: Path, *, mode: str) -> 
     if method == "curl_installer":
         return [_curl_op(entry_id, item, iargs, cache_dir, mode=mode)]
     if method == "npm":
-        return [_npm_op(entry_id, item, iargs, cache_dir, mode=mode)]
+        return [_npm_op(entry_id, item, iargs, cache_dir, home, mode=mode)]
     if method == "uv_tool":
         return [_uv_tool_op(entry_id, item, iargs, cache_dir, mode=mode)]
     return []
@@ -380,21 +396,24 @@ def _npm_op(
     item: Mapping[str, Any],
     args: Mapping[str, Any],
     cache_dir: Path,
+    home: Path,
     *,
     mode: str,
 ) -> dict[str, Any]:
     op_type = "tool_install_npm" if mode == "install" else "tool_install_npm_upgrade"
+    prefix = home / ".local"
     return {
         "entry_id": entry_id,
         "recipe": "tool_installs",
         "type": op_type,
         "mode": mode,
         "package": args["package"],
-        "requires_sudo": item.get("requires_sudo", True),
+        "prefix": str(prefix),
+        "requires_sudo": item.get("requires_sudo", False),
         "requires_network": True,
         "requires_approval": True,
         "cache_dir": str(cache_dir),
-        "reason": f"{mode} {item['label']} via npm",
+        "reason": f"{mode} {item['label']} via npm in {prefix}",
     }
 
 
@@ -445,12 +464,33 @@ def _dpkg_installed(runner: CommandRunner, package: str) -> bool:
 
 
 def _detect_version(command: str, found_path: str, runner: CommandRunner) -> str:
+    if command == "codacy-cli":
+        return _detect_codacy_cli_version(found_path)
     try:
-        result = runner.run([found_path, "--version"], capture_output=True, check=False)
-    except (OSError, RuntimeError):
+        result = runner.run([found_path, "--version"], capture_output=True, check=False, timeout=5)
+    except (OSError, RuntimeError, subprocess.TimeoutExpired):
         return ""
     output = (result.stdout or "").strip().splitlines()
     return output[0] if output else ""
+
+
+def _current_version_for_tool(command: str, found_path: str, runner: CommandRunner) -> str:
+    return _detect_version(command, found_path, runner)
+
+
+def _detect_codacy_cli_version(found_path: str) -> str:
+    version_file = Path(found_path).expanduser().resolve().parent.parent / "version.yaml"
+    try:
+        text = version_file.read_text()
+    except OSError:
+        return ""
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("version:"):
+            _, _, raw_value = line.partition(":")
+            version = raw_value.strip().strip('"')
+            return version
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -552,11 +592,12 @@ def _execute_npm(op: dict[str, Any], runner: CommandRunner, *, mode: str) -> int
     if not npm:
         op["result"] = "npm not found; install Node first or re-run option 1 after dev-base completes"
         return 0
+    prefix_dir = str(op.get("prefix") or (Path.home() / ".local"))
     prefix = _sudo_prefix() if op.get("requires_sudo", True) else []
     if mode == "upgrade":
-        runner.run([*prefix, npm, "update", "-g", package])
+        runner.run([*prefix, npm, "update", "-g", "--prefix", prefix_dir, package])
     else:
-        runner.run([*prefix, npm, "install", "-g", package])
+        runner.run([*prefix, npm, "install", "-g", "--prefix", prefix_dir, package])
     return 1
 
 
@@ -622,6 +663,152 @@ def verify_installed_tools(
             "version": version,
         })
     return results
+
+
+def collect_post_install_summary(
+    home: Path | str,
+    *,
+    mode: str = "all",
+    yes: bool = False,
+    runner: CommandRunner | None = None,
+    env: Mapping[str, str] | None = None,
+    repo_path: Path | str | None = None,
+    backup_dir: Path | str | None = None,
+) -> dict[str, Any]:
+    if mode not in {"all", "verify", "auto", "guidance"}:
+        raise ValueError(f"unknown tool post-install mode: {mode}")
+
+    if mode == "verify":
+        return _collect_post_install_verify_summary(home, env=env, runner=runner)
+
+    return _collect_post_install_action_summary(
+        home,
+        mode=mode,
+        yes=yes,
+        env=env,
+        runner=runner,
+        repo_path=repo_path,
+        backup_dir=backup_dir,
+    )
+
+
+def _collect_post_install_verify_summary(
+    home: Path | str,
+    *,
+    env: Mapping[str, str] | None,
+    runner: CommandRunner | None,
+) -> dict[str, Any]:
+    effective_env, effective_runner, _, home_path, _ = _post_install_context(
+        home,
+        env=env,
+        runner=runner,
+        repo_path=None,
+        backup_dir=None,
+    )
+    verification = verify_installed_tools(home_path, runner=effective_runner, env=effective_env)
+    status = "warning" if any(not item["verified"] for item in verification) else "ok"
+    return {"verification": verification, "post_install_actions": [], "backups": [], "status": status}
+
+
+def _collect_post_install_action_summary(
+    home: Path | str,
+    *,
+    mode: str,
+    yes: bool,
+    env: Mapping[str, str] | None,
+    runner: CommandRunner | None,
+    repo_path: Path | str | None,
+    backup_dir: Path | str | None,
+) -> dict[str, Any]:
+    effective_env, effective_runner, repo, home_path, backup = _post_install_context(
+        home,
+        env=env,
+        runner=runner,
+        repo_path=repo_path,
+        backup_dir=backup_dir,
+    )
+    verification = _collect_post_install_verification(mode, home_path, effective_env, effective_runner)
+    actions = _collect_post_install_actions(mode, yes, home_path, effective_env, effective_runner, repo, backup)
+    return {
+        "verification": verification,
+        "post_install_actions": actions,
+        "backups": _collect_post_install_backups(actions),
+        "status": _post_install_summary_status(mode, verification, actions),
+    }
+
+
+def _post_install_context(
+    home: Path | str,
+    *,
+    env: Mapping[str, str] | None,
+    runner: CommandRunner | None,
+    repo_path: Path | str | None,
+    backup_dir: Path | str | None,
+) -> tuple[dict[str, str], CommandRunner, Path | None, Path, Path | None]:
+    effective_env = dict(os.environ if env is None else env)
+    effective_runner = runner or CommandRunner(env=effective_env, path=effective_env.get("PATH", ""))
+    repo = Path(repo_path).resolve() if repo_path else None
+    home_path = Path(home).expanduser().resolve()
+    backup = Path(backup_dir).expanduser().resolve() if backup_dir else None
+    return effective_env, effective_runner, repo, home_path, backup
+
+
+def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    collected: list[dict[str, Any]] = []
+    for action in actions:
+        collected.extend(action.get("backups") or [])
+    return collected
+
+
+def _collect_post_install_verification(
+    mode: str,
+    home_path: Path,
+    env: Mapping[str, str],
+    runner: CommandRunner,
+) -> list[dict[str, Any]]:
+    if mode != "all":
+        return []
+    return verify_installed_tools(home_path, runner=runner, env=env)
+
+
+def _collect_post_install_actions(
+    mode: str,
+    yes: bool,
+    home_path: Path,
+    env: Mapping[str, str],
+    runner: CommandRunner,
+    repo: Path | None,
+    backup: Path | None,
+) -> list[dict[str, Any]]:
+    actions = run_post_install_actions(
+        home_path,
+        yes=yes if mode == "all" else mode == "auto",
+        runner=runner,
+        env=env,
+        repo_path=repo,
+        backup_dir=backup,
+    )
+    return _filter_post_install_actions(actions, mode)
+
+
+def _post_install_summary_status(
+    mode: str,
+    verification: list[dict[str, Any]],
+    actions: list[dict[str, Any]],
+) -> str:
+    if mode == "all" and any(not item["verified"] for item in verification):
+        return "warning"
+    if mode in {"auto", "all"} and any(item.get("status") == "failed" for item in actions):
+        return "warning"
+    return "ok"
+
+
+def _filter_post_install_actions(actions: list[dict[str, Any]], mode: str) -> list[dict[str, Any]]:
+    if mode == "auto":
+        return [action for action in actions if action.get("kind") == "auto"]
+    if mode == "guidance":
+        return [action for action in actions if action.get("kind") == "guidance"]
+    return actions
 
 
 def run_post_install_actions(

@@ -41,7 +41,7 @@
       "protected": false,
       "user_customizable": true,
       "parse": "json",
-      "placeholders": "none"
+      "placeholders": "allowed_examples"
     },
     {
       "id": "claude.keybindings",
@@ -52,6 +52,16 @@
       "protected": false,
       "user_customizable": true,
       "parse": "json",
+      "placeholders": "none"
+    },
+    {
+      "id": "claude.statusline-command",
+      "source": "claude/statusline-command.sh.template",
+      "target": ".claude/statusline-command.sh",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "user_customizable": true,
       "placeholders": "none"
     },
     {

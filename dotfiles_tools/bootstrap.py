@@ -9,15 +9,16 @@ from .installer import build_plan, execute_manifest_operation
 from .reports import Report
 from .tool_installer import (
     TOOL_CACHE_REL,
+    collect_post_install_summary,
     build_tool_install_plan,
     execute_tool_install_operation,
-    run_post_install_actions,
-    verify_installed_tools,
 )
 
 
 WARNING_STATES = {"missing", "drifted", "protected", "manual", "unsupported", "needs_update"}
 FAILED_STATES = {"invalid", "blocked"}
+TOOL_INSTALL_PHASES = {"all", "dev-base", "tools"}
+TOOL_POST_INSTALL_MODES = {"all", "verify", "auto", "guidance"}
 
 
 def build_bootstrap_plan(
@@ -104,12 +105,13 @@ def build_tool_install_subplan(
     repo: Path | str,
     home: Path | str,
     *,
+    phase: str = "all",
     env: Mapping[str, str] | None = None,
     runner: CommandRunner | None = None,
 ) -> Report:
     repo_path = Path(repo).resolve()
     home_path = Path(home).resolve()
-    tool_plan = build_tool_install_plan(home_path, env=env, runner=runner)
+    tool_plan = build_tool_install_plan(home_path, phase=phase, env=env, runner=runner)
     operations = list(tool_plan["operations"])
     _renumber_operations(operations)
     entries = list(tool_plan["entries"])
@@ -130,6 +132,7 @@ def apply_tool_installs(
     repo: Path | str,
     home: Path | str,
     *,
+    phase: str = "all",
     backup_dir: Path | str | None = None,
     yes: bool = False,
     env: Mapping[str, str] | None = None,
@@ -148,37 +151,59 @@ def apply_tool_installs(
             errors=[{"message": "bootstrap-install-tools requires --yes before writing"}],
         )
 
-    plan = build_tool_install_subplan(repo_path, home_path, env=env, runner=runner)
+    plan = build_tool_install_subplan(repo_path, home_path, phase=phase, env=env, runner=runner)
     plan.command = "bootstrap-install-tools"
     if plan.errors or any(entry.get("state") in FAILED_STATES for entry in plan.entries):
         plan.status = "failed"
         return plan
     report = _execute_bootstrap_operations(plan, repo_path, backup_path, runner)
-    _attach_verification_and_post_install(report, repo_path, home_path, yes, env, runner, backup_path)
+    if phase == "all":
+        summary = collect_post_install_summary(
+            home_path,
+            mode="all",
+            yes=yes,
+            runner=runner,
+            env=env,
+            repo_path=repo_path,
+            backup_dir=backup_path,
+        )
+        _attach_post_install_summary(report, summary)
     return report
 
 
-def _attach_verification_and_post_install(
-    report: Report,
-    repo_path: Path,
-    home_path: Path,
-    yes: bool,
-    env: Mapping[str, str] | None,
-    runner: CommandRunner | None,
-    backup_dir: Path,
-) -> None:
-    if report.status == "failed":
-        return
-    verification = verify_installed_tools(home_path, runner=runner, env=env)
-    actions = run_post_install_actions(
-        home_path, yes=yes, runner=runner, env=env,
-        repo_path=repo_path, backup_dir=backup_dir,
+def run_tool_install_post_install(
+    repo: Path | str,
+    home: Path | str,
+    *,
+    mode: str = "all",
+    yes: bool = False,
+    env: Mapping[str, str] | None = None,
+    runner: CommandRunner | None = None,
+    backup_dir: Path | str | None = None,
+) -> Report:
+    repo_path = Path(repo).resolve()
+    home_path = Path(home).resolve()
+    backup_path = Path(backup_dir).expanduser().resolve() if backup_dir else home_path / ".dotfiles-backups"
+    if mode not in TOOL_POST_INSTALL_MODES:
+        raise ValueError(f"unknown tool post-install mode: {mode}")
+    report = Report(
+        "bootstrap-install-tools-verify" if mode == "verify" else "bootstrap-install-tools-post",
+        "ok",
+        str(repo_path),
+        home=str(home_path),
+        profile="machine",
     )
-    report.extra["verification"] = verification
-    report.extra["post_install_actions"] = actions
-    report.backups.extend(_collect_post_install_backups(actions))
-    if any(not item["verified"] for item in verification):
-        report.status = "warning"
+    summary = collect_post_install_summary(
+        home_path,
+        mode=mode,
+        yes=yes,
+        runner=runner,
+        env=env,
+        repo_path=repo_path,
+        backup_dir=backup_path,
+    )
+    _attach_post_install_summary(report, summary)
+    return report
 
 
 def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -186,6 +211,16 @@ def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[st
     for action in actions:
         collected.extend(action.get("backups") or [])
     return collected
+
+
+def _attach_post_install_summary(report: Report, summary: dict[str, Any]) -> None:
+    if summary["verification"]:
+        report.extra["verification"] = summary["verification"]
+    if summary["post_install_actions"]:
+        report.extra["post_install_actions"] = summary["post_install_actions"]
+    report.backups.extend(summary["backups"])
+    if summary["status"] == "warning":
+        report.status = "warning"
 
 
 def _execute_bootstrap_operations(

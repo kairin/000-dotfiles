@@ -17,6 +17,7 @@ from dotfiles_tools.bootstrap import (
     apply_bootstrap,
     build_tool_install_subplan,
     apply_tool_installs,
+    run_tool_install_post_install,
 )
 from dotfiles_tools.reports import Report
 from tests.helpers import DotfilesTestCase, REPO_ROOT
@@ -55,6 +56,7 @@ class FakeRunner:
         *,
         capture_output: bool = False,
         check: bool = True,
+        timeout: float | None = None,
     ) -> subprocess.CompletedProcess[str]:
         command = Path(args[0]).name if args else ""
         if command == "dpkg-query":
@@ -244,6 +246,18 @@ class BuildToolInstallSubplanTests(DotfilesTestCase):
         expected = [f"op-{i:03d}" for i in range(1, len(ids) + 1)]
         self.assertEqual(ids, expected)
 
+    def test_dev_base_phase_only_includes_dev_base(self):
+        home = self.make_home()
+        report = build_tool_install_subplan(REPO_ROOT, home, phase="dev-base")
+        self.assertTrue(report.operations)
+        self.assertEqual({entry["entry_id"] for entry in report.entries}, {"tools.dev_base"})
+
+    def test_tools_phase_skips_dev_base(self):
+        home = self.make_home()
+        report = build_tool_install_subplan(REPO_ROOT, home, phase="tools")
+        self.assertTrue(report.operations)
+        self.assertNotIn("tools.dev_base", {entry["entry_id"] for entry in report.entries})
+
 
 class ApplyToolInstallsTests(DotfilesTestCase):
     def test_requires_yes_flag(self):
@@ -262,3 +276,40 @@ class ApplyToolInstallsTests(DotfilesTestCase):
             runner=runner,
         )
         self.assertEqual(report.command, "bootstrap-install-tools")
+
+    def test_post_install_report_command(self):
+        home = self.make_home()
+        runner = FakeRunner()
+        report = run_tool_install_post_install(
+            REPO_ROOT, home,
+            backup_dir=home / ".dotfiles-backups",
+            yes=True,
+            runner=runner,
+        )
+        self.assertEqual(report.command, "bootstrap-install-tools-post")
+
+    def test_post_install_verify_mode_skips_actions(self):
+        home = self.make_home()
+        runner = FakeRunner()
+        report = run_tool_install_post_install(
+            REPO_ROOT, home,
+            mode="verify",
+            backup_dir=home / ".dotfiles-backups",
+            runner=runner,
+        )
+        self.assertEqual(report.command, "bootstrap-install-tools-verify")
+        self.assertIn("verification", report.extra)
+        self.assertNotIn("post_install_actions", report.extra)
+
+    def test_post_install_guidance_mode_omits_verification(self):
+        home = self.make_home()
+        runner = FakeRunner(which={"gh": "/usr/bin/gh"})
+        report = run_tool_install_post_install(
+            REPO_ROOT, home,
+            mode="guidance",
+            backup_dir=home / ".dotfiles-backups",
+            runner=runner,
+        )
+        self.assertEqual(report.command, "bootstrap-install-tools-post")
+        self.assertNotIn("verification", report.extra)
+        self.assertTrue(report.extra["post_install_actions"])

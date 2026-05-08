@@ -28,23 +28,19 @@ if [[ -z "$project_root" ]]; then
   finish
 fi
 
-if ! command -v direnv >/dev/null 2>&1; then
-  log "direnv not installed; skipping"
-  finish
-fi
-
 if ! cd "$project_root"; then
   log "could not enter project root: $project_root"
   finish
 fi
 
-direnv_output="$(direnv export bash 2>/dev/null || true)"
-if [[ -z "$direnv_output" ]]; then
-  log "direnv export failed for $project_root"
-  finish
-fi
+source_env_if_exists() {
+  local path="$1"
+  [[ -f "$path" ]] || return 0
+  # shellcheck disable=SC1090
+  source "$path"
+}
 
-eval "$direnv_output"
+source_env_if_exists "$project_root/.envrc"
 
 allowlist_file="$project_root/.claude/env-allowlist"
 if [[ -f "$allowlist_file" ]]; then
@@ -63,4 +59,3 @@ if [[ -f "$allowlist_file" ]]; then
 else
   log "loaded project env from $project_root"
 fi
-

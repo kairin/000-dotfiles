@@ -204,6 +204,21 @@ class MachineSummaryTests(DotfilesTestCase):
         self.assertIn("Recommended next step: 4. Show tool and sign-in guidance - Sign-in guidance is the useful next step.", text)
         self.assertIn("Pending sign-ins: gh auth status.", text)
 
+    def test_auth_guidance_lists_verified_sign_in_identities(self) -> None:
+        home = self.make_home()
+        plan_report = plan(home)
+        doctor_report = doctor(
+            home,
+            auth_guidance=[
+                {"id": "gh", "command": "gh auth status", "state": "signed_in", "signed_in_detail": "kairin (keyring)"},
+                {"id": "claude", "command": "claude login", "state": "signed_in", "signed_in_detail": "kairin@gmail.com (Kairin)"},
+            ],
+        )
+
+        text = self.render(plan_report, doctor_report=doctor_report)
+
+        self.assertIn("Verified sign-ins: gh=kairin (keyring), claude=kairin@gmail.com (Kairin).", text)
+
     def test_current_setup_recommends_exit(self) -> None:
         home = self.make_home()
         plan_report = plan(home)

@@ -80,7 +80,7 @@ class SetupScriptTests(DotfilesTestCase):
         if not (bin_dir / "gh").exists():
             self.write_executable(
                 bin_dir / "gh",
-                "#!/usr/bin/env bash\nset -euo pipefail\ncase \"${1:-}\" in\n  auth)\n    if [[ \"${2:-}\" == status ]]; then\n      exit 0\n    fi\n    if [[ \"${2:-}\" == token ]]; then\n      echo \"gho_fake_token\"\n      exit 0\n    fi\n    if [[ \"${2:-}\" == login ]]; then\n      exit 0\n    fi\n    ;;\nesac\nexit 1\n",
+                "#!/usr/bin/env bash\nset -euo pipefail\ncase \"${1:-}\" in\n  auth)\n    if [[ \"${2:-}\" == status ]]; then\n      exit 0\n    fi\n    if [[ \"${2:-}\" == token ]]; then\n      echo \"gho_fake_token\"\n      exit 0\n    fi\n    if [[ \"${2:-}\" == login ]]; then\n      exit 0\n    fi\n    ;;\n  api)\n    if [[ \"${2:-}\" == user ]]; then\n      printf '{\"login\":\"kairin\",\"name\":\"Mister K\"}\\n'\n      exit 0\n    fi\n    ;;\nesac\nexit 1\n",
             )
         if not (bin_dir / "direnv").exists():
             self.write_executable(
@@ -538,7 +538,7 @@ exit 64
         self.assertIn("Create missing files:", result.stdout)
         self.assertIn("1. Install / update developer tools", result.stdout)
         self.assertIn("3. Show full technical details.", result.stdout)
-        self.assertIn("1. Install / update developer tools (preview, then apply). [recommended]", result.stdout)
+        self.assertIn("1. Install / update developer tools (phased submenu, preview, then apply). [recommended]", result.stdout)
         self.assertNotRegex(result.stdout, r"2\..*\[recommended\]")
         self.assertNotIn("entries:", result.stdout)
         self.assertNotIn("operations:", result.stdout)
@@ -599,12 +599,31 @@ exit 64
 
         env = self.env_for(bin_dir, home)
         env["DOTFILES_PLATFORM"] = "pixel-avf"
-        result = run_setup(env=env, input_text="2\n")
+        result = run_setup(env=env, input_text="2\n3\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Safe setup changes:", result.stdout)
+        self.assertIn("1. Preview dotfiles and config files.", result.stdout)
+        self.assertIn("2. Preview fonts and terminal setup.", result.stdout)
+        self.assertIn("3. Apply all safe changes now.", result.stdout)
+        self.assertIn("Applying safe non-protected machine dotfiles and approved install/update recipes...", result.stdout)
         self.assertTrue((home / ".config" / "fish" / "functions" / "direnv.fish").exists())
         self.assertFalse((home / ".config" / "git" / "config").exists())
         self.assertTrue((home / ".config" / "fish" / "conf.d" / "000-dotfiles-pixel-avf-prompt.fish").exists())
+
+    def test_no_arg_safe_changes_fonts_preview_shows_scope(self) -> None:
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+
+        env = self.env_for(bin_dir, home)
+        env["DOTFILES_PLATFORM"] = "pixel-avf"
+        result = run_setup(env=env, input_text="2\n2\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Safe setup changes:", result.stdout)
+        self.assertIn("Preview fonts and terminal setup.", result.stdout)
+        self.assertIn("Preview complete; returning to main menu.", result.stdout)
 
     def test_no_arg_tool_guidance_choice_prints_status(self) -> None:
         home = self.make_home()
@@ -624,7 +643,7 @@ exit 64
         self.assertIn("4. Show tool and sign-in guidance. [recommended]", result.stdout)
         self.assertIn("Tool status:", result.stdout)
         self.assertIn("Missing tools:", result.stdout)
-        self.assertIn("Sign-in status:", result.stdout)
+        self.assertIn("Verified sign-ins:", result.stdout)
         self.assertNotIn("Missing tool install/auth commands:", result.stdout)
 
     def test_no_arg_details_choice_prints_full_diagnostics(self) -> None:
@@ -662,12 +681,51 @@ exit 64
             "    - gh: install gh",
         )
 
-        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="1\nn\n5\n")
+        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="1\n2\nn\n6\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertGreaterEqual(result.stdout.count("Machine setup summary"), 2)
         self.assertGreaterEqual(result.stdout.count("Recommended next step: 1. Install / update developer tools - Developer tools should be installed or updated first."), 2)
-        self.assertGreaterEqual(result.stdout.count("1. Install / update developer tools (preview, then apply). [recommended]"), 2)
+        self.assertGreaterEqual(result.stdout.count("1. Install / update developer tools (phased submenu, preview, then apply). [recommended]"), 2)
+        self.assertIn("Developer tool phases:", result.stdout)
+        self.assertIn("1. Preview dev-base packages.", result.stdout)
+        self.assertIn("2. Apply dev-base packages.", result.stdout)
+        self.assertIn("Preparing dev-base packages preview...", result.stdout)
+        self.assertIn("Apply dev-base packages actions? [y/N]:", result.stdout)
+        self.assertGreaterEqual(result.stdout.count("Preview complete."), 1)
+        self.assertIn("No tool changes applied.", result.stdout)
+
+    def test_no_arg_post_install_verify_choice_shows_verification_only(self) -> None:
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="1\n5\n1\n6\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Post-install phases:", result.stdout)
+        self.assertIn("1. Verify installed tools only.", result.stdout)
+        self.assertIn("Verifying installed tools only...", result.stdout)
+        self.assertIn("verification:", result.stdout)
+        self.assertNotIn("post-install actions (auto-run, --yes):", result.stdout)
+
+    def test_no_arg_install_apply_choice_uses_apply_wording(self) -> None:
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+        summary = self.machine_summary_output(
+            1,
+            "Install / update developer tools",
+            "Developer tools should be installed or updated first.",
+            "  - 2 developer tools are missing or unverified.",
+            "    - gh: install gh",
+        )
+
+        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="1\n4\nn\n6\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Preparing individual tool installers for apply...", result.stdout)
+        self.assertIn("Apply individual tool installers actions? [y/N]:", result.stdout)
         self.assertIn("No tool changes applied.", result.stdout)
 
     def test_help_subcommand(self) -> None:
@@ -1080,7 +1138,8 @@ exit 64
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("✓ GitHub authentication configured", result.stdout)
         self.assertIn("✓ GitHub authentication verified", result.stdout)
-        self.assertIn("GitHub (gh) authentication [verified]", result.stdout)
+        self.assertIn("Tool and sign-in guidance:", result.stdout)
+        self.assertIn("GitHub (gh) authentication. [verified: kairin (Mister K)]", result.stdout)
 
     def test_machine_api_huggingface_auth_prints_explicit_verification(self) -> None:
         home = self.make_home()
@@ -1092,7 +1151,35 @@ exit 64
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("✓ HuggingFace token configured", result.stdout)
         self.assertIn("✓ HuggingFace Hub authentication verified", result.stdout)
-        self.assertIn("HuggingFace Hub access [verified]", result.stdout)
+        self.assertIn("Tool and sign-in guidance:", result.stdout)
+        self.assertIn("HuggingFace Hub access. [verified]", result.stdout)
+
+    def test_machine_api_codacy_auth_prints_resolved_identity(self) -> None:
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+        self.write_executable(
+            bin_dir / "curl",
+            """#!/usr/bin/env bash
+set -euo pipefail
+printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
+""",
+        )
+        codacy_dir = home / ".codacy"
+        codacy_dir.mkdir(parents=True)
+        (codacy_dir / "account-token").write_text("account-token\n")
+        (codacy_dir / "account-token").chmod(0o600)
+        (codacy_dir / "kairin-000-dotfiles.project-token").write_text("project-token\n")
+        (codacy_dir / "kairin-000-dotfiles.project-token").chmod(0o600)
+
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n4\n6\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Tool and sign-in guidance:", result.stdout)
+        self.assertIn(
+            "Codacy API access (account token + project token). [verified: account=Mister K, project=kairin/000-dotfiles]",
+            result.stdout,
+        )
 
     def test_ship_help_and_extra_args(self) -> None:
         help_result = run_setup("ship", "--help")

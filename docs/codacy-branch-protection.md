@@ -126,13 +126,13 @@ For the account-token pattern used by this repo, the workflow shape is:
 
 ```yaml
 env:
-  CODACY_COVERAGE_API_TOKEN: ${{ secrets.CODACY_COVERAGE_API_TOKEN }}
+  CODACY_ACCOUNT_TOKEN: ${{ secrets.CODACY_ACCOUNT_TOKEN }}
 
 - name: Upload coverage to Codacy
-  if: ${{ env.CODACY_COVERAGE_API_TOKEN != '' }}
+  if: ${{ env.CODACY_ACCOUNT_TOKEN != '' }}
   uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699
   with:
-    api-token: ${{ secrets.CODACY_COVERAGE_API_TOKEN }}
+    api-token: ${{ secrets.CODACY_ACCOUNT_TOKEN }}
     coverage-reports: coverage.xml
 ```
 

@@ -16,7 +16,7 @@ class _NoDownloadRunner:
     def which(self, command: str) -> str | None:
         return "/bin/bash" if command == "bash" else None
 
-    def run(self, args, *, capture_output: bool = False, check: bool = True):  # pragma: no cover
+    def run(self, args, *, capture_output: bool = False, check: bool = True, timeout: float | None = None):  # pragma: no cover
         self.commands.append(list(args))
         raise AssertionError("runner.run should not be invoked when download fails")
 
