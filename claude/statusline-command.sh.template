@@ -259,11 +259,6 @@ if [ -n "$cache_read" ] && [ "$cache_read" != "0" ]; then
   line3+="${DIM}cache-r:${cache_read}${R}"
 fi
 
-# Context window size
-if [ -n "$ctx_total" ] && [ "$ctx_total" != "0" ]; then
-  [ -n "$line3" ] && line3+="$sep"
-  line3+="${DIM}ctx-size:${ctx_total}${R}"
-fi
 
 
 # Python virtual environment
@@ -329,16 +324,10 @@ if [ -n "$wt_path" ]; then
 fi
 
 
-# Output style (always shown on line 4)
-if [ -n "$output_style" ]; then
-  [ -n "$line4" ] && line4+="$sep"
-  line4+="${DIM}style:${output_style}${R}"
-fi
 
 # =============================================================================
-# LINE 5 — full-width context window bar
-#   Format: "Context Window usage   18% used  [████░░░░░░░░░░░░░░░░]  82% left"
-#   Bar expands to fill terminal width; falls back to 40 cols if tput unavailable.
+# LINE 5 — context window bar with total size prefix + output style
+#   Format: "󰯃 200000  󰯃 ctx  67%  [████░░░░]  33% 󰄾   style:default"
 # =============================================================================
 line5=""
 if [ -n "$used" ]; then
@@ -346,18 +335,19 @@ if [ -n "$used" ]; then
   rem_int=0
   [ -n "$remaining" ] && rem_int=$(printf '%.0f' "$remaining")
 
-  label_left="Context Window usage"
-  label_used="${used_int}% used"
-  label_right="${rem_int}% left"
+  # Prefix with total context window size
+  prefix=""
+  [ -n "$ctx_total" ] && prefix="󰯃 ${ctx_total}  "
 
-  # Fixed-width text portions (no ANSI): "Context Window usage   18% used  [" + "]  82% left"
-  # bracket open "[" + bracket close "]" = 2; "   " between label and used = 3; "  " before bracket = 2; "  " after bracket = 2
-  fixed_len=$(( ${#label_left} + 3 + ${#label_used} + 2 + 1 + 1 + 2 + ${#label_right} ))
-  # fixed_len = len("Context Window usage") + 3 + len("18% used") + 2 + 1("[") + 1("]") + 2 + len("82% left")
+  label_left="󰯃 ctx"
+  label_used="${used_int}%"
+  label_right="${rem_int}% 󰄾"
 
+  # Fixed-width calc with prefix, reduced bar (60% of available width)
+  fixed_len=$(( ${#prefix} + ${#label_left} + 3 + ${#label_used} + 2 + 1 + 1 + 2 + ${#label_right} ))
   term_cols=$(tput cols 2>/dev/null || echo 80)
-  bar_width=$(( term_cols - fixed_len ))
-  [ "$bar_width" -lt 4 ] && bar_width=4
+  bar_width=$(( (term_cols - fixed_len) * 60 / 100 ))
+  [ "$bar_width" -lt 6 ] && bar_width=6
 
   bar_filled=$(( used_int * bar_width / 100 ))
   bar_empty=$(( bar_width - bar_filled ))
@@ -377,7 +367,10 @@ if [ -n "$used" ]; then
   fi
   bar_str+="${R}"
 
-  line5="${label_left}   ${label_used}  [${bar_str}]  ${label_right}"
+  line5="${prefix}${label_left}   ${label_used}  ${bar_str}  ${label_right}"
+
+  # Add output style at the end
+  [ -n "$output_style" ] && line5+="   ${DIM}style:${output_style}${R}"
 fi
 
 # =============================================================================
