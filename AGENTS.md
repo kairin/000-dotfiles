@@ -147,6 +147,17 @@ uv run --with coverage coverage run -m unittest discover -s tests
 uv run --with coverage coverage xml
 ```
 
+## Hook Trigger Map
+
+Use these layers precisely: tool instructions are Markdown context files, tool hooks are CLI-specific session/tool hooks, and repo hooks are Git hooks that run for any caller.
+
+- **Claude Code:** Claude hooks are configured through Claude settings files and can be inspected with `/hooks`. `~/.claude/hooks/load-project-env.sh` is only active when a Claude settings file registers it.
+- **Gemini CLI:** Gemini CLI does not run Claude Code hooks automatically. Use Gemini's own hook surface only if intentionally configured. Verify and manage hooks using the interactive `/hooks` slash command inside a session, or `gemini hooks --help` in the shell. Do not run `gemini hooks migrate` unless the user explicitly asks to migrate Claude hooks into Gemini.
+- **Codex CLI:** Codex loads global and project `AGENTS.md` context.
+- **Copilot CLI:** Copilot auto-loads instruction files and extra directories from `COPILOT_CUSTOM_INSTRUCTIONS_DIRS`; inspect loaded context with `/instructions` or `/env`.
+
+Main-branch push prevention is enforced by Git's repo hook (`.git/hooks/pre-push`), not by any tool-specific hook. Run `./setup hooks` or `./scripts/install-hooks.sh` in each repo that needs protection; Git runs that hook automatically for every `git push` regardless of the caller.
+
 Do not add lock files unless runtime dependencies are introduced and the Spec
 Kit plan explains why they are needed. Coverage is only meaningful for real
 validation/setup code and must generate `coverage.xml` before Codacy upload.

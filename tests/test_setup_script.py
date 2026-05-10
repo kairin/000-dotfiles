@@ -19,6 +19,7 @@ def run_setup(
     cwd: Path = REPO_ROOT,
     env: dict[str, str] | None = None,
     input_text: str | None = None,
+    timeout: float | None = None,
 ) -> subprocess.CompletedProcess:
     # Fixed executable path, test-controlled args, shell=False.
     return subprocess.run(  # nosec B603
@@ -28,6 +29,7 @@ def run_setup(
         cwd=str(cwd),
         env=env,
         input=input_text,
+        timeout=timeout,
         shell=False,
     )
 
@@ -237,6 +239,24 @@ printf '%s\\n' "$*" >> "{log_path}"
 cat "{installer_path}"
 """,
         )
+
+    def make_hooks_repo(self) -> Path:
+        repo = self.make_project()
+        shutil.copy2(SETUP, repo / "setup")
+        hooks_dir = repo / "scripts" / "hooks"
+        hooks_dir.mkdir(parents=True)
+        shutil.copy2(REPO_ROOT / "scripts" / "install-hooks.sh", repo / "scripts" / "install-hooks.sh")
+        shutil.copy2(REPO_ROOT / "scripts" / "hooks" / "pre-push", hooks_dir / "pre-push")
+        (repo / "scripts" / "install-hooks.sh").chmod(0o755)
+        (hooks_dir / "pre-push").chmod(0o755)
+        subprocess.run(  # nosec B603
+            ["git", "init"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+        return repo
 
     def make_ship_repo(self) -> tuple[Path, str, str]:
         repo = self.make_project()
@@ -527,7 +547,7 @@ exit 64
         log_path = home / "uv.log"
         self.write_fake_uv(bin_dir, log_path)
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="6\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="7\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("uv found at", result.stdout)
@@ -611,6 +631,113 @@ exit 64
         self.assertFalse((home / ".config" / "git" / "config").exists())
         self.assertTrue((home / ".config" / "fish" / "conf.d" / "000-dotfiles-pixel-avf-prompt.fish").exists())
 
+    def test_hooks_command_installs_repo_git_hook(self) -> None:
+        repo = self.make_hooks_repo()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+
+        result = run_setup("hooks", executable=repo / "setup", cwd=repo, env=self.env_for(bin_dir, home))
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        hook = repo / ".git" / "hooks" / "pre-push"
+        self.assertTrue(hook.exists())
+        self.assertIn("refs/heads/main", hook.read_text())
+        self.assertIn("blocks direct pushes to main", result.stdout)
+
+    def test_machine_menu_exposes_hooks_as_top_level_option(self) -> None:
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="7\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Install / update Git hooks for this repo.", result.stdout)
+        self.assertIn("Choose [1-7]:", result.stdout)
+
+    def test_pre_push_guard_blocks_main_branch_push(self) -> None:
+        repo = self.make_hooks_repo()
+        bare_remote = self.make_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+
+        # Initialize bare remote
+        subprocess.run(  # nosec B603
+            ["git", "init", "--bare"],
+            capture_output=True,
+            text=True,
+            cwd=str(bare_remote),
+            check=True,
+        )
+
+        # Add remote to repo
+        subprocess.run(  # nosec B603
+            ["git", "remote", "add", "origin", str(bare_remote)],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+            check=True,
+        )
+
+        # Install hooks
+        result = run_setup("hooks", executable=repo / "setup", cwd=repo, env=self.env_for(bin_dir, home))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        # Configure git identity and set main as default branch
+        subprocess.run(  # nosec B603
+            ["git", "config", "user.email", "test@example.com"],
+            capture_output=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "config", "user.name", "Test User"],
+            capture_output=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "config", "init.defaultBranch", "main"],
+            capture_output=True,
+            cwd=str(repo),
+            check=True,
+        )
+
+        # Create and commit on main
+        (repo / "test.txt").write_text("test content")
+        subprocess.run(  # nosec B603
+            ["git", "add", "test.txt"],
+            capture_output=True,
+            cwd=str(repo),
+            check=True,
+        )
+        subprocess.run(  # nosec B603
+            ["git", "commit", "-m", "test commit"],
+            capture_output=True,
+            cwd=str(repo),
+            check=True,
+        )
+
+        # Ensure we're on main branch
+        subprocess.run(  # nosec B603
+            ["git", "checkout", "-B", "main"],
+            capture_output=True,
+            cwd=str(repo),
+            check=True,
+        )
+
+        # Attempt to push main to origin — should be blocked by pre-push hook
+        result = subprocess.run(  # nosec B603
+            ["git", "push", "origin", "main"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo),
+        )
+
+        self.assertNotEqual(result.returncode, 0, "Push to main should be blocked by pre-push hook")
+        self.assertIn("Direct pushes to main are blocked", result.stderr)
+        self.assertIn("feature branch", result.stderr)
+
     def test_no_arg_safe_changes_fonts_preview_shows_scope(self) -> None:
         home = self.make_home()
         bin_dir = self.make_command_path()
@@ -681,7 +808,7 @@ exit 64
             "    - gh: install gh",
         )
 
-        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="1\n2\nn\n6\n")
+        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="1\n2\nn\n7\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertGreaterEqual(result.stdout.count("Machine setup summary"), 2)
@@ -700,7 +827,7 @@ exit 64
         bin_dir = self.make_command_path()
         self.write_fake_uv(bin_dir, home / "uv.log")
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="1\n5\n1\n6\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="1\n5\n1\n7\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Post-install phases:", result.stdout)
@@ -721,7 +848,7 @@ exit 64
             "    - gh: install gh",
         )
 
-        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="1\n4\nn\n6\n")
+        result = run_setup(env=self.env_for(bin_dir, home, machine_summary_output=summary), input_text="1\n4\nn\n7\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Preparing individual tool installers for apply...", result.stdout)
@@ -1132,21 +1259,33 @@ exit 64
         home = self.make_home()
         bin_dir = self.make_command_path()
         self.write_fake_uv(bin_dir, home / "uv.log")
+        # Fresh project with no .envrc.local — mirrors a CI checkout. Catches
+        # regressions where configure_gh_auth requires .envrc.local to exist.
+        project = self.make_project()
+        envrc_local = project / ".envrc.local"
+        self.assertFalse(envrc_local.exists())
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n1\n4\n6\n")
+        result = run_setup(
+            cwd=project,
+            env=self.env_for(bin_dir, home),
+            input_text="5\n1\n4\n7\n",
+        )
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("✓ GitHub authentication configured", result.stdout)
         self.assertIn("✓ GitHub authentication verified", result.stdout)
         self.assertIn("Tool and sign-in guidance:", result.stdout)
         self.assertIn("GitHub (gh) authentication. [verified: kairin (Mister K)]", result.stdout)
+        # configure_gh_auth must create .envrc.local and add GITHUB_TOKEN export.
+        self.assertTrue(envrc_local.exists())
+        self.assertIn("GITHUB_TOKEN", envrc_local.read_text())
 
     def test_machine_api_huggingface_auth_prints_explicit_verification(self) -> None:
         home = self.make_home()
         bin_dir = self.make_command_path()
         self.write_fake_uv(bin_dir, home / "uv.log")
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n2\n4\n6\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n2\n4\n7\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("✓ HuggingFace token configured", result.stdout)
@@ -1172,7 +1311,7 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         (codacy_dir / "kairin-000-dotfiles.project-token").write_text("project-token\n")
         (codacy_dir / "kairin-000-dotfiles.project-token").chmod(0o600)
 
-        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n4\n6\n")
+        result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n4\n7\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Tool and sign-in guidance:", result.stdout)
@@ -1189,6 +1328,61 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         extra_args = run_setup("ship", "17", "18")
         self.assertEqual(extra_args.returncode, 2)
         self.assertIn("ship accepts at most one PR number", extra_args.stderr)
+
+    def test_ship_fails_fast_when_codacy_cli_is_recursion_trap(self) -> None:
+        # The broken codacy-cli install is a symlink pointing at its own cache
+        # wrapper, which causes `eval "$run_command $*"` infinite recursion when
+        # invoked. ./setup ship must detect this and fail fast before step 4d.
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+
+        # Build an INERT fake wrapper at the cache binary path. If executed,
+        # the wrapper writes a log file and exits 99 — it does NOT actually
+        # recurse. The detection markers live in comments so the guard's
+        # `grep -aq` finds them without enabling runtime recursion.
+        cache_dir = home / ".cache" / "codacy" / "codacy-cli-v2"
+        version_dir = cache_dir / "1.0.0-fake"
+        version_dir.mkdir(parents=True)
+        (cache_dir / "version.yaml").write_text('version: "1.0.0-fake"\n')
+        wrapper = version_dir / "codacy-cli-v2"
+        wrapper.write_text(
+            "#!/usr/bin/env bash\n"
+            f'echo "WRAPPER_EXECUTED" >> "{home}/codacy-wrapper.log"\n'
+            "exit 99\n"
+            "# Marker comments below are present so the guard's grep finds them.\n"
+            '# bin_path="$HOME/.cache/codacy/codacy-cli-v2/1.0.0-fake/codacy-cli-v2"\n'
+            '# eval "$run_command $*"\n'
+        )
+        wrapper.chmod(0o755)
+        (bin_dir / "codacy-cli").symlink_to(wrapper)
+
+        env = self.env_for(bin_dir, home)
+        env["CODACY_PROJECT_TOKEN"] = "fake-token"
+        env["CODACY_CLI_V2_TMP_FOLDER"] = str(cache_dir)
+
+        result = run_setup(
+            "ship",
+            "999",
+            env=env,
+            timeout=10,
+        )
+
+        self.assertNotEqual(
+            result.returncode,
+            0,
+            f"ship should fail when codacy-cli is the recursion trap; got stdout={result.stdout!r} stderr={result.stderr!r}",
+        )
+        combined = result.stdout + result.stderr
+        self.assertIn("codacy-cli is broken", combined)
+        self.assertIn("infinite shell recursion", combined)
+        self.assertIn("[ship] step 2b", result.stdout)
+        # Guard must fire BEFORE step 4d analyze.
+        self.assertNotIn("[ship] step 4d", result.stdout)
+        # Inert wrapper must NOT have been executed.
+        self.assertFalse(
+            (home / "codacy-wrapper.log").exists(),
+            "the inert wrapper was executed — guard did not fire before invocation",
+        )
 
     def test_ship_rejects_ambiguous_auto_detected_prs(self) -> None:
         repo, _base_sha, head_sha = self.make_ship_repo()
@@ -1359,6 +1553,34 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         self.assertNotIn("fake-account", result.stdout)
         self.assertNotIn("fake-project", result.stdout)
         self.assertEqual(oct((project / ".envrc.local").stat().st_mode & 0o777), "0o600")
+
+    def test_repair_codacy_env_also_writes_github_and_huggingface_bridges(self) -> None:
+        project = self.make_repair_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_codacy_token(home, "account-token", "fake-account")
+        self.write_codacy_token(home, "test-test.project-token", "fake-project")
+        hf_token = home / ".cache" / "huggingface" / "token"
+        hf_token.parent.mkdir(parents=True)
+        hf_token.write_text("hf_fake_token\n")
+        hf_token.chmod(0o600)
+
+        result = run_setup(
+            "repair-codacy-env", "--owner", "test", "--repo", "test", "--project", str(project),
+            env=self.env_for(bin_dir, home),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn('export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"', local_text)
+        self.assertIn("# BEGIN DOTFILES HUGGINGFACE", local_text)
+        self.assertIn('export HF_TOKEN="$(cat "$HOME/.cache/huggingface/token")"', local_text)
+        self.assertIn('export HUGGINGFACE_TOKEN="$HF_TOKEN"', local_text)
+        self.assertIn("# END DOTFILES HUGGINGFACE", local_text)
+        self.assertNotIn("gho_fake_token", local_text)
+        self.assertNotIn("hf_fake_token", local_text)
+        self.assertIn("GitHub token bridge configured", result.stdout)
+        self.assertIn("HuggingFace token bridge configured", result.stdout)
 
     def test_repair_codacy_env_only_one_token(self) -> None:
         project = self.make_repair_project()

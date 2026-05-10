@@ -1,4 +1,6 @@
 import re
+import os
+import subprocess  # nosec B404
 
 from tests.helpers import DotfilesTestCase, REPO_ROOT
 
@@ -50,7 +52,9 @@ class WorkflowTests(DotfilesTestCase):
         # Stage 7 is the server-side Codacy gate; it stays informational so a
         # missing CODACY_PROJECT_TOKEN does not break local pre-push runs.
         self.assertIn("[STAGE 7/7] Codacy server-side gate", pipeline)
-        # --codacy-only is the entry point used by the pre-push hook.
+        # --codacy-only is a mode of quality-pipeline.sh used by ./setup ship
+        # to refresh the SARIF upload after a merge. The pre-push hook does
+        # NOT use this mode; Codacy enforcement runs in CI and at ship time.
         self.assertIn("--codacy-only", pipeline)
         # SARIF must be uploaded for both HEAD and merge-base so Codacy can
         # diff the PR; without the base upload, the GH App posts nothing.
@@ -58,3 +62,74 @@ class WorkflowTests(DotfilesTestCase):
         self.assertIn("git merge-base HEAD origin/main", pipeline)
         self.assertNotIn("CODACY_ACCOUNT_TOKEN", pipeline)
         self.assertNotIn("GITHUB_TOKEN", pipeline)
+
+    def test_pre_push_blocks_direct_main_push_before_quality_checks(self):
+        home = self.make_home()
+        bin_dir = home / "bin"
+        bin_dir.mkdir()
+        fake_uv = bin_dir / "uv"
+        fake_uv.write_text("#!/usr/bin/env bash\nexit 0\n")
+        fake_uv.chmod(0o755)
+
+        env = os.environ.copy()
+        env["PATH"] = f"{bin_dir}:{env['PATH']}"
+        env.pop("CODACY_PROJECT_TOKEN", None)
+
+        hook = REPO_ROOT / "scripts/hooks/pre-push"
+        result = subprocess.run(  # nosec B603
+            [str(hook)],
+            input="refs/heads/main 0000000000000000000000000000000000000000 refs/heads/main 1111111111111111111111111111111111111111\n",
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            env=env,
+            shell=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Direct pushes to main are blocked", result.stderr)
+        self.assertNotIn("Running unit tests", result.stdout)
+
+    def test_pre_push_allows_feature_branch_to_reach_quality_checks(self):
+        home = self.make_home()
+        bin_dir = home / "bin"
+        bin_dir.mkdir()
+        fake_uv = bin_dir / "uv"
+        # Fake uv that handles radon cc by emitting complexity output, and unit tests by exiting 0
+        fake_uv.write_text(
+            "#!/usr/bin/env bash\n"
+            "if [[ \"$*\" == *\"radon cc\"* ]]; then\n"
+            '  echo "Average complexity: A (1.0)"\n'
+            "  exit 0\n"
+            "fi\n"
+            "exit 0\n"
+        )
+        fake_uv.chmod(0o755)
+
+        env = os.environ.copy()
+        env["PATH"] = f"{bin_dir}:{env['PATH']}"
+        env.pop("CODACY_PROJECT_TOKEN", None)
+
+        hook = REPO_ROOT / "scripts/hooks/pre-push"
+        result = subprocess.run(  # nosec B603
+            [str(hook)],
+            input="refs/heads/feature/example 0000000000000000000000000000000000000000 refs/heads/feature/example 1111111111111111111111111111111111111111\n",
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            env=env,
+            shell=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Running unit tests", result.stdout)
+        self.assertIn("Ready to push to remote", result.stdout)
+        # Pre-push must not invoke any Codacy stage; that lives in CI / ship.
+        self.assertNotIn("[5/", result.stdout)
+        self.assertNotIn("Codacy", result.stdout)
+
+    def test_push_with_pr_refuses_main_branch(self):
+        script = REPO_ROOT / "scripts/push-with-pr.sh"
+        text = script.read_text()
+        self.assertIn('BRANCH=$(git rev-parse --abbrev-ref HEAD)', text)
+        self.assertIn('if [ "$BRANCH" = "main" ]', text)

@@ -23,3 +23,24 @@ Project-specific instructions live in each repo's `GEMINI.md` (symlink to `AGENT
 - Shell: fish
 - Package manager preference: uv (Python), npm (Node)
 - Branch convention: `YYYYMMDD-HHMMSS` timestamped branches; never commit directly to main.
+
+## Workspace, Hooks, And Publishing Rules
+
+- `/home/kkk/Apps` is a workspace container for projects. It is not an application, package, repository, or active project unless the user explicitly asks for root workspace maintenance.
+- Actual project roots are immediate child directories such as `/home/kkk/Apps/BCM`, `/home/kkk/Apps/graph-obsidian`, and `/home/kkk/Apps/000-dotfiles`.
+- Before running Git, tests, package-manager commands, code edits, or API-backed workflows, enter or confirm the intended child project root.
+- Root `.agents/`, `.codex/`, and `.git` entries at `/home/kkk/Apps` are tooling or sandbox overlays when present, not project metadata.
+- Trust settings, session state, auth files, caches, and config directories under `/home/kkk` are global tool state, not project identity.
+- Child project instructions override the root workspace rule for project-specific commands, but they cannot redefine `/home/kkk/Apps` itself as a project.
+- Git hooks are installed per repository, not per AI tool. In `/home/kkk/Apps/000-dotfiles`, run `./setup hooks` or `./scripts/install-hooks.sh` to install `.git/hooks/pre-push`; Git triggers that hook automatically on `git push` whether the caller is Claude Code, Gemini CLI, Codex CLI, Copilot CLI, or a human shell.
+- Gemini CLI loads `~/.gemini/GEMINI.md` and project `GEMINI.md` context files. Gemini CLI does not run Claude Code hooks automatically. Use Gemini's own hook surface only if intentionally configured.
+- Verify and manage Gemini hooks using the interactive `/hooks` slash command inside a session, or `gemini hooks --help` in the shell. Do not use `gemini hooks list`.
+- Do not run `gemini hooks migrate` unless the user explicitly asks to migrate Claude hooks into Gemini.
+- Main-branch push prevention is enforced by Git's repo hook (`.git/hooks/pre-push`), not by Gemini. Run `./setup hooks` or `./scripts/install-hooks.sh` in each repo that needs protection; Git runs that hook automatically for every `git push` regardless of the caller.
+- Use `direnv exec /home/kkk/Apps/<project> <command>` for credentialed project commands when project environment is needed.
+- Do not run `direnv allow`, edit `.envrc`, source `.envrc.local`, or print secret values unless the user explicitly approves that exact action.
+- Project `.envrc` files must not set `HOME`, `CODEX_HOME`, `COPILOT_HOME`, or Gemini/Claude home or config variables unless intentionally changing global tool state.
+- If Copilot needs project-specific extra instructions, prefer `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` over `COPILOT_HOME`, and document it in that project's `AGENTS.md`.
+- Never run `git push origin main` or otherwise direct-push a protected `main` branch. Create or switch to a feature branch before committing project work, then open a PR.
+- For `/home/kkk/Apps/000-dotfiles`, use `./setup ship [<pr-number>]` to merge after required checks pass. Do not use `gh pr merge`, `gh api`, or direct REST merge calls in this repo unless the user explicitly asks to bypass the canonical ship flow.
+- After a squash merge, sync local `main` to `origin/main` only after confirming the working tree is clean and `git diff HEAD origin/main --stat` is empty.

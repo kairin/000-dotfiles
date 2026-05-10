@@ -19,13 +19,29 @@ echo -e "${BLUE}═════════════════════�
 FAILED=0
 
 # ----------------------------------------------------------------------------
+# 0. PROTECTED BRANCH GUARD (Hard requirement)
+# ----------------------------------------------------------------------------
+while read -r local_ref _local_sha remote_ref _remote_sha; do
+    if [[ "$remote_ref" == "refs/heads/main" ]]; then
+        echo -e "${RED}✗ Direct pushes to main are blocked.${NC}" >&2
+        echo "  Push a feature branch and open a PR, then use ./setup ship after checks pass." >&2
+        exit 1
+    fi
+    if [[ "$local_ref" == "refs/heads/main" && "$remote_ref" == "refs/heads/main" ]]; then
+        echo -e "${RED}✗ Direct pushes to main are blocked.${NC}" >&2
+        echo "  Push a feature branch and open a PR, then use ./setup ship after checks pass." >&2
+        exit 1
+    fi
+done
+
+# ----------------------------------------------------------------------------
 # 1. UNIT TESTS (Hard requirement)
 # ----------------------------------------------------------------------------
 # `git push` feeds the list of refs to the hook on stdin; some children read
 # that stdin and behave incorrectly. Redirect stdin to /dev/null up-front.
 exec </dev/null
 
-echo -e "\n${YELLOW}[1/5] Running unit tests...${NC}"
+echo -e "\n${YELLOW}[1/4] Running unit tests...${NC}"
 # `git push` exports GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE for the hook;
 # subprocess-based tests that shell out to git inherit those and resolve to
 # this repo even when chdir'd elsewhere. Unset them for the test run only.
@@ -46,7 +62,7 @@ MODIFIED_FILES=$(git diff origin/main...HEAD --name-only --diff-filter=ACM 2>/de
 # ----------------------------------------------------------------------------
 # 2. COMPLEXITY CHECK (radon)
 # ----------------------------------------------------------------------------
-echo -e "\n${YELLOW}[2/5] Checking complexity of modified files...${NC}"
+echo -e "\n${YELLOW}[2/4] Checking complexity of modified files...${NC}"
 if [ -z "$MODIFIED_FILES" ]; then
     echo -e "${GREEN}✓ No modified Python files to check${NC}"
 else
@@ -65,7 +81,7 @@ fi
 # ----------------------------------------------------------------------------
 # 3. TYPE ANNOTATIONS (warning only)
 # ----------------------------------------------------------------------------
-echo -e "\n${YELLOW}[3/5] Checking type annotations in modified files...${NC}"
+echo -e "\n${YELLOW}[3/4] Checking type annotations in modified files...${NC}"
 if [ -z "$MODIFIED_FILES" ]; then
     echo -e "${GREEN}✓ No modified Python files to check${NC}"
 else
@@ -90,7 +106,7 @@ fi
 # ----------------------------------------------------------------------------
 # 4. LINE LENGTH (warning only)
 # ----------------------------------------------------------------------------
-echo -e "\n${YELLOW}[4/5] Checking line length in modified files...${NC}"
+echo -e "\n${YELLOW}[4/4] Checking line length in modified files...${NC}"
 if [ -z "$MODIFIED_FILES" ]; then
     echo -e "${GREEN}✓ No modified Python files to check${NC}"
 else
@@ -106,24 +122,6 @@ else
         echo -e "${GREEN}✓ Line length looks good${NC}"
     else
         echo -e "   ${YELLOW}(Warnings only - not blocking)${NC}"
-    fi
-fi
-
-# ----------------------------------------------------------------------------
-# 5. CODACY STATIC-ANALYSIS SARIF UPLOAD
-# ----------------------------------------------------------------------------
-echo -e "\n${YELLOW}[5/5] Codacy static-analysis SARIF upload...${NC}"
-if [[ -z "${CODACY_PROJECT_TOKEN:-}" ]]; then
-    echo -e "${GREEN}✓ CODACY_PROJECT_TOKEN unset — skipping (no upload to GitHub App).${NC}"
-elif [[ "${SKIP_CODACY_UPLOAD:-0}" == "1" ]]; then
-    echo -e "${GREEN}✓ SKIP_CODACY_UPLOAD=1 — skipping by request.${NC}"
-else
-    # Run analysis only here. The commit is not on GitHub yet during pre-push,
-    # so the upload stage is guaranteed to 404 and only adds noise.
-    if SKIP_CODACY_UPLOAD=1 bash "$REPO_ROOT/scripts/quality-pipeline.sh" --codacy-only; then
-        echo -e "${GREEN}✓ Codacy SARIF uploaded${NC}"
-    else
-        echo -e "${YELLOW}⚠ Codacy SARIF upload failed (commit not yet on GitHub — expected). Use ./setup ship after merge.${NC}"
     fi
 fi
 

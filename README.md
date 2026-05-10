@@ -57,7 +57,7 @@ cd ~/Apps/my-project
 
 ## How it works — setup flow
 
-When you run `./setup`, the script audits your machine and shows a **6-option menu**. The
+When you run `./setup`, the script audits your machine and shows a **7-option menu**. The
 option numbers **never change**, but the `[recommended]` tag highlights which action fits
 your current state. Option 2 opens a safe-changes submenu so you can see which files and
 fonts are affected before you apply anything.
@@ -79,9 +79,10 @@ $ ~/000-dotfiles/setup
    3. Show full technical details
    4. Show tool and sign-in guidance
    5. Configure / verify API tokens
-   6. Exit without writing
+   6. Install / update Git hooks for this repo
+   7. Exit without writing
                          ↓
-        Choose [1-6]: 1
+        Choose [1-7]: 1
                          ↓
    [Developer tool phases submenu opens]
    1. Preview dev-base packages
@@ -107,9 +108,10 @@ $ ~/000-dotfiles/setup
    3. Show full technical details
    4. Show tool and sign-in guidance
    5. Configure / verify API tokens
-   6. Exit without writing
+   6. Install / update Git hooks for this repo
+   7. Exit without writing
                          ↓
-        Choose [1-6]: 2
+        Choose [1-7]: 2
                          ↓
    [Safe changes submenu shows dotfiles vs fonts]
                          ↓
@@ -123,9 +125,10 @@ $ ~/000-dotfiles/setup
    4. Show tool and sign-in guidance
    5. Configure / verify API tokens. Opens a submenu that splits
       verification-only, auto post-install actions, and manual guidance.
-   6. Exit without writing
+   6. Install / update Git hooks for this repo
+   7. Exit without writing
                          ↓
-        Choose [1-6]: 5
+        Choose [1-7]: 5
                          ↓
    [Post-install submenu shows verify / auto / guidance]
                          ↓
@@ -154,9 +157,10 @@ $ ~/000-dotfiles/setup
    3. Show full technical details
    4. Show tool and sign-in guidance
    5. Configure / verify API tokens
-   6. Exit without writing
+   6. Install / update Git hooks for this repo
+   7. Exit without writing
                          ↓
-        Choose [1-6]: 2
+        Choose [1-7]: 2
                          ↓
    [Safe changes submenu shows dotfiles vs fonts]
                          ↓
@@ -226,8 +230,9 @@ A good dotfiles repo should:
 |---|---|---|
 | `agents/` | a project root | `AGENTS.md` + `CLAUDE.md`/`GEMINI.md`/`copilot-instructions.md` templates |
 | `claude/` | `~/.claude/` | `settings.json`, `keybindings.json`, global `CLAUDE.md`, `hooks/load-project-env.sh` |
-| `codex/` | `~/.codex/` | `config.toml`, `rules/default.rules` |
+| `codex/` | `~/.codex/` | `config.toml`, global `AGENTS.md`, `rules/default.rules` |
 | `gemini/` | `~/.gemini/` | `settings.json`, global `GEMINI.md` |
+| `copilot/` | `~/.copilot/` | global `copilot-instructions.md` |
 | `gh/` | `~/.config/gh/` | `config.yml` |
 | `fish/` | `~/.config/fish/` | `fish_plugins`, `conf.d/direnv.fish` (auto-installs direnv hook), `functions/direnv.fish`, `env.fish` |
 | `git/` | `~/.config/git/` | `config` |
@@ -251,6 +256,7 @@ Files ending in `.template` are copy-and-customize sources. Placeholders follow 
 | `./setup verify [--project PATH] [--copilot]` | Read-only check: requires no `uv`, suitable for CI |
 | `./setup doctor [--home PATH] [--profile NAME]` | Read-only machine audit (wraps `dotfiles_tools doctor`) |
 | `./setup quality` | Run the local quality pipeline (`scripts/quality-pipeline.sh`): tests, coverage, Codacy upload |
+| `./setup hooks` | Install or update this repo's Git hooks, including the pre-push guard that blocks direct pushes to `main` |
 | `./setup ship [<pr-number>]` | Finalize a PR: refresh branch, re-upload Codacy SARIF, poll required checks, squash-merge |
 
 Menu options during `./setup`:
@@ -260,7 +266,20 @@ Menu options during `./setup`:
 - **Option 2:** Apply safe non-protected dotfiles. Opens a submenu that separates
   dotfiles/config files from fonts before applying the combined safe changes.
 - **Option 3:** Show full technical details (machine state, versions, all pending operations)
-- **Option 4:** Manage optional integrations (GitHub auth, HuggingFace token configuration, Codacy setup). GitHub CLI installs via `apt`; HuggingFace CLI (`hf`) installs via `uv tool install huggingface-hub`; use `hf auth login` to authenticate. Machine bootstrap calls `ensure_mcp_servers()`, which auto-registers the **GitHub MCP** server (uses `GITHUB_TOKEN`) and **Codacy MCP** server (uses `CODACY_ACCOUNT_TOKEN`) with the Claude CLI.
+- **Option 4:** Show tool and sign-in guidance.
+- **Option 5:** Manage optional integrations (GitHub auth, HuggingFace token configuration, Codacy setup). GitHub CLI installs via `apt`; HuggingFace CLI (`hf`) installs via `uv tool install huggingface-hub`; use `hf auth login` to authenticate. Machine bootstrap calls `ensure_mcp_servers()`, which auto-registers the **GitHub MCP** server (uses `GITHUB_TOKEN`) and **Codacy MCP** server (uses `CODACY_ACCOUNT_TOKEN`) with the Claude CLI.
+- **Option 6:** Install or update repo Git hooks. This is a separate layer from tool installation, dotfile application, and API setup.
+
+### Hook trigger map
+
+Use these layers precisely: tool instructions are Markdown context files, tool hooks are CLI-specific session/tool hooks, and repo hooks are Git hooks that run for any caller.
+
+- **Claude Code:** Claude hooks are configured through Claude settings files and can be inspected with `/hooks`. The protected-main guard still triggers through Git when Claude runs `git push`.
+- **Gemini CLI:** Gemini loads global and project `GEMINI.md` context. Do not assume Gemini automatically runs Claude hooks; use interactive `/hooks` inside Gemini to inspect or manage Gemini-specific hooks, and use `gemini hooks --help` from the shell to inspect external hook subcommands. Do not run `gemini hooks migrate` unless the user explicitly asks to migrate Claude hooks into Gemini. The protected-main guard still triggers through Git when Gemini runs `git push`.
+- **Codex CLI:** Codex loads global and project `AGENTS.md` context. The protected-main guard still triggers through Git when Codex runs `git push`.
+- **Copilot CLI:** Copilot auto-loads instruction files and can be inspected with `/instructions` or `/env`. The protected-main guard still triggers through Git when Copilot runs `git push`.
+
+Install the repo hook with `./setup hooks` or `./scripts/install-hooks.sh`. It writes `.git/hooks/pre-push`, and Git runs that hook automatically for every `git push` no matter which CLI or shell started the command. Do not add `.gemini/settings.json` hooks or run Gemini hook migration for this guard unless a project explicitly needs Gemini-specific hook behavior.
 
 Install on `PATH`:
 
@@ -371,7 +390,7 @@ CI runs the same validation suite on pushes and pull requests and generates `cov
 
 ## Conventions and safety
 
-- **No secrets.** No tokens, passwords, or API keys live in this repo. Auth files (`hosts.yml`, `auth.json`, `oauth_creds.json`, `token`) are `.gitignore`d. Sign in via `gh auth login`, `codex auth`, `claude /login`, etc. The local `.envrc.local` (also `.gitignore`d) exports `GITHUB_TOKEN` dynamically via `$(gh auth token 2>/dev/null)` so the GitHub MCP server can authenticate without storing a static token.
+- **No secrets.** No tokens, passwords, or API keys live in this repo. Auth files (`hosts.yml`, `auth.json`, `oauth_creds.json`, `token`) are `.gitignore`d. Sign in via `gh auth login`, `codex auth`, `claude /login`, etc. The local `.envrc.local` (also `.gitignore`d) exports `GITHUB_TOKEN` dynamically via `$(gh auth token 2>/dev/null)` and bridges local Codacy/HuggingFace token files so API-backed tools can authenticate without storing static token values in the repo.
 - **Symlinks for AI-agent docs.** Root `CLAUDE.md`/`GEMINI.md` symlink to `AGENTS.md`; `agents/CLAUDE.md.template` and `agents/GEMINI.md.template` symlink to `agents/AGENTS.md.template`. One source of truth per scope.
 - **Backups before replace.** Drifted targets are copied to the backup dir (default `~/.dotfiles-backups`) before being overwritten.
 - **Stop on first failure.** `apply` halts on the first failed write and reports `partial` status with completed operations and backups intact.
