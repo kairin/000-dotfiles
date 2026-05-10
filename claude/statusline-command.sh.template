@@ -166,7 +166,7 @@ line1+="$(pill "$PWD_BG" "$PWD_FG" "󰉋 $dir_display")"
 
 # git
 git_seg="$(git_info "$cwd")"
-[ -n "$git_seg" ] && line1+="$git_seg"
+[ -n "$git_seg" ] && line1+=" $git_seg"
 
 # model
 [ -n "$model" ] && line1+=" $(pill "$CTX_BG" "$CTX_FG" " $model")"
