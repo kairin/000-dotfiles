@@ -110,7 +110,7 @@ git_info() {
     gbg="$GIT_BG"; gfg="$GIT_FG"
   fi
 
-  local label="  $branch"
+  local label="  $branch"
   [ "$ahead" -gt 0 ] && label+=" ⇡${ahead}"
   [ "$behind" -gt 0 ] && label+=" ⇣${behind}"
   [ "$untracked" -gt 0 ] && label+=" ?${untracked}"
