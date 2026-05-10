@@ -67,6 +67,11 @@ Commands:
       Run the local quality pipeline (tests, coverage, Codacy upload) via
       scripts/quality-pipeline.sh. Use before pushing to validate locally.
 
+  hooks
+      Install or update this repo's Git hooks. Installs
+      scripts/hooks/pre-push to .git/hooks/pre-push so Git blocks direct pushes
+      to main regardless of which CLI or shell runs git push.
+
   ship [<pr-number>]
       Finalize a PR end-to-end: detect or use the given PR number, refresh the
       branch with main if BEHIND, re-upload Codacy SARIF for the new HEAD and
@@ -76,6 +81,8 @@ Commands:
   repair-codacy-env [<project>] [--project PATH] [--owner OWNER] [--repo REPO]
       Non-interactive: regenerate the managed Codacy block in
       <project>/.envrc.local based on token files present in \$HOME/.codacy/.
+      Also writes local GitHub and HuggingFace token bridges when gh or
+      \$HOME/.cache/huggingface/token are available.
       Detects owner/repo from the project's origin remote unless provided.
       Exits non-zero if owner/repo cannot be resolved or no token files exist.
 
@@ -730,6 +737,68 @@ cmd_quality() {
   exec bash "$pipeline"
 }
 
+cmd_hooks() {
+  local installer="$DOTFILES_REPO/scripts/install-hooks.sh"
+  [[ -f "$installer" ]] || die "hook installer missing: $installer"
+  (cd "$DOTFILES_REPO" && bash "$installer")
+}
+
+# Returns 0 if codacy-cli is healthy; non-zero if it is the recursion trap
+# (i.e. command -v codacy-cli resolves to a wrapper script at the cache
+# binary path, which would re-invoke itself via `eval "$run_command $*"`).
+ship_verify_codacy_cli() {
+  local cli_path cli_real cli_dir cli_target cli_tmpfolder hops
+  cli_path="$(command -v codacy-cli 2>/dev/null)"
+  [[ -n "$cli_path" ]] || return 0
+
+  # Manual symlink chain resolution (portable; works without GNU readlink).
+  cli_real="$cli_path"
+  hops=32
+  while [[ -L "$cli_real" && $hops -gt 0 ]]; do
+    cli_dir="$(cd -P "$(dirname "$cli_real")" >/dev/null 2>&1 && pwd)" || return 0
+    cli_target="$(readlink "$cli_real")" || return 0
+    if [[ "$cli_target" == /* ]]; then
+      cli_real="$cli_target"
+    else
+      cli_real="$cli_dir/$cli_target"
+    fi
+    hops=$((hops - 1))
+  done
+  [[ -f "$cli_real" ]] || return 0
+
+  cli_tmpfolder="${CODACY_CLI_V2_TMP_FOLDER:-$HOME/.cache/codacy/codacy-cli-v2}"
+  case "$cli_real" in
+    "$cli_tmpfolder"/*/codacy-cli-v2) ;;
+    *) return 0 ;;
+  esac
+
+  if grep -aq 'eval "\$run_command' "$cli_real" 2>/dev/null \
+     && grep -aq 'bin_path=' "$cli_real" 2>/dev/null; then
+    return 1
+  fi
+  return 0
+}
+
+ship_codacy_repair_message() {
+  local tmpfolder="${CODACY_CLI_V2_TMP_FOLDER:-$HOME/.cache/codacy/codacy-cli-v2}"
+  cat <<EOF
+codacy-cli is broken: it resolves to its own cache wrapper, which causes
+infinite shell recursion when invoked. Required Codacy SARIF upload
+(ship step 4d/4h) cannot run safely.
+
+Repair manually (review each command before running):
+
+  rm -f "\$HOME/.local/bin/codacy-cli"
+  rm -rf "$tmpfolder"
+  curl -fsSL https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh \\
+    -o "\$HOME/.local/bin/codacy-cli"
+  chmod +x "\$HOME/.local/bin/codacy-cli"
+  "\$HOME/.local/bin/codacy-cli" download
+
+Then re-run: ./setup ship <pr>
+EOF
+}
+
 cmd_ship() {
   local pr=""
   while (($#)); do
@@ -760,6 +829,9 @@ cmd_ship() {
     command -v "$cli" >/dev/null 2>&1 || missing+=("$cli")
   done
   [[ ${#missing[@]} -eq 0 ]] || die "missing required CLIs on PATH: ${missing[*]}"
+
+  echo "[ship] step 2b: verifying codacy-cli is not a recursion trap"
+  ship_verify_codacy_cli || die "$(ship_codacy_repair_message)"
 
   local repo_root
   repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" \
@@ -1203,7 +1275,7 @@ ensure_project_envrc_local() {
   local content=""
 
   # Build content with GitHub and Codacy tokens
-  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  if command -v gh >/dev/null 2>&1; then
     content+='export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"'$'\n'
   fi
 
@@ -1247,7 +1319,7 @@ extract_machine_recommendation() {
   local recommendation_body
   recommendation_body="$(printf '%s\n' "$summary_text" | sed -n 's/^Recommended next step: //p' | head -n1)"
   if [[ -z "$recommendation_body" ]]; then
-    recommendation_body="5. Exit without writing - Setup is current and no write action is needed."
+    recommendation_body="7. Exit without writing - Setup is current and no write action is needed."
   fi
   printf '%s\n' "$recommendation_body"
 }
@@ -1329,13 +1401,15 @@ machine_menu_loop() {
     local opt3="  3. Show full technical details."
     local opt4="  4. Show tool and sign-in guidance."
     local opt5="  5. Configure / verify API tokens (GitHub, HuggingFace, Codacy)."
-    local opt6="  6. Exit without writing."
+    local opt6="  6. Install / update Git hooks for this repo."
+    local opt7="  7. Exit without writing."
     [[ "$rec_opt" == "1" ]] && opt1+=" [recommended]"
     [[ "$rec_opt" == "2" ]] && opt2+=" [recommended]"
     [[ "$rec_opt" == "3" ]] && opt3+=" [recommended]"
     [[ "$rec_opt" == "4" ]] && opt4+=" [recommended]"
     [[ "$rec_opt" == "5" ]] && opt5+=" [recommended]"
     [[ "$rec_opt" == "6" ]] && opt6+=" [recommended]"
+    [[ "$rec_opt" == "7" ]] && opt7+=" [recommended]"
     cat <<EOF
 
 Recommended next step: ${recommendation_body}
@@ -1345,8 +1419,9 @@ ${opt3}
 ${opt4}
 ${opt5}
 ${opt6}
+${opt7}
 EOF
-    printf 'Choose [1-6]: '
+    printf 'Choose [1-7]: '
     local choice
     if ! read -r -e choice; then
       echo
@@ -1365,15 +1440,16 @@ EOF
       3) echo; run_machine_details ;;
       4) echo; show_tool_auth_commands ;;
       5) echo; configure_machine_api_tokens ;;
-      6|"") echo "No changes applied."; return 0 ;;
+      6) echo; cmd_hooks ;;
+      7|"") echo "No changes applied."; return 0 ;;
       *) echo "Unknown choice: $choice" >&2 ;;
     esac
   done
 }
 
 machine_menu() {
-  local recommendation_body="${1:-5. Exit without writing - Setup is current and no write action is needed.}"
-  local rec_opt="${2:-5}"
+  local recommendation_body="${1:-7. Exit without writing - Setup is current and no write action is needed.}"
+  local rec_opt="${2:-7}"
   local summary_text="${3:-}"
   machine_menu_loop "$recommendation_body" "$rec_opt" "$summary_text"
 }
@@ -1388,7 +1464,7 @@ cmd_machine_setup() {
     printf '%s\n' "$summary_output"
     recommendation_body="$(extract_machine_recommendation "$summary_output")"
     rec_opt="${recommendation_body%%.*}"
-    [[ "$rec_opt" =~ ^[1-5]$ ]] || rec_opt="5"
+    [[ "$rec_opt" =~ ^[1-7]$ ]] || rec_opt="7"
     if machine_menu "$recommendation_body" "$rec_opt" "$summary_output"; then
       menu_status=0
     else
@@ -1415,6 +1491,8 @@ show_project_vars() {
 
 CODACY_SECTION_BEGIN="# BEGIN DOTFILES CODACY"
 CODACY_SECTION_END="# END DOTFILES CODACY"
+HUGGINGFACE_SECTION_BEGIN="# BEGIN DOTFILES HUGGINGFACE"
+HUGGINGFACE_SECTION_END="# END DOTFILES HUGGINGFACE"
 
 codacy_safe_name() {
   local raw="$1" out="" char
@@ -1599,6 +1677,57 @@ build_envrc_local_content() {
   printf '%s' "$output"
 }
 
+replace_managed_section_in_content() {
+  local content="$1" begin="$2" end="$3" block="$4"
+  local output="" in_managed=0 found=0 line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" == "$begin" ]]; then
+      if [[ "$found" -eq 0 ]]; then
+        output+="$block"$'\n'
+        found=1
+      fi
+      in_managed=1
+      continue
+    fi
+    if [[ "$line" == "$end" ]]; then
+      in_managed=0
+      continue
+    fi
+    [[ "$in_managed" -eq 1 ]] && continue
+    output+="$line"$'\n'
+  done <<<"$content"
+
+  if [[ "$found" -eq 0 ]]; then
+    [[ -z "${output//[[:space:]]/}" ]] || output+=$'\n'
+    output+="$block"$'\n'
+  fi
+  printf '%s' "$output"
+}
+
+ensure_github_token_in_content() {
+  local content="$1"
+  local token_line='export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"'
+  if grep -qF 'GITHUB_TOKEN' <<<"$content"; then
+    printf '%s' "$content"
+    return 0
+  fi
+  if [[ -n "${content//[[:space:]]/}" ]]; then
+    printf '%s\n%s\n' "$content" "$token_line"
+  else
+    printf '%s\n' "$token_line"
+  fi
+}
+
+ensure_huggingface_token_in_content() {
+  local content="$1"
+  local block=""
+  block+="$HUGGINGFACE_SECTION_BEGIN"$'\n'
+  block+='export HF_TOKEN="$(cat "$HOME/.cache/huggingface/token")"'$'\n'
+  block+='export HUGGINGFACE_TOKEN="$HF_TOKEN"'$'\n'
+  block+="$HUGGINGFACE_SECTION_END"
+  replace_managed_section_in_content "$content" "$HUGGINGFACE_SECTION_BEGIN" "$HUGGINGFACE_SECTION_END" "$block"
+}
+
 verify_codacy_environment() {
   local project="$1" verification_kind="$2" mode_label="$3"
   local verification_cmd
@@ -1623,7 +1752,11 @@ verify_codacy_environment() {
     return 1
   fi
 
-  if direnv exec "$project" bash -lc "$verification_cmd" >/dev/null 2>&1; then
+  if (
+    unset CODACY_ACCOUNT_TOKEN CODACY_API_TOKEN CODACY_PROJECT_TOKEN
+    unset CODACY_ORGANIZATION_PROVIDER CODACY_USERNAME CODACY_PROJECT_NAME
+    direnv exec "$project" bash -lc "$verification_cmd"
+  ) >/dev/null 2>&1; then
     echo "✓ Codacy $mode_label environment verified for $project"
     return 0
   fi
@@ -1968,6 +2101,16 @@ cmd_repair_codacy_env() {
   local envrc_local="$project/.envrc.local"
   local envrc_local_content
   envrc_local_content="$(build_envrc_local_content "$envrc_local" "$block")"
+  local api_bridges=()
+  if command -v gh >/dev/null 2>&1; then
+    envrc_local_content="$(ensure_github_token_in_content "$envrc_local_content")"
+    api_bridges+=("GITHUB_TOKEN")
+  fi
+  if [[ -f "$HOME/.cache/huggingface/token" ]]; then
+    chmod 600 "$HOME/.cache/huggingface/token" 2>/dev/null || true
+    envrc_local_content="$(ensure_huggingface_token_in_content "$envrc_local_content")"
+    api_bridges+=("HF_TOKEN" "HUGGINGFACE_TOKEN")
+  fi
   write_file_if_changed "$envrc_local" "$envrc_local_content" 600
 
   echo "Codacy environment repaired for $owner/$repo"
@@ -1978,6 +2121,10 @@ cmd_repair_codacy_env() {
   [[ "$has_project" -eq 1 ]] && echo "    - $project_file"
   local IFS=' '
   echo "  Exports written: ${exported[*]}"
+  if [[ ${#api_bridges[@]} -gt 0 ]]; then
+    [[ " ${api_bridges[*]} " == *" GITHUB_TOKEN "* ]] && echo "  GitHub token bridge configured"
+    [[ " ${api_bridges[*]} " == *" HF_TOKEN "* ]] && echo "  HuggingFace token bridge configured"
+  fi
 
   local verification_kind verification_label
   if [[ "$has_account" -eq 1 && "$has_project" -eq 1 ]]; then
@@ -2028,8 +2175,8 @@ EOF
     fi
 
     case "$choice" in
-      1) configure_gh_auth ;;
-      2) configure_huggingface_global ;;
+      1) configure_gh_auth "$project" ;;
+      2) configure_huggingface_global "$project" ;;
       3) configure_codacy_env "$project" ;;
       4|"") return 0 ;;
       *) echo "Unknown choice: $choice" >&2 ;;
@@ -2046,6 +2193,21 @@ ensure_github_token_in_envrc_local() {
   printf '%s\n' "$token_line" >> "$envrc_local"
   chmod 600 "$envrc_local"
   echo "  GITHUB_TOKEN added to $envrc_local"
+  if command -v direnv >/dev/null 2>&1; then
+    direnv allow "$(dirname "$envrc_local")" 2>/dev/null || true
+  fi
+}
+
+ensure_huggingface_token_in_envrc_local() {
+  local envrc_local="$1"
+  local token_file="$HOME/.cache/huggingface/token"
+  [[ -f "$token_file" ]] || return 0
+  chmod 600 "$token_file" 2>/dev/null || true
+  local content=""
+  [[ -f "$envrc_local" ]] && content="$(cat "$envrc_local")"
+  content="$(ensure_huggingface_token_in_content "$content")"
+  write_file_if_changed "$envrc_local" "$content" 600
+  echo "  HuggingFace token bridge configured in $envrc_local"
   if command -v direnv >/dev/null 2>&1; then
     direnv allow "$(dirname "$envrc_local")" 2>/dev/null || true
   fi
@@ -2078,10 +2240,7 @@ configure_gh_auth() {
     if gh auth status >/dev/null 2>&1; then
       echo "✓ GitHub authentication configured"
       if [[ -n "$project" ]]; then
-        local envrc_local="$project/.envrc.local"
-        if [[ -f "$envrc_local" ]]; then
-          ensure_github_token_in_envrc_local "$envrc_local"
-        fi
+        ensure_github_token_in_envrc_local "$project/.envrc.local"
       fi
       verify_github_environment "$project" || true
     fi
@@ -2089,6 +2248,7 @@ configure_gh_auth() {
 }
 
 configure_huggingface_global() {
+  local project="${1:-}"
   echo
   echo "Setting up HuggingFace Hub..."
   if ! command -v hf >/dev/null 2>&1; then
@@ -2106,6 +2266,9 @@ configure_huggingface_global() {
     hf auth login
     if [[ -f "$HOME/.cache/huggingface/token" ]]; then
       echo "✓ HuggingFace token configured"
+      if [[ -n "$project" ]]; then
+        ensure_huggingface_token_in_envrc_local "$project/.envrc.local"
+      fi
       verify_huggingface_environment || true
     fi
   fi
@@ -2276,6 +2439,7 @@ main() {
     init)   cmd_init "$@" ;;
     doctor) cmd_doctor "$@" ;;
     quality) cmd_quality "$@" ;;
+    hooks) cmd_hooks "$@" ;;
     ship)   cmd_ship "$@" ;;
     repair-codacy-env) cmd_repair_codacy_env "$@" ;;
     help|-h|--help) usage ;;

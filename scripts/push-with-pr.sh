@@ -9,6 +9,10 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$BRANCH" = "main" ]; then
+    echo "✗ Refusing to push from main. Create a feature branch first." >&2
+    exit 1
+fi
 
 # Colors
 BLUE='\033[0;34m'

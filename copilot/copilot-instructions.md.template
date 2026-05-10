@@ -1,14 +1,13 @@
-# Global Agent Instructions
+# Global GitHub Copilot CLI Instructions
 
-This file is loaded by Claude Code at the start of every session, across all projects.
-Project-specific instructions live in each repo's `CLAUDE.md` (or `AGENTS.md` with a symlink).
+This file contains optional global instructions for GitHub Copilot CLI. Project-specific guidance should live in the child project's instruction files.
 
 ## Communication Style
 
 - Responses should be short and direct. No preamble, no trailing summaries.
 - No emojis unless explicitly requested.
-- When referencing code, include `file:line` so I can navigate directly.
-- Default to no comments in code. Only add one when the WHY is non-obvious.
+- When referencing code, include `file:line` so the target is easy to navigate.
+- Default to no comments in code. Only add one when the why is non-obvious.
 
 ## General Rules
 
@@ -16,31 +15,7 @@ Project-specific instructions live in each repo's `CLAUDE.md` (or `AGENTS.md` wi
 - Never modify `.envrc`, `.gitignore`, lock files, or CI workflows without explicit per-file approval.
 - Prefer editing existing files over creating new ones.
 - Do not add error handling, fallbacks, or abstractions beyond what the task requires.
-- When uncertain about scope, ask — don't infer approval from a broader instruction.
-
-## Environment
-
-- Shell: fish
-- Package manager preference: uv (Python), npm (Node)
-- Branch convention: `YYYYMMDD-HHMMSS` timestamped branches; never commit directly to main.
-
-## Project env is auto-loaded
-
-A user-global `SessionStart` hook (`~/.claude/hooks/load-project-env.sh`) loads
-each project's `.envrc` / `.envrc.local` at session start and exports a token
-allowlist (`CODACY_*`, `GITHUB_TOKEN`, `GH_TOKEN`, `HF_TOKEN`, `OPENAI_API_KEY`,
-`ANTHROPIC_API_KEY`, etc.) into every Bash tool call for the session.
-
-**Do not run `direnv allow`, `source .envrc.local`, or `cat ~/.codacy/...`.**
-Use `codacy-cli`, Codacy MCP, `gh`, and other token-gated tools directly — their
-tokens are already in the env.
-
-If a tool returns 401/404/auth-error: look for a `[claude-env]` line in the
-session-start output. The most common fix is `./setup repair-codacy-env`
-(in repos that have that subcommand) or `./scripts/codacy-setup repair`.
-
-To forward extra variables for a specific project, create
-`.claude/env-allowlist` in that project root (one variable name per line).
+- When uncertain about scope, ask; do not infer approval from a broader instruction.
 
 ## Workspace, Hooks, And Publishing Rules
 
@@ -51,7 +26,7 @@ To forward extra variables for a specific project, create
 - Trust settings, session state, auth files, caches, and config directories under `/home/kkk` are global tool state, not project identity.
 - Child project instructions override the root workspace rule for project-specific commands, but they cannot redefine `/home/kkk/Apps` itself as a project.
 - Git hooks are installed per repository, not per AI tool. In `/home/kkk/Apps/000-dotfiles`, run `./setup hooks` or `./scripts/install-hooks.sh` to install `.git/hooks/pre-push`; Git triggers that hook automatically on `git push` whether the caller is Claude Code, Gemini CLI, Codex CLI, Copilot CLI, or a human shell.
-- Claude Code hooks are configured through Claude settings and can be inspected with `/hooks`. Do not assume a Claude hook is active unless it is registered in `~/.claude/settings.json`, `.claude/settings.json`, `.claude/settings.local.json`, or an enabled skill/plugin.
+- Copilot CLI auto-loads instruction files from the current repo, current working directory, `~/.copilot/copilot-instructions.md`, and extra directories listed in `COPILOT_CUSTOM_INSTRUCTIONS_DIRS`. Inspect loaded context with `/instructions` or `/env`.
 - Use `direnv exec /home/kkk/Apps/<project> <command>` for credentialed project commands when project environment is needed.
 - Do not run `direnv allow`, edit `.envrc`, source `.envrc.local`, or print secret values unless the user explicitly approves that exact action.
 - Project `.envrc` files must not set `HOME`, `CODEX_HOME`, `COPILOT_HOME`, or Gemini/Claude home or config variables unless intentionally changing global tool state.

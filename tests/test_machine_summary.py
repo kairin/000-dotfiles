@@ -225,7 +225,7 @@ class MachineSummaryTests(DotfilesTestCase):
 
         text = self.render(plan_report)
 
-        self.assertIn("Recommended next step: 5. Exit without writing - Setup is current and no write action is needed.", text)
+        self.assertIn("Recommended next step: 7. Exit without writing - Setup is current and no write action is needed.", text)
         self.assertIn("Setup is current and no write action is needed.", text)
 
     def test_all_fonts_ok_collapses_to_already_ok(self) -> None:
@@ -235,7 +235,7 @@ class MachineSummaryTests(DotfilesTestCase):
 
         text = self.render(plan_report)
 
-        self.assertIn("Recommended next step: 5. Exit without writing - Setup is current and no write action is needed.", text)
+        self.assertIn("Recommended next step: 7. Exit without writing - Setup is current and no write action is needed.", text)
         self.assertIn("Nerd Fonts:", text)
         self.assertIn("Apt fallback fonts:", text)
         self.assertIn("none to install/update", text)
@@ -350,7 +350,7 @@ class MachineSummaryTests(DotfilesTestCase):
 
         rec = _recommendation(doctor_report, plan_report, action_summary, groups)
 
-        self.assertEqual(rec.option_number, 5)
+        self.assertEqual(rec.option_number, 7)
         self.assertEqual(rec.state_category, "current")
         self.assertEqual(rec.label, "Exit without writing")
 

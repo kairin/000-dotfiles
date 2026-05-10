@@ -14,6 +14,21 @@ class ManifestTests(DotfilesTestCase):
             self.assertFalse(Path(entry.source).is_absolute())
             self.assertFalse(Path(entry.target).is_absolute())
 
+    def test_machine_profile_includes_all_global_instruction_files(self):
+        manifest = load_manifest(REPO_ROOT)
+        machine_entries = set(manifest.profiles["machine"].entries)
+        for entry_id in (
+            "claude.global-instructions",
+            "gemini.global-instructions",
+            "codex.global-instructions",
+            "copilot.global-instructions",
+        ):
+            self.assertIn(entry_id, machine_entries)
+
+        entries = manifest.entry_map()
+        self.assertEqual(entries["codex.global-instructions"].target, ".codex/AGENTS.md")
+        self.assertEqual(entries["copilot.global-instructions"].target, ".copilot/copilot-instructions.md")
+
     def test_manifest_rejects_duplicates_unknown_profiles_and_missing_manual_reason(self):
         data = {
             "version": "1",

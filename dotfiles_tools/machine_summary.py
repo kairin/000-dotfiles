@@ -157,7 +157,7 @@ def _recommendation_for_manual_only(
 
 
 def _recommendation_for_current() -> Recommendation:
-    return Recommendation(5, "Exit without writing", "Setup is current and no write action is needed.", "current")
+    return Recommendation(7, "Exit without writing", "Setup is current and no write action is needed.", "current")
 
 
 def _missing_tool_checks(tool_checks: list[dict[str, Any]]) -> list[dict[str, Any]]:

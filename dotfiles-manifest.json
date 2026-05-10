@@ -11,8 +11,10 @@
         "claude.mcp-servers",
         "codex.config",
         "codex.default-rules",
+        "codex.global-instructions",
         "gemini.settings",
         "gemini.global-instructions",
+        "copilot.global-instructions",
         "gh.config",
         "fish.env",
         "fish.direnv",
@@ -106,6 +108,16 @@
       "placeholders": "none"
     },
     {
+      "id": "codex.global-instructions",
+      "source": "codex/AGENTS.md.template",
+      "target": ".codex/AGENTS.md",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "user_customizable": true,
+      "placeholders": "none"
+    },
+    {
       "id": "gemini.settings",
       "source": "gemini/settings.json.template",
       "target": ".gemini/settings.json",
@@ -120,6 +132,16 @@
       "id": "gemini.global-instructions",
       "source": "gemini/GEMINI.md.template",
       "target": ".gemini/GEMINI.md",
+      "kind": "template",
+      "profiles": ["machine"],
+      "protected": false,
+      "user_customizable": true,
+      "placeholders": "none"
+    },
+    {
+      "id": "copilot.global-instructions",
+      "source": "copilot/copilot-instructions.md.template",
+      "target": ".copilot/copilot-instructions.md",
       "kind": "template",
       "profiles": ["machine"],
       "protected": false,

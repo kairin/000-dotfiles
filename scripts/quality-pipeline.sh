@@ -13,9 +13,8 @@
 # Modes:
 #   (default)        run stages 1-7
 #   --codacy-only    run only stages 3, 5, 6, 7 against working tree HEAD.
-#                    Used by the pre-push hook so the static-analysis SARIF
-#                    is uploaded BEFORE the push completes; lets the four
-#                    required GitHub checks go green automatically.
+#                    Used by ./setup ship after a merge to refresh the SARIF
+#                    upload for the new HEAD so required Codacy checks go green.
 #
 # Exit codes:
 #   0  pipeline passed
