@@ -13,8 +13,8 @@
 # Modes:
 #   (default)        run stages 1-7
 #   --codacy-only    run only stages 3, 5, 6, 7 against working tree HEAD.
-#                    Used by ./setup ship after a merge to refresh the SARIF
-#                    upload for the new HEAD so required Codacy checks go green.
+#                    Optional diagnostic mode; ./setup ship relies on
+#                    GitHub-required checks instead of local Codacy uploads.
 #
 # Exit codes:
 #   0  pipeline passed

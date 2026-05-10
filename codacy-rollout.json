@@ -1,0 +1,56 @@
+{
+  "repositories": [
+    {
+      "repo": "kairin/000-dotfiles",
+      "local_path": "../000-dotfiles",
+      "language_profile": "python",
+      "test_workflow": "codacy-safety-net",
+      "test_command": "uv run python -m unittest discover -s tests",
+      "coverage_command": "uv run --with coverage==7.5.4 coverage run -m unittest discover -s tests && uv run --with coverage==7.5.4 coverage xml",
+      "coverage_reports": [
+        "coverage.xml"
+      ],
+      "expected_checks": [
+        "codacy-safety-net",
+        "Codacy Static Code Analysis",
+        "Codacy Coverage Variation",
+        "Codacy Diff Coverage"
+      ]
+    },
+    {
+      "repo": "kairin/BCM",
+      "local_path": "../BCM",
+      "language_profile": "python",
+      "test_workflow": "bcm-validation",
+      "test_command": "uv run python -m unittest discover -s tests",
+      "coverage_command": "uv run --with coverage coverage run -m unittest discover -s tests && uv run --with coverage coverage xml",
+      "coverage_reports": [
+        "coverage.xml"
+      ],
+      "expected_checks": [
+        "bcm-validation",
+        "Codacy Static Code Analysis",
+        "Codacy Coverage Variation",
+        "Codacy Diff Coverage"
+      ]
+    },
+    {
+      "repo": "kairin/graph-obsidian",
+      "local_path": "../graph-obsidian",
+      "language_profile": "node-python",
+      "test_workflow": "graph-obsidian-validation",
+      "test_command": "npm test && uv run python -m unittest discover -s tests",
+      "coverage_command": "npm test -- --coverage && uv run --with coverage coverage run -m unittest discover -s tests && uv run --with coverage coverage xml",
+      "coverage_reports": [
+        "coverage/lcov.info",
+        "coverage.xml"
+      ],
+      "expected_checks": [
+        "graph-obsidian-validation",
+        "Codacy Static Code Analysis",
+        "Codacy Coverage Variation",
+        "Codacy Diff Coverage"
+      ]
+    }
+  ]
+}

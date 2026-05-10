@@ -38,7 +38,11 @@ class WorkflowTests(DotfilesTestCase):
         self.assertIn("coverage xml", workflow)
         self.assertIn("coverage.xml", workflow)
         self.assertIn("coverage.codacy.com/get.sh", workflow)
-        self.assertIn("continue-on-error: true", workflow)
+        self.assertIn("CODACY_API_TOKEN: ${{ secrets.CODACY_ACCOUNT_TOKEN }}", workflow)
+        self.assertIn("CODACY_ORGANIZATION_PROVIDER: gh", workflow)
+        self.assertIn("CODACY_USERNAME: kairin", workflow)
+        self.assertIn("CODACY_PROJECT_NAME: 000-dotfiles", workflow)
+        self.assertNotIn("continue-on-error: true", workflow)
         # Pinned action SHAs must be preserved.
         self.assertIn("actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd", workflow)
         self.assertIn("astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b", workflow)
@@ -52,9 +56,8 @@ class WorkflowTests(DotfilesTestCase):
         # Stage 7 is the server-side Codacy gate; it stays informational so a
         # missing CODACY_PROJECT_TOKEN does not break local pre-push runs.
         self.assertIn("[STAGE 7/7] Codacy server-side gate", pipeline)
-        # --codacy-only is a mode of quality-pipeline.sh used by ./setup ship
-        # to refresh the SARIF upload after a merge. The pre-push hook does
-        # NOT use this mode; Codacy enforcement runs in CI and at ship time.
+        # --codacy-only remains available for optional local diagnostics.
+        # ./setup ship must rely on GitHub-required checks instead.
         self.assertIn("--codacy-only", pipeline)
         # SARIF must be uploaded for both HEAD and merge-base so Codacy can
         # diff the PR; without the base upload, the GH App posts nothing.

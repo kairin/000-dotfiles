@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from typing import Sequence
 
@@ -10,6 +11,16 @@ from .bootstrap import (
     build_bootstrap_plan,
     build_tool_install_subplan,
     run_tool_install_post_install,
+)
+from .codacy_rollout import (
+    CodacyApiClient,
+    GitHubCliClient,
+    audit_inventory,
+    audit_repository,
+    find_repository,
+    load_inventory,
+    plan_repository,
+    render_audit_table,
 )
 from .doctor import run_doctor
 from .installer import apply_plan, build_plan
@@ -95,6 +106,18 @@ def build_parser() -> argparse.ArgumentParser:
     project.add_argument("--backup-dir")
     project.add_argument("--yes", action="store_true")
     project.add_argument("--copilot", action="store_true")
+
+    codacy_audit = subparsers.add_parser("codacy-audit", help="Audit Codacy rollout readiness")
+    _common(codacy_audit)
+    codacy_audit.add_argument("--inventory", required=True)
+    codacy_audit.add_argument("--target-repo")
+    codacy_audit.add_argument("--project")
+    codacy_audit.add_argument("--all", action="store_true")
+
+    codacy_plan = subparsers.add_parser("codacy-plan", help="Print read-only Codacy rollout plan")
+    _common(codacy_plan)
+    codacy_plan.add_argument("--inventory", required=True)
+    codacy_plan.add_argument("--target-repo", required=True)
     return parser
 
 
@@ -106,6 +129,8 @@ def _common(parser: argparse.ArgumentParser) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command in {"codacy-audit", "codacy-plan"}:
+        return _dispatch_codacy_command(args)
     report = _dispatch_command(args, Path(args.repo))
     print(render(report, args.as_json), end="")
     return 1 if report.status in {"failed", "partial"} else 0
@@ -135,6 +160,37 @@ def _dispatch_command(args: argparse.Namespace, repo: Path):
     else:
         raise SystemExit(f"unknown command: {cmd}")
     return report
+
+
+def _dispatch_codacy_command(args: argparse.Namespace) -> int:
+    inventory = load_inventory(Path(args.inventory))
+    if args.command == "codacy-plan":
+        item = find_repository(inventory, repo=args.target_repo)
+        output = plan_repository(item)
+        print(json.dumps(output, indent=2, sort_keys=True))
+        return 0
+
+    github = GitHubCliClient()
+    codacy = CodacyApiClient()
+    if args.all:
+        results = audit_inventory(inventory, github, codacy)
+        if args.as_json:
+            print(json.dumps([result.to_dict() for result in results], indent=2, sort_keys=True))
+        else:
+            print(render_audit_table(results), end="")
+        return 1 if any(result.status == "FAIL" for result in results) else 0
+
+    item = find_repository(
+        inventory,
+        repo=args.target_repo,
+        project=Path(args.project) if args.project else None,
+    )
+    result = audit_repository(item, github, codacy)
+    if args.as_json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(result.to_text(), end="")
+    return 1 if result.status == "FAIL" else 0
 
 
 def _dispatch_bootstrap(args: argparse.Namespace, repo: Path):

@@ -67,6 +67,15 @@ Commands:
       Run the local quality pipeline (tests, coverage, Codacy upload) via
       scripts/quality-pipeline.sh. Use before pushing to validate locally.
 
+  codacy-audit [--all|--project PATH|--repo OWNER/REPO] [--json]
+      Read-only audit for strict Codacy rollout readiness. Checks GitHub
+      rulesets/protection, workflow coverage upload, secrets, latest check
+      runs, and Codacy repository/gate readiness from codacy-rollout.json.
+
+  codacy-plan --repo OWNER/REPO
+      Print the exact workflow and GitHub ruleset requirements for a repository
+      from codacy-rollout.json without mutating GitHub, Codacy, or files.
+
   hooks
       Install or update this repo's Git hooks. Installs
       scripts/hooks/pre-push to .git/hooks/pre-push so Git blocks direct pushes
@@ -74,9 +83,8 @@ Commands:
 
   ship [<pr-number>]
       Finalize a PR end-to-end: detect or use the given PR number, refresh the
-      branch with main if BEHIND, re-upload Codacy SARIF for the new HEAD and
-      base, poll the four required Codacy checks, then squash-merge. Requires
-      CODACY_PROJECT_TOKEN and an authenticated gh.
+      branch with main if BEHIND, poll the GitHub-required checks from active
+      rulesets/branch protection, then squash-merge. Requires authenticated gh.
 
   repair-codacy-env [<project>] [--project PATH] [--owner OWNER] [--repo REPO]
       Non-interactive: regenerate the managed Codacy block in
@@ -737,6 +745,61 @@ cmd_quality() {
   exec bash "$pipeline"
 }
 
+cmd_codacy_audit() {
+  local target_repo="" project="" all=0 as_json=0
+  while (($#)); do
+    case "$1" in
+      --all) all=1; shift ;;
+      --project) project="${2:?--project requires a path}"; shift 2 ;;
+      --repo) target_repo="${2:?--repo requires OWNER/REPO}"; shift 2 ;;
+      --json) as_json=1; shift ;;
+      -h|--help) usage; return 0 ;;
+      *) die "unknown flag for codacy-audit: $1" ;;
+    esac
+  done
+
+  local selectors=0
+  [[ "$all" -eq 1 ]] && selectors=$((selectors + 1))
+  [[ -n "$project" ]] && selectors=$((selectors + 1))
+  [[ -n "$target_repo" ]] && selectors=$((selectors + 1))
+  [[ "$selectors" -le 1 ]] || die "choose only one of --all, --project, or --repo"
+  [[ "$selectors" -eq 1 ]] || all=1
+
+  ensure_uv
+  local -a args=(
+    codacy-audit
+    --repo "$DOTFILES_REPO"
+    --inventory "$DOTFILES_REPO/codacy-rollout.json"
+  )
+  [[ "$all" -eq 1 ]] && args+=(--all)
+  [[ -n "$project" ]] && args+=(--project "$project")
+  [[ -n "$target_repo" ]] && args+=(--target-repo "$target_repo")
+  [[ "$as_json" -eq 1 ]] && args+=(--json)
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools "${args[@]}")
+}
+
+cmd_codacy_plan() {
+  local target_repo="" as_json=0
+  while (($#)); do
+    case "$1" in
+      --repo) target_repo="${2:?--repo requires OWNER/REPO}"; shift 2 ;;
+      --json) as_json=1; shift ;;
+      -h|--help) usage; return 0 ;;
+      *) die "unknown flag for codacy-plan: $1" ;;
+    esac
+  done
+  [[ -n "$target_repo" ]] || die "codacy-plan requires --repo OWNER/REPO"
+  ensure_uv
+  local -a args=(
+    codacy-plan
+    --repo "$DOTFILES_REPO"
+    --inventory "$DOTFILES_REPO/codacy-rollout.json"
+    --target-repo "$target_repo"
+  )
+  [[ "$as_json" -eq 1 ]] && args+=(--json)
+  (cd "$DOTFILES_REPO" && uv run python -m dotfiles_tools "${args[@]}")
+}
+
 cmd_hooks() {
   local installer="$DOTFILES_REPO/scripts/install-hooks.sh"
   [[ -f "$installer" ]] || die "hook installer missing: $installer"
@@ -799,6 +862,21 @@ Then re-run: ./setup ship <pr>
 EOF
 }
 
+ship_required_checks() {
+  local repo="$1" base_ref="$2" checks=""
+  if [[ -n "${SHIP_REQUIRED_CHECKS:-}" ]]; then
+    checks="$SHIP_REQUIRED_CHECKS"
+  else
+    checks="$(gh api "repos/${repo}/rulesets" --paginate \
+      --jq '.[] | select((.target // "branch") == "branch") | select((.enforcement // "") != "disabled") | .rules[]? | select(.type == "required_status_checks") | .parameters.required_status_checks[]? | (.context // .name // empty)' 2>/dev/null || true)"
+    if [[ -z "$checks" ]]; then
+      checks="$(gh api "repos/${repo}/branches/${base_ref}/protection/required_status_checks" \
+        --jq '.contexts[]?, .checks[]?.context' 2>/dev/null || true)"
+    fi
+  fi
+  printf '%s\n' "$checks" | awk 'NF && !seen[$0]++'
+}
+
 cmd_ship() {
   local pr=""
   while (($#)); do
@@ -818,20 +896,13 @@ cmd_ship() {
     shift
   done
 
-  echo "[ship] step 1: verifying CODACY_PROJECT_TOKEN"
-  [[ -n "${CODACY_PROJECT_TOKEN:-}" ]] \
-    || die "CODACY_PROJECT_TOKEN is not set — run: ./setup repair-codacy-env"
-
-  echo "[ship] step 2: verifying required CLIs (codacy-cli gh git jq)"
+  echo "[ship] step 1: verifying required CLIs (gh git jq)"
   local missing=()
   local cli
-  for cli in codacy-cli gh git jq; do
+  for cli in gh git jq; do
     command -v "$cli" >/dev/null 2>&1 || missing+=("$cli")
   done
   [[ ${#missing[@]} -eq 0 ]] || die "missing required CLIs on PATH: ${missing[*]}"
-
-  echo "[ship] step 2b: verifying codacy-cli is not a recursion trap"
-  ship_verify_codacy_cli || die "$(ship_codacy_repair_message)"
 
   local repo_root
   repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" \
@@ -864,166 +935,97 @@ cmd_ship() {
   fi
   [[ "$pr" =~ ^[0-9]+$ ]] || die "PR number must be numeric: $pr"
   echo "[ship] PR #$pr on $repo"
-
-  local _ship_tmpdir="" _ship_head_wt="" _ship_base_wt="" _ship_head_sarif="" _ship_base_sarif="" _ship_repo_root
-  _ship_repo_root="$repo_root"
-  _ship_cleanup() {
-    [[ -n "${_ship_head_wt:-}" ]] && git -C "$_ship_repo_root" worktree remove "$_ship_head_wt" --force >/dev/null 2>&1 || true
-    [[ -n "${_ship_base_wt:-}" ]] && git -C "$_ship_repo_root" worktree remove "$_ship_base_wt" --force >/dev/null 2>&1 || true
-    [[ -n "${_ship_tmpdir:-}" ]] && rm -rf "$_ship_tmpdir" 2>/dev/null || true
-  }
-  trap _ship_cleanup EXIT
   trap 'exit 130' INT TERM
 
-  local required_checks=()
-  if [[ -n "${SHIP_REQUIRED_CHECKS:-}" ]]; then
-    local check
-    while IFS= read -r check; do
-      [[ -n "$check" ]] && required_checks+=("$check")
-    done <<<"$SHIP_REQUIRED_CHECKS"
-  else
-    required_checks=(
-      "Codacy Static Code Analysis"
-      "Codacy Coverage Variation"
-      "Codacy Diff Coverage"
-      "codacy-safety-net"
-    )
-  fi
+  echo "[ship] step 4a: fetching PR state"
+  local pr_state head_oid merge_state base_ref_name
+  pr_state="$(gh pr view "$pr" -R "$repo" --json mergeable,mergeStateStatus,headRefOid,baseRefName 2>/dev/null)" \
+    || die "gh pr view failed for PR #$pr"
+  head_oid="$(printf '%s' "$pr_state" | jq -r '.headRefOid')"
+  merge_state="$(printf '%s' "$pr_state" | jq -r '.mergeStateStatus')"
+  base_ref_name="$(printf '%s' "$pr_state" | jq -r '.baseRefName')"
+  [[ -n "$head_oid" && "$head_oid" != "null" ]] || die "gh pr view returned no headRefOid for PR #$pr"
+  [[ -n "$base_ref_name" && "$base_ref_name" != "null" ]] || die "gh pr view returned no baseRefName for PR #$pr"
+  echo "[ship] head=$head_oid base=$base_ref_name mergeStateStatus=$merge_state"
 
-  local attempt
-  local all_green=0
-  for attempt in 1 2 3; do
-    echo "[ship] attempt $attempt/3"
-    _ship_cleanup
-    _ship_tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/setup-ship.XXXXXX")" \
-      || die "could not create a temporary workspace for ship"
-    _ship_head_wt="$_ship_tmpdir/head"
-    _ship_base_wt="$_ship_tmpdir/base"
-    _ship_head_sarif="$_ship_tmpdir/head.sarif"
-    _ship_base_sarif="$_ship_tmpdir/base.sarif"
-
-    echo "[ship] step 4a: fetching PR state"
-    local pr_state head_oid merge_state base_ref_name base_sha
+  if [[ "$merge_state" == "BEHIND" ]]; then
+    echo "[ship] branch BEHIND $base_ref_name; running gh pr update-branch"
+    gh pr update-branch "$pr" -R "$repo" \
+      || die "gh pr update-branch failed for PR #$pr"
+    sleep 3
     pr_state="$(gh pr view "$pr" -R "$repo" --json mergeable,mergeStateStatus,headRefOid,baseRefName 2>/dev/null)" \
-      || die "gh pr view failed for PR #$pr"
+      || die "gh pr view (refetch) failed for PR #$pr"
     head_oid="$(printf '%s' "$pr_state" | jq -r '.headRefOid')"
     merge_state="$(printf '%s' "$pr_state" | jq -r '.mergeStateStatus')"
     base_ref_name="$(printf '%s' "$pr_state" | jq -r '.baseRefName')"
     [[ -n "$head_oid" && "$head_oid" != "null" ]] || die "gh pr view returned no headRefOid for PR #$pr"
     [[ -n "$base_ref_name" && "$base_ref_name" != "null" ]] || die "gh pr view returned no baseRefName for PR #$pr"
-    echo "[ship] head=$head_oid base=$base_ref_name mergeStateStatus=$merge_state"
+    echo "[ship] new head=$head_oid base=$base_ref_name mergeStateStatus=$merge_state"
+  fi
 
-    if [[ "$merge_state" == "BEHIND" ]]; then
-      echo "[ship] step 4b: branch BEHIND $base_ref_name; running gh pr update-branch"
-      gh pr update-branch "$pr" -R "$repo" \
-        || die "gh pr update-branch failed for PR #$pr"
-      sleep 3
-      pr_state="$(gh pr view "$pr" -R "$repo" --json mergeable,mergeStateStatus,headRefOid,baseRefName 2>/dev/null)" \
-        || die "gh pr view (refetch) failed for PR #$pr"
-      head_oid="$(printf '%s' "$pr_state" | jq -r '.headRefOid')"
-      merge_state="$(printf '%s' "$pr_state" | jq -r '.mergeStateStatus')"
-      base_ref_name="$(printf '%s' "$pr_state" | jq -r '.baseRefName')"
-      [[ -n "$head_oid" && "$head_oid" != "null" ]] || die "gh pr view returned no headRefOid for PR #$pr"
-      [[ -n "$base_ref_name" && "$base_ref_name" != "null" ]] || die "gh pr view returned no baseRefName for PR #$pr"
-      echo "[ship] new head=$head_oid base=$base_ref_name mergeStateStatus=$merge_state"
-    fi
-
-    echo "[ship] step 4c: preparing tmp worktree at $_ship_head_wt"
-    git -C "$repo_root" fetch origin "pull/${pr}/head:refs/remotes/origin/pr/${pr}" >/dev/null 2>&1 || true
-    git -C "$repo_root" worktree add --detach "$_ship_head_wt" "$head_oid" \
-      || die "could not create worktree at $_ship_head_wt for $head_oid"
-    ship_prepare_codacy_worktree "$_ship_head_wt" "$repo_root"
-
-    echo "[ship] step 4d: running codacy-cli analyze (head)"
-    rm -f "$_ship_head_sarif"
-    ( cd "$_ship_head_wt" && codacy-cli analyze --tool pylint --format sarif -o "$_ship_head_sarif" ) \
-      || die "codacy-cli analyze failed in $_ship_head_wt"
-    [[ -s "$_ship_head_sarif" ]] \
-      || die "codacy-cli analyze produced no SARIF at $_ship_head_sarif (check .codacy/codacy.yaml in the head worktree)"
-
-    echo "[ship] step 4e: uploading SARIF for HEAD ($head_oid)"
-    ship_upload_sarif "$_ship_head_wt" "$_ship_head_sarif" "$head_oid" \
-      || die "codacy-cli upload (HEAD) failed"
-
-    echo "[ship] step 4f: fetching base branch origin/$base_ref_name"
-    git -C "$repo_root" fetch origin "$base_ref_name" >/dev/null 2>&1 \
-      || die "could not fetch origin/$base_ref_name"
-    base_sha="$(git -C "$repo_root" rev-parse "origin/$base_ref_name" 2>/dev/null)" \
-      || die "could not resolve origin/$base_ref_name after fetch"
-    echo "[ship] step 4g: preparing base worktree at $_ship_base_wt ($base_sha)"
-    git -C "$repo_root" worktree add --detach "$_ship_base_wt" "$base_sha" \
-      || die "could not create worktree at $_ship_base_wt for $base_sha"
-    ship_prepare_codacy_worktree "$_ship_base_wt" "$repo_root"
-    echo "[ship] step 4h: running codacy-cli analyze (base)"
-    rm -f "$_ship_base_sarif"
-    ( cd "$_ship_base_wt" && codacy-cli analyze --tool pylint --format sarif -o "$_ship_base_sarif" ) \
-      || die "codacy-cli analyze failed in $_ship_base_wt"
-    [[ -s "$_ship_base_sarif" ]] \
-      || die "codacy-cli analyze produced no SARIF at $_ship_base_sarif (check .codacy/codacy.yaml in the base worktree)"
-
-    echo "[ship] step 4i: uploading SARIF for base ($base_sha)"
-    ship_upload_sarif "$_ship_base_wt" "$_ship_base_sarif" "$base_sha" \
-      || die "codacy-cli upload (base) failed"
-
-    local interval="${SHIP_CHECK_INTERVAL:-15}" timeout="${SHIP_CHECK_TIMEOUT:-900}"
-    [[ "$interval" =~ ^[0-9]+$ && "$interval" -gt 0 ]] \
-      || die "SHIP_CHECK_INTERVAL must be a positive integer number of seconds"
-    [[ "$timeout" =~ ^[0-9]+$ && "$timeout" -gt 0 ]] \
-      || die "SHIP_CHECK_TIMEOUT must be a positive integer number of seconds"
-    echo "[ship] step 4j: polling required checks (up to ${timeout}s)"
-    local elapsed=0 last_status_report=""
-    while (( elapsed < timeout )); do
-      local checks
-      checks="$(gh api "repos/${repo}/commits/${head_oid}/check-runs" --paginate \
-        --jq '.check_runs[] | "\(.name)\t\(.conclusion // .status)"' 2>/dev/null || true)"
-      local pending=0 failed=0 check line status_report="" status_line
-      for check in "${required_checks[@]}"; do
-        line="$(printf '%s\n' "$checks" | awk -F '\t' -v n="$check" '$1==n {print $2; exit}')"
-        case "$line" in
-          success)
-            status_report+="$check: success"$'\n'
-            ;;
-          failure|cancelled|timed_out|action_required|startup_failure|stale|skipped)
-            failed=1
-            status_report+="$check: $line"$'\n'
-            ;;
-          "")
-            pending=1
-            status_report+="$check: missing"$'\n'
-            ;;
-          *)
-            pending=1
-            status_report+="$check: $line"$'\n'
-            ;;
-        esac
-      done
-      status_report="${status_report%$'\n'}"
-      if [[ "$status_report" != "$last_status_report" ]]; then
-        echo "[ship] required check status (${elapsed}s elapsed):"
-        while IFS= read -r status_line; do
-          echo "[ship]   $status_line"
-        done <<<"$status_report"
-        last_status_report="$status_report"
-      fi
-      if (( failed == 1 )); then
-        echo "[ship] one or more required checks failed; will retry SARIF upload"
-        break
-      fi
-      if (( pending == 0 )); then
-        echo "[ship] all required checks green for $head_oid"
-        all_green=1
-        break
-      fi
-      printf '[ship]   waiting for required checks (%ds elapsed)...\n' "$elapsed"
-      sleep "$interval"
-      elapsed=$(( elapsed + interval ))
-    done
-
-    (( all_green == 1 )) && break
-    echo "[ship] retrying after re-upload (attempt $attempt complete)"
+  echo "[ship] step 4b: resolving required GitHub checks"
+  local required_checks=()
+  mapfile -t required_checks < <(ship_required_checks "$repo" "$base_ref_name")
+  [[ ${#required_checks[@]} -gt 0 ]] \
+    || die "could not resolve any required GitHub checks from rulesets or branch protection"
+  local required_check
+  for required_check in "${required_checks[@]}"; do
+    echo "[ship]   required: $required_check"
   done
 
-  (( all_green == 1 )) || die "required Codacy checks did not all reach success after 3 attempts"
+  local interval="${SHIP_CHECK_INTERVAL:-15}" timeout="${SHIP_CHECK_TIMEOUT:-900}"
+  [[ "$interval" =~ ^[0-9]+$ && "$interval" -gt 0 ]] \
+    || die "SHIP_CHECK_INTERVAL must be a positive integer number of seconds"
+  [[ "$timeout" =~ ^[0-9]+$ && "$timeout" -gt 0 ]] \
+    || die "SHIP_CHECK_TIMEOUT must be a positive integer number of seconds"
+  echo "[ship] step 4c: polling required checks (up to ${timeout}s)"
+  local elapsed=0 last_status_report="" all_green=0 failed=0
+  while (( elapsed < timeout )); do
+    local checks
+    checks="$(gh api "repos/${repo}/commits/${head_oid}/check-runs" --paginate \
+      --jq '.check_runs[] | "\(.name)\t\(.conclusion // .status)"' 2>/dev/null || true)"
+    local pending=0 check line status_report="" status_line
+    failed=0
+    for check in "${required_checks[@]}"; do
+      line="$(printf '%s\n' "$checks" | awk -F '\t' -v n="$check" '$1==n {print $2; exit}')"
+      case "$line" in
+        success)
+          status_report+="$check: success"$'\n'
+          ;;
+        failure|cancelled|timed_out|action_required|startup_failure|stale|skipped)
+          failed=1
+          status_report+="$check: $line"$'\n'
+          ;;
+        "")
+          pending=1
+          status_report+="$check: missing"$'\n'
+          ;;
+        *)
+          pending=1
+          status_report+="$check: $line"$'\n'
+          ;;
+      esac
+    done
+    status_report="${status_report%$'\n'}"
+    if [[ "$status_report" != "$last_status_report" ]]; then
+      echo "[ship] required check status (${elapsed}s elapsed):"
+      while IFS= read -r status_line; do
+        echo "[ship]   $status_line"
+      done <<<"$status_report"
+      last_status_report="$status_report"
+    fi
+    (( failed == 1 )) && die "one or more required GitHub checks failed"
+    if (( pending == 0 )); then
+      echo "[ship] all required checks green for $head_oid"
+      all_green=1
+      break
+    fi
+    printf '[ship]   waiting for required checks (%ds elapsed)...\n' "$elapsed"
+    sleep "$interval"
+    elapsed=$(( elapsed + interval ))
+  done
+
+  (( all_green == 1 )) || die "required GitHub checks did not all reach success before timeout"
 
   echo "[ship] step 5: confirming PR is mergeable"
   local final_state waited=0
@@ -1055,8 +1057,7 @@ cmd_ship() {
   echo "[ship] PR #$pr is MERGED"
 
   echo "[ship] step 7: cleaning up"
-  _ship_cleanup
-  trap - EXIT INT TERM
+  trap - INT TERM
   echo "[ship] done"
 }
 
@@ -2439,6 +2440,8 @@ main() {
     init)   cmd_init "$@" ;;
     doctor) cmd_doctor "$@" ;;
     quality) cmd_quality "$@" ;;
+    codacy-audit) cmd_codacy_audit "$@" ;;
+    codacy-plan) cmd_codacy_plan "$@" ;;
     hooks) cmd_hooks "$@" ;;
     ship)   cmd_ship "$@" ;;
     repair-codacy-env) cmd_repair_codacy_env "$@" ;;

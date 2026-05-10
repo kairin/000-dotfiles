@@ -386,10 +386,17 @@ cat "{installer_path}"
         head_sha: str,
         base_ref: str = "main",
         pr_number: int = 17,
+        required_checks: tuple[str, ...] = (
+            "Codacy Static Code Analysis",
+            "Codacy Coverage Variation",
+            "Codacy Diff Coverage",
+            "codacy-safety-net",
+        ),
     ) -> None:
         state_file = log_path.parent / "gh-pr-state"
         check_count_file = log_path.parent / "gh-check-count"
         state_file.write_text("OPEN\n")
+        required_checks_text = "\n".join(required_checks)
         self.write_executable(
             bin_dir / "gh",
             textwrap.dedent(
@@ -446,6 +453,12 @@ JSON
   api)
     path="${{1:-}}"
     case "$path" in
+      repos/kairin/000-dotfiles/rulesets)
+        cat <<'CHECKS'
+{required_checks_text}
+CHECKS
+        exit 0
+        ;;
       repos/kairin/000-dotfiles/commits/{head_sha}/check-runs)
         if [[ "${{FAKE_GH_CHECK_MODE:-}}" == "static-after-first-missing" ]]; then
           count="$(cat "{check_count_file}" 2>/dev/null || echo 0)"
@@ -1329,72 +1342,29 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         self.assertEqual(extra_args.returncode, 2)
         self.assertIn("ship accepts at most one PR number", extra_args.stderr)
 
-    def test_ship_fails_fast_when_codacy_cli_is_recursion_trap(self) -> None:
-        # The broken codacy-cli install is a symlink pointing at its own cache
-        # wrapper, which causes `eval "$run_command $*"` infinite recursion when
-        # invoked. ./setup ship must detect this and fail fast before step 4d.
+    def test_ship_does_not_require_codacy_cli_or_project_token(self) -> None:
+        repo, _base_sha, head_sha = self.make_ship_repo()
         home = self.make_home()
         bin_dir = self.make_command_path()
-
-        # Build an INERT fake wrapper at the cache binary path. If executed,
-        # the wrapper writes a log file and exits 99 — it does NOT actually
-        # recurse. The detection markers live in comments so the guard's
-        # `grep -aq` finds them without enabling runtime recursion.
-        cache_dir = home / ".cache" / "codacy" / "codacy-cli-v2"
-        version_dir = cache_dir / "1.0.0-fake"
-        version_dir.mkdir(parents=True)
-        (cache_dir / "version.yaml").write_text('version: "1.0.0-fake"\n')
-        wrapper = version_dir / "codacy-cli-v2"
-        wrapper.write_text(
-            "#!/usr/bin/env bash\n"
-            f'echo "WRAPPER_EXECUTED" >> "{home}/codacy-wrapper.log"\n'
-            "exit 99\n"
-            "# Marker comments below are present so the guard's grep finds them.\n"
-            '# bin_path="$HOME/.cache/codacy/codacy-cli-v2/1.0.0-fake/codacy-cli-v2"\n'
-            '# eval "$run_command $*"\n'
-        )
-        wrapper.chmod(0o755)
-        (bin_dir / "codacy-cli").symlink_to(wrapper)
+        self.write_fake_ship_gh(bin_dir, home / "gh.log", head_sha=head_sha)
 
         env = self.env_for(bin_dir, home)
-        env["CODACY_PROJECT_TOKEN"] = "fake-token"
-        env["CODACY_CLI_V2_TMP_FOLDER"] = str(cache_dir)
+        env.pop("CODACY_PROJECT_TOKEN", None)
 
-        result = run_setup(
-            "ship",
-            "999",
-            env=env,
-            timeout=10,
-        )
+        result = run_setup("ship", "17", cwd=repo, executable=repo / "setup", env=env)
 
-        self.assertNotEqual(
-            result.returncode,
-            0,
-            f"ship should fail when codacy-cli is the recursion trap; got stdout={result.stdout!r} stderr={result.stderr!r}",
-        )
-        combined = result.stdout + result.stderr
-        self.assertIn("codacy-cli is broken", combined)
-        self.assertIn("infinite shell recursion", combined)
-        self.assertIn("[ship] step 2b", result.stdout)
-        # Guard must fire BEFORE step 4d analyze.
-        self.assertNotIn("[ship] step 4d", result.stdout)
-        # Inert wrapper must NOT have been executed.
-        self.assertFalse(
-            (home / "codacy-wrapper.log").exists(),
-            "the inert wrapper was executed — guard did not fire before invocation",
-        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("PR #17 is MERGED", result.stdout)
 
     def test_ship_rejects_ambiguous_auto_detected_prs(self) -> None:
         repo, _base_sha, head_sha = self.make_ship_repo()
         home = self.make_home()
         bin_dir = self.make_command_path()
         self.write_fake_ship_gh(bin_dir, home / "gh.log", head_sha=head_sha)
-        self.write_fake_ship_codacy_cli(bin_dir, home / "codacy.log")
         (bin_dir / "sleep").unlink()
         self.write_executable(bin_dir / "sleep", "#!/usr/bin/env bash\nexit 0\n")
 
         env = self.env_for(bin_dir, home)
-        env["CODACY_PROJECT_TOKEN"] = "project-token"
         env["FAKE_GH_PR_LIST_MODE"] = "ambiguous"
 
         result = run_setup("ship", cwd=repo, executable=repo / "setup", env=env)
@@ -1402,8 +1372,8 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn("multiple open PRs match branch 'ship-test' on kairin/000-dotfiles", result.stderr)
 
-    def test_ship_uses_base_branch_and_cleans_up_temporary_worktrees(self) -> None:
-        repo, base_sha, head_sha = self.make_ship_repo()
+    def test_ship_uses_github_required_checks_and_no_temporary_codacy_worktrees(self) -> None:
+        repo, _base_sha, head_sha = self.make_ship_repo()
         home = self.make_home()
         bin_dir = self.make_command_path()
         gh_log = home / "gh.log"
@@ -1412,31 +1382,18 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         self.write_fake_ship_codacy_cli(bin_dir, codacy_log)
 
         env = self.env_for(bin_dir, home)
-        env["CODACY_PROJECT_TOKEN"] = "project-token"
 
         result = run_setup("ship", "17", cwd=repo, executable=repo / "setup", env=env)
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("base=main", result.stdout)
         self.assertIn("PR #17 is MERGED", result.stdout)
-
-        codacy_lines = codacy_log.read_text().splitlines()
-        self.assertEqual(len(codacy_lines), 4)
-        self.assertTrue(codacy_lines[0].startswith("analyze --tool pylint --format sarif -o "))
-        self.assertTrue(codacy_lines[1].startswith("upload -s "))
-        self.assertIn(f"-c {head_sha}", codacy_lines[1])
-        self.assertTrue(codacy_lines[2].startswith("analyze --tool pylint --format sarif -o "))
-        self.assertTrue(codacy_lines[3].startswith("upload -s "))
-        self.assertIn(f"-c {base_sha}", codacy_lines[3])
-
-        head_sarif = Path(codacy_lines[0].split()[-1])
-        base_sarif = Path(codacy_lines[2].split()[-1])
-        self.assertNotEqual(head_sarif, base_sarif)
-        self.assertFalse(head_sarif.parent.exists())
-        self.assertFalse(base_sarif.parent.exists())
+        self.assertIn("step 4b: resolving required GitHub checks", result.stdout)
+        self.assertFalse(codacy_log.exists(), "setup ship must not invoke local codacy-cli")
 
         gh_lines = gh_log.read_text().splitlines()
         self.assertTrue(any(line.startswith("pr view 17 ") for line in gh_lines))
+        self.assertTrue(any(line.startswith("api repos/kairin/000-dotfiles/rulesets") for line in gh_lines))
         self.assertTrue(any(line.startswith("api repos/kairin/000-dotfiles/commits/") and "/check-runs" in line for line in gh_lines))
         self.assertTrue(any(line.startswith("pr merge 17 ") for line in gh_lines))
 
@@ -1445,12 +1402,10 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         home = self.make_home()
         bin_dir = self.make_command_path()
         self.write_fake_ship_gh(bin_dir, home / "gh.log", head_sha=head_sha)
-        self.write_fake_ship_codacy_cli(bin_dir, home / "codacy.log")
         (bin_dir / "sleep").unlink()
         self.write_executable(bin_dir / "sleep", "#!/usr/bin/env bash\nexit 0\n")
 
         env = self.env_for(bin_dir, home)
-        env["CODACY_PROJECT_TOKEN"] = "project-token"
         env["FAKE_GH_CHECK_MODE"] = "missing-static"
         env["SHIP_CHECK_TIMEOUT"] = "30"
 
@@ -1458,19 +1413,17 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
 
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn("Codacy Static Code Analysis: missing", result.stdout)
-        self.assertIn("required Codacy checks did not all reach success after 3 attempts", result.stderr)
+        self.assertIn("required GitHub checks did not all reach success before timeout", result.stderr)
 
     def test_ship_merges_when_missing_required_check_later_succeeds(self) -> None:
         repo, _base_sha, head_sha = self.make_ship_repo()
         home = self.make_home()
         bin_dir = self.make_command_path()
         self.write_fake_ship_gh(bin_dir, home / "gh.log", head_sha=head_sha)
-        self.write_fake_ship_codacy_cli(bin_dir, home / "codacy.log")
         (bin_dir / "sleep").unlink()
         self.write_executable(bin_dir / "sleep", "#!/usr/bin/env bash\nexit 0\n")
 
         env = self.env_for(bin_dir, home)
-        env["CODACY_PROJECT_TOKEN"] = "project-token"
         env["FAKE_GH_CHECK_MODE"] = "static-after-first-missing"
         env["SHIP_CHECK_TIMEOUT"] = "30"
 
@@ -1486,10 +1439,8 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         home = self.make_home()
         bin_dir = self.make_command_path()
         self.write_fake_ship_gh(bin_dir, home / "gh.log", head_sha=head_sha)
-        self.write_fake_ship_codacy_cli(bin_dir, home / "codacy.log")
 
         env = self.env_for(bin_dir, home)
-        env["CODACY_PROJECT_TOKEN"] = "project-token"
         env["FAKE_GH_FINAL_MERGE_STATE"] = "UNSTABLE"
 
         result = run_setup("ship", "17", cwd=repo, executable=repo / "setup", env=env)
