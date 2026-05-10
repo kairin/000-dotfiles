@@ -94,29 +94,28 @@ git_info() {
   local branch
   branch=$(timeout 2s git -C "$dir" -c core.fsmonitor=false symbolic-ref --short HEAD 2>/dev/null \
            || timeout 2s git -C "$dir" -c core.fsmonitor=false rev-parse --short HEAD 2>/dev/null)
-  local gs staged unstaged untracked conflicts
+  local gs untracked
   gs=$(timeout 2s git -C "$dir" -c core.fsmonitor=false status --porcelain 2>/dev/null)
-  staged=$(echo "$gs"    | grep -c '^[MADRCU]' 2>/dev/null || echo 0)
-  unstaged=$(echo "$gs"  | grep -c '^.[MD]'    2>/dev/null || echo 0)
-  untracked=$(echo "$gs" | grep -c '^??'       2>/dev/null || echo 0)
-  conflicts=$(echo "$gs" | grep -cE '^(UU|AA|DD)' 2>/dev/null || echo 0)
+  untracked=$(echo "$gs" | grep -c '^??' 2>/dev/null || echo 0)
+
+  # Detect commits ahead/behind
+  local ahead behind
+  ahead=$(timeout 2s git -C "$dir" rev-list --count @{u}..HEAD 2>/dev/null || echo 0)
+  behind=$(timeout 2s git -C "$dir" rev-list --count HEAD..@{u} 2>/dev/null || echo 0)
 
   local gbg gfg
-  if   [ "$conflicts" -gt 0 ]; then gbg="$GIT_URGENT_BG"; gfg="$GIT_URGENT_FG"
-  elif [ "$staged" -gt 0 ] || [ "$unstaged" -gt 0 ] || [ "$untracked" -gt 0 ]; then
+  if [ "$untracked" -gt 0 ] || [ -n "$(echo "$gs" | grep -v '^??')" ]; then
     gbg="$GIT_DIRTY_BG"; gfg="$GIT_DIRTY_FG"
   else
     gbg="$GIT_BG"; gfg="$GIT_FG"
   fi
 
-  local dirt=""
-  [ "$staged"    -gt 0 ] && dirt+=" *${staged}"
-  [ "$unstaged"  -gt 0 ] && dirt+=" ~${unstaged}"
-  [ "$untracked" -gt 0 ] && dirt+=" ?${untracked}"
-
   local label=" $branch"
+  [ "$ahead" -gt 0 ] && label+=" ⇡${ahead}"
+  [ "$behind" -gt 0 ] && label+=" ⇣${behind}"
+  [ "$untracked" -gt 0 ] && label+=" ?${untracked}"
   [ -n "$worktree_name" ] && label+=" (wt)"
-  pill "$gbg" "$gfg" "${label}${dirt}"
+  pill "$gbg" "$gfg" "$label"
 }
 
 # ── context bar (matches Claude Code default line-2 bar) ──────────────────────
@@ -163,7 +162,7 @@ line1=""
 
 # CWD segment (Tide pwd style)
 dir_display="${cwd/#$HOME/\~}"
-line1+="$(pill "$PWD_BG" "$PWD_FG" " $dir_display")"
+line1+="$(pill "$PWD_BG" "$PWD_FG" "󰉋 $dir_display")"
 
 # git
 git_seg="$(git_info "$cwd")"
@@ -224,10 +223,13 @@ if [ -n "$fish_bind_mode" ] && [ "$fish_bind_mode" != "insert" ]; then
   line2+=" $(pill "$fb_bg" "$VIM_FG" "$fb_label")"
 fi
 
-# Effort / thinking — changes per-session
+# Effort / thinking — only show thinking for models that support it (opus, sonnet)
 eff_label=""
 [ -n "$effort" ] && eff_label="effort:$effort"
-[ "$thinking" = "true" ] && { [ -n "$eff_label" ] && eff_label+=" "; eff_label+="thinking:on"; }
+if [ "$thinking" = "true" ] && [[ "$model_id" =~ (opus|sonnet) ]]; then
+  [ -n "$eff_label" ] && eff_label+=" "
+  eff_label+="thinking:on"
+fi
 [ -n "$eff_label" ] && line2+=" $(pill "$EFF_BG" "$EFF_FG" "$eff_label")"
 
 # Current time — always live; ensures line 2 is never static
@@ -263,12 +265,6 @@ if [ -n "$ctx_total" ] && [ "$ctx_total" != "0" ]; then
   line3+="${DIM}ctx-size:${ctx_total}${R}"
 fi
 
-# Transcript path (truncated)
-if [ -n "$transcript" ]; then
-  [ -n "$line3" ] && line3+="$sep"
-  short_transcript="...$(echo "$transcript" | rev | cut -c1-30 | rev)"
-  line3+="${DIM}transcript:${short_transcript}${R}"
-fi
 
 # Python virtual environment
 if [ -n "$venv_name" ]; then
@@ -314,11 +310,6 @@ if [ -n "$agent_name" ]; then
   line4+="$(pill "$EFF_BG" "$EFF_FG" "$agent_label")"
 fi
 
-# Session name (when renamed via /rename)
-if [ -n "$session" ]; then
-  [ -n "$line4" ] && line4+=" "
-  line4+="$(pill "$CTX_BG" "$CTX_FG" "\"$session\"")"
-fi
 
 # Project dir (when different from cwd)
 if [ -n "$project_dir" ] && [ "$project_dir" != "$cwd" ]; then
@@ -337,12 +328,6 @@ if [ -n "$wt_path" ]; then
   line4+="${DIM}${wt_extra}${R}"
 fi
 
-# Session ID (short — last 8 chars)
-if [ -n "$session_id" ]; then
-  short_id="${session_id: -8}"
-  [ -n "$line4" ] && line4+="$sep"
-  line4+="${DIM}sid:${short_id}${R}"
-fi
 
 # Output style (always shown on line 4)
 if [ -n "$output_style" ]; then
