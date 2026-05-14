@@ -68,6 +68,55 @@ TOOL_BASELINE = (
         ),
     },
     {
+        "id": "docker",
+        "label": "Docker Engine",
+        "command": "docker",
+        "bootstrap": True,
+        "install_method": "apt_keyring",
+        "install_args": {
+            "packages": (
+                "docker-ce",
+                "docker-ce-cli",
+                "containerd.io",
+                "docker-buildx-plugin",
+                "docker-compose-plugin",
+            ),
+            "keyring_url": "https://download.docker.com/linux/ubuntu/gpg",
+            "keyring_path": "/etc/apt/keyrings/docker.gpg",
+            "source_line": (
+                "Types: deb\n"
+                "URIs: https://download.docker.com/linux/ubuntu\n"
+                "Suites: noble\n"
+                "Components: stable\n"
+                "Architectures: {ARCH}\n"
+                "Signed-By: /etc/apt/keyrings/docker.gpg"
+            ),
+            "source_path": "/etc/apt/sources.list.d/docker.sources",
+        },
+        "requires_sudo": True,
+        "install_hint": (
+            "Provides the Ubuntu 24.04 container used by gstack browser skills "
+            "on hosts where Playwright lacks native support."
+        ),
+        "post_install": (
+            {
+                "kind": "auto",
+                "label": "Add user to docker group (re-login required to take effect)",
+                "command_template": ("sudo", "usermod", "-aG", "docker", "{user}"),
+            },
+            {
+                "kind": "guidance",
+                "label": "Reload group membership in current shell",
+                "command_template": ("newgrp", "docker"),
+            },
+            {
+                "kind": "guidance",
+                "label": "Build the gstack-browser image",
+                "command_template": ("./setup", "docker-build"),
+            },
+        ),
+    },
+    {
         "id": "fish",
         "label": "fish",
         "command": "fish",
