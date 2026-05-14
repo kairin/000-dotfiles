@@ -1,0 +1,41 @@
+# gstack-browser long-running development container.
+#
+# Started by `./setup gstack-shell` (or `docker compose up -d` from this dir).
+# The container is built by `./setup docker-build` first.
+#
+# Volume strategy: paths inside the container match the host so absolute paths
+# in skill files (e.g. ~/.claude/skills/gstack/browse/dist/browse) just work.
+
+services:
+  gstack:
+    image: gstack-browser:latest
+    container_name: gstack-dev
+    restart: unless-stopped
+    # Run with the host's uid/gid so files written from inside the container
+    # are owned by the host user.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    # Match host pathing: HOME=/home/<user> resolves the same as on host.
+    environment:
+      HOME: "/home/${HOST_USER:-kkk}"
+      USER: "${HOST_USER:-kkk}"
+      LOGNAME: "${HOST_USER:-kkk}"
+    # Tokens used by gstack skills. `gstack-shell` populates these by parsing
+    # .envrc.local on the host. Empty defaults so the container still starts
+    # when tokens are absent.
+    env_file:
+      - .env
+    volumes:
+      # Source code lives under ~/Apps on the host.
+      - "${HOST_HOME:-/home/kkk}/Apps:${HOST_HOME:-/home/kkk}/Apps"
+      # Claude Code config (skill symlinks, settings, hooks).
+      - "${HOST_HOME:-/home/kkk}/.claude:${HOST_HOME:-/home/kkk}/.claude"
+      # gstack state (sessions, analytics, projects).
+      - "${HOST_HOME:-/home/kkk}/.gstack:${HOST_HOME:-/home/kkk}/.gstack"
+      # Git identity (read-only).
+      - "${HOST_HOME:-/home/kkk}/.gitconfig:${HOST_HOME:-/home/kkk}/.gitconfig:ro"
+      # gh CLI auth (so `gh` inside container works).
+      - "${HOST_HOME:-/home/kkk}/.config/gh:${HOST_HOME:-/home/kkk}/.config/gh"
+    # Long-running.
+    command: ["sleep", "infinity"]
+    # No published ports by default. Add `ports:` if you want to expose
+    # Chromium's debug port (9222) from inside the container to the host.

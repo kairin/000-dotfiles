@@ -36,6 +36,7 @@ dotfiles_tools/     Python validation/setup CLI (stdlib only)
 tests/              unittest suite (uv-managed)
 specs/              Spec Kit feature specs (current: 001-dotfiles-bootstrap-validation)
 docs/               Operational docs (e.g. Codacy coverage rollout)
+docker/             Dockerfiles and compose configs (gstack-browser/ for Ubuntu 24.04 container)
 setup               Bash entrypoint that wraps dotfiles_tools with sensible defaults
 dotfiles-manifest.json  Source of truth for what installs where
 ```
@@ -146,6 +147,29 @@ uv run python -m unittest discover -s tests
 uv run --with coverage coverage run -m unittest discover -s tests
 uv run --with coverage coverage xml
 ```
+
+## Docker-based browser automation
+
+`gstack` skills that drive a browser (`/qa`, `/browse`, `/qa-only`) use Playwright. Playwright does not ship prebuilt Chromium binaries for Ubuntu 26.04 (tracked at [microsoft/playwright#40117](https://github.com/microsoft/playwright/issues/40117)). To unblock browser skills on hosts where Playwright lacks support, this repo ships an Ubuntu 24.04 Docker container that runs gstack + Playwright + Chromium natively.
+
+```bash
+./setup                 # installs docker via TOOL_BASELINE (apt_keyring)
+./setup docker-build    # builds gstack-browser:latest (~5 min first time)
+./setup gstack-shell    # enters a shell inside the running container
+```
+
+Inside the container, `claude`, `/qa`, `/review`, etc. work the same as natively. The container mounts the host's `~/Apps`, `~/.claude`, and `~/.gstack` at identical paths so absolute paths inside gstack skill files keep working without translation.
+
+**Path preservation invariant:** Container paths match host paths exactly (`/home/$USER/...`). Do not change container HOME or mount paths or skill bash commands referencing absolute paths will break.
+
+**Files:**
+- `docker/gstack-browser/Dockerfile` — image definition
+- `docker/gstack-browser/docker-compose.yml` — long-running container with volume mounts
+- `docker/gstack-browser/README.md` — humans-only operational overview
+
+**Tokens:** `./setup gstack-shell` regenerates `docker/gstack-browser/.env` from `.envrc.local` on each run, forwarding `GITHUB_TOKEN`, `CODACY_*`, `HF_*`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc. The `.env` file is gitignored.
+
+When Playwright issue #40117 is resolved, the Docker workflow becomes optional — host browser skills will work natively again. The container path can stay as a fallback.
 
 ## Hook Trigger Map
 

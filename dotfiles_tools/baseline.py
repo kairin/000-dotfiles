@@ -68,6 +68,55 @@ TOOL_BASELINE = (
         ),
     },
     {
+        "id": "docker",
+        "label": "Docker Engine",
+        "command": "docker",
+        "bootstrap": True,
+        "install_method": "apt_keyring",
+        "install_args": {
+            "packages": (
+                "docker-ce",
+                "docker-ce-cli",
+                "containerd.io",
+                "docker-buildx-plugin",
+                "docker-compose-plugin",
+            ),
+            "keyring_url": "https://download.docker.com/linux/ubuntu/gpg",
+            "keyring_path": "/etc/apt/keyrings/docker.gpg",
+            "source_line": (
+                "Types: deb\n"
+                "URIs: https://download.docker.com/linux/ubuntu\n"
+                "Suites: noble\n"
+                "Components: stable\n"
+                "Architectures: {ARCH}\n"
+                "Signed-By: /etc/apt/keyrings/docker.gpg"
+            ),
+            "source_path": "/etc/apt/sources.list.d/docker.sources",
+        },
+        "requires_sudo": True,
+        "install_hint": (
+            "Provides the Ubuntu 24.04 container used by gstack browser skills "
+            "on hosts where Playwright lacks native support."
+        ),
+        "post_install": (
+            {
+                "kind": "auto",
+                "label": "Add user to docker group (re-login required to take effect)",
+                "command_template": ("sudo", "usermod", "-aG", "docker", "{user}"),
+            },
+            {
+                "kind": "guidance",
+                "label": "Reload group membership in current shell",
+                "command_template": ("newgrp", "docker"),
+            },
+            {
+                "kind": "guidance",
+                "label": "Build the gstack-browser image",
+                "command_template": ("./setup", "docker-build"),
+            },
+        ),
+    },
+    {
         "id": "fish",
         "label": "fish",
         "command": "fish",
@@ -347,26 +396,33 @@ def _extend_auth_status(lines: list[str], auth_items: list[dict[str, Any]]) -> N
     lines.append("")
     signed_in = [item for item in visible if item["state"] == "signed_in"]
     pending = [item for item in visible if item["state"] == "available"]
-
-    if signed_in:
-        lines.append("Verified sign-ins:")
-        for item in signed_in:
-            detail = item.get("signed_in_detail") or "signed in"
-            lines.append(f"  [+] {item['command']}: {detail}")
-        if not pending:
-            lines.append("")
-            lines.append("  All verifiable sign-ins confirmed.")
-
-    if pending:
-        if signed_in:
-            lines.append("")
-        lines.append("Pending sign-ins:")
-        for item in pending:
-            lines.append(f"  [ ] {item['command']}: {item['guidance']}")
-
+    _append_signed_in_block(lines, signed_in, has_pending=bool(pending))
+    _append_pending_block(lines, pending, has_signed_in=bool(signed_in))
     if not signed_in and not pending:
         lines.append("")
         lines.append("  No auth guidance items applicable.")
+
+
+def _append_signed_in_block(lines: list[str], signed_in: list[dict[str, Any]], *, has_pending: bool) -> None:
+    if not signed_in:
+        return
+    lines.append("Verified sign-ins:")
+    for item in signed_in:
+        detail = item.get("signed_in_detail") or "signed in"
+        lines.append(f"  [+] {item['command']}: {detail}")
+    if not has_pending:
+        lines.append("")
+        lines.append("  All verifiable sign-ins confirmed.")
+
+
+def _append_pending_block(lines: list[str], pending: list[dict[str, Any]], *, has_signed_in: bool) -> None:
+    if not pending:
+        return
+    if has_signed_in:
+        lines.append("")
+    lines.append("Pending sign-ins:")
+    for item in pending:
+        lines.append(f"  [ ] {item['command']}: {item['guidance']}")
 
 
 def _tool_check(item: dict[str, Any], search_path: str) -> dict[str, Any]:
