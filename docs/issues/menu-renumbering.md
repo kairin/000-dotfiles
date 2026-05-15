@@ -1,6 +1,10 @@
 # Issue: menu option numbers change between first and subsequent runs
 
-**Status:** Fixed in PR #82 — stable 6-option menu with [recommended] tag
+**Status:** Fixed in PR #82 — stable 6-option menu with [recommended] tag.
+Subsequently expanded to a stable 7-option menu when "Install / update Git
+hooks for this repo" was added as option 6 (Exit moved to option 7). The
+state-invariance property the original fix established is preserved; the
+specific snapshot below reflects the post-#82 state, not today's menu.
 **Affects:** Users who run setup more than once
 
 ## Problem

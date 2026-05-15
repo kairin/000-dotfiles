@@ -99,8 +99,25 @@ Use this document as the checklist for applying the same pattern to other repos.
    `./setup /path/to/project` → "Optional integrations and APIs" →
    "Manage Codacy API access" → account token.
 
-6. Use the repository-token input in the workflow.
-   - Required workflow shape:
+6. Use a coverage upload step in the workflow.
+   - Two equivalent shapes are supported. The curl-based shape is what this repo
+     uses today (see `.github/workflows/dotfiles-validation.yml`); the pinned
+     reporter action is the alternative for repos that prefer keeping coverage
+     uploads inside the GitHub Actions ecosystem.
+
+   - **Curl-based (this repo's pattern, account-token):**
+     ```yaml
+     env:
+       CODACY_ACCOUNT_TOKEN: ${{ secrets.CODACY_ACCOUNT_TOKEN }}
+
+     - name: Upload coverage to Codacy
+       if: ${{ env.CODACY_ACCOUNT_TOKEN != '' }}
+       run: |
+         bash <(curl -Ls https://coverage.codacy.com/get.sh) report \
+           -r coverage.xml
+     ```
+
+   - **Pinned reporter action (project-token alternative):**
      ```yaml
      env:
        CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}

@@ -122,7 +122,8 @@ not reveal its value:
 gh secret list --repo "$OWNER/$REPO"
 ```
 
-For the account-token pattern used by this repo, the workflow shape is:
+For the account-token pattern used by this repo, the workflow shape is
+(curl-based — see `.github/workflows/dotfiles-validation.yml`):
 
 ```yaml
 env:
@@ -130,10 +131,9 @@ env:
 
 - name: Upload coverage to Codacy
   if: ${{ env.CODACY_ACCOUNT_TOKEN != '' }}
-  uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699
-  with:
-    api-token: ${{ secrets.CODACY_ACCOUNT_TOKEN }}
-    coverage-reports: coverage.xml
+  run: |
+    bash <(curl -Ls https://coverage.codacy.com/get.sh) report \
+      -r coverage.xml
 ```
 
 The conditional upload is useful during rollout. Before requiring coverage

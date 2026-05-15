@@ -172,7 +172,7 @@ $ ~/000-dotfiles/setup
         DONE.
 ```
 
-Nothing is written without your explicit confirmation (`[y/N]`). Files are backed up before overwrite (default: `~/.dotfiles-backups/`). The script is idempotent—safe to run repeatedly. User-customizable files (such as `~/.claude/settings.json`, `~/.config/gh/config.yml`, `~/.config/fish/env.fish`, and 7 others) skip drift detection and are never silently overwritten by option 2.
+Nothing is written without your explicit confirmation (`[y/N]`). Files are backed up before overwrite (default: `~/.dotfiles-backups/`). The script is idempotent—safe to run repeatedly. User-customizable files (such as `~/.claude/settings.json`, `~/.config/gh/config.yml`, `~/.config/fish/env.fish`, and 11 others — 14 total; see `dotfiles-manifest.json` for the full list) skip drift detection and are never silently overwritten by option 2.
 
 ---
 
@@ -185,7 +185,7 @@ Nothing is written without your explicit confirmation (`[y/N]`). Files are backe
 | Scaffold `AGENTS.md` + `CLAUDE.md`/`GEMINI.md` in a project | `./setup init --yes` |
 | Verify agent docs in CI / pre-commit (no uv required) | `./setup verify` |
 | Audit machine and show API credential status (GitHub, HuggingFace) | `./setup` → choose option 3 |
-| Manage optional integrations (GitHub, HuggingFace, Codacy) | `./setup` → choose option 4 |
+| Manage optional integrations (GitHub, HuggingFace, Codacy) | `./setup` → choose option 5 |
 | Upgrade installed tools | `./setup` → choose option 1 |
 | Apply config drift | `./setup` → choose option 2 |
 
@@ -238,9 +238,12 @@ A good dotfiles repo should:
 | `fish/` | `~/.config/fish/` | `fish_plugins`, `conf.d/direnv.fish` (auto-installs direnv hook), `functions/direnv.fish`, `env.fish` |
 | `git/` | `~/.config/git/` | `config` |
 | `dotfiles_tools/` | — | Python validation/setup CLI (`python -m dotfiles_tools …`) |
+| `scripts/` | — | Helper shell scripts (`install-hooks.sh`, `quality-pipeline.sh`, `push-with-pr.sh`, `hooks/`) |
+| `docker/` | — | Dockerfiles and compose configs (`gstack-browser/` for Ubuntu 24.04 container) |
+| `graph-obsidian-agent-docs/` | — | Reference agent docs from the graph-obsidian project (read-only context) |
 | `setup` | `~/.local/bin/dotfiles-setup` (optional) | Self-locating bash entrypoint |
 | `dotfiles-manifest.json` | — | Source of truth for what installs where |
-| `specs/` | — | Design specification, task tracking, contracts |
+| `specs/` | — | Design specifications, task tracking, contracts (001-bootstrap-validation, 002-menu-recommendation, 002-optional-integrations) |
 | `docs/` | — | Getting started guide, operations docs, issue tracking |
 
 Files ending in `.template` are copy-and-customize sources. Placeholders follow the pattern of double-braces with upper-snake-case content (e.g. `{{PROJECT_NAME}}`) and must all be replaced before use.
@@ -258,7 +261,7 @@ Files ending in `.template` are copy-and-customize sources. Placeholders follow 
 | `./setup doctor [--home PATH] [--profile NAME]` | Read-only machine audit (wraps `dotfiles_tools doctor`) |
 | `./setup quality` | Run the local quality pipeline (`scripts/quality-pipeline.sh`): tests, coverage, Codacy upload |
 | `./setup hooks` | Install or update this repo's Git hooks, including the pre-push guard that blocks direct pushes to `main` |
-| `./setup ship [<pr-number>]` | Finalize a PR: refresh branch, re-upload Codacy SARIF, poll required checks, squash-merge |
+| `./setup ship [<pr-number>]` | Finalize a PR: refresh branch (`gh pr update-branch` if `BEHIND`), poll required checks, squash-merge when `CLEAN`/`UNSTABLE` |
 
 Menu options during `./setup`:
 - **Option 1:** Install or update developer tools. Opens a submenu that
@@ -299,14 +302,17 @@ Once a PR is open, `./setup ship` drives it to merged:
 ./setup ship 183          # ships PR #183 explicitly
 ```
 
-`setup ship` requires `CODACY_PROJECT_TOKEN` to be exported and `gh` to be
-authenticated. It runs `gh pr update-branch` automatically when the branch is
-BEHIND `main`, re-uploads the Codacy SARIF for the new HEAD and base SHA so the
-diff comparison is fresh, then polls the four required checks
-(`Codacy Static Code Analysis`, `Codacy Coverage Variation`,
-`Codacy Diff Coverage`, `codacy-safety-net`) before squash-merging. It allows
-GitHub's `UNSTABLE` merge state after those required checks are green because
-non-required advisory jobs can be skipped or cancelled.
+`setup ship` requires `CODACY_PROJECT_TOKEN` to be exported (the Codacy SARIF
+upload that gates the `Codacy Static Code Analysis` check is uploaded by the
+`.github/workflows/dotfiles-validation.yml` workflow itself, not by `./setup
+ship`) and `gh` to be authenticated. It runs `gh pr update-branch` automatically
+when the branch is `BEHIND` `main`, then resolves the required GitHub status
+checks dynamically from the branch's protection rules or rulesets (the count is
+repo-dependent; on `main` today they are `Codacy Static Code Analysis`,
+`Codacy Coverage Variation`, `Codacy Diff Coverage`, and `codacy-safety-net`),
+polls them until they all report `success`, and squash-merges only when the PR
+is `CLEAN` or `UNSTABLE`. `UNSTABLE` is allowed because non-required advisory
+jobs can be skipped or cancelled.
 The default check polling window is 15 minutes; override with
 `SHIP_CHECK_TIMEOUT=<seconds>` or `SHIP_CHECK_INTERVAL=<seconds>` only when
 debugging.
