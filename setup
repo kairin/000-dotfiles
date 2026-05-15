@@ -1158,23 +1158,26 @@ cmd_ship() {
     echo "[ship] WARNING: CODACY_PROJECT_TOKEN not set — skipping SARIF upload (direnv not loaded?)"
   else
     sarif_tmp="$(mktemp /tmp/ship-sarif-XXXXXXXX.sarif)"
+    trap 'rm -f "${sarif_tmp:-}"' EXIT INT TERM
     echo "[ship] step 4d: running pylint analysis → $sarif_tmp"
-    if codacy-cli analyze --tool pylint --format sarif -o "$sarif_tmp" 2>/dev/null; then
+    if codacy-cli analyze --tool pylint --format sarif -o "$sarif_tmp"; then
       echo "[ship] step 4d: uploading SARIF for HEAD $head_oid"
       ship_upload_sarif "$repo_root" "$sarif_tmp" "$head_oid" \
-        || { rm -f "$sarif_tmp"; die "SARIF upload failed for HEAD $head_oid"; }
+        || { rm -f "$sarif_tmp"; sarif_tmp=""; trap - EXIT INT TERM; die "SARIF upload failed for HEAD $head_oid"; }
       local base_sha
       base_sha="$(git merge-base HEAD "origin/${base_ref_name}" 2>/dev/null \
         || git rev-parse "origin/${base_ref_name}" 2>/dev/null || echo "")"
       if [[ -n "$base_sha" && "$base_sha" != "$head_oid" ]]; then
         echo "[ship] step 4h: uploading SARIF for merge-base $base_sha"
         ship_upload_sarif "$repo_root" "$sarif_tmp" "$base_sha" \
-          || { rm -f "$sarif_tmp"; die "SARIF upload failed for merge-base $base_sha"; }
+          || { rm -f "$sarif_tmp"; sarif_tmp=""; trap - EXIT INT TERM; die "SARIF upload failed for merge-base $base_sha"; }
       fi
-      rm -f "$sarif_tmp"
+      rm -f "$sarif_tmp"; sarif_tmp=""
+      trap - EXIT INT TERM
       echo "[ship] SARIF upload complete — Codacy will process and post checks on the PR"
     else
-      rm -f "$sarif_tmp"
+      rm -f "$sarif_tmp"; sarif_tmp=""
+      trap - EXIT INT TERM
       echo "[ship] WARNING: codacy-cli analyze failed — skipping SARIF upload"
     fi
   fi
