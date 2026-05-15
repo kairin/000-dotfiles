@@ -22,24 +22,29 @@ A collection of config templates for AI coding tools (Claude Code, Codex, Gemini
 - If a task seems to require touching a protected file, stop and ask.
 - `git show origin/main:<file>` is the authoritative original.
 
-## Repo Structure
+## Key paths
 
 ```
-agents/             Project-level agent doc templates (AGENTS.md, CLAUDE.md, GEMINI.md, copilot-instructions.md)
-claude/             ~/.claude/ templates (settings.json, keybindings.json, CLAUDE.md)
-codex/              ~/.codex/ templates (config.toml, rules/default.rules)
-gemini/             ~/.gemini/ templates (settings.json, GEMINI.md)
-gh/                 ~/.config/gh/ templates (config.yml)
-fish/               ~/.config/fish/ templates and live files (fish_plugins, direnv.fish, env.fish)
-git/                ~/.config/git/ live files (config)
-dotfiles_tools/     Python validation/setup CLI (stdlib only)
-tests/              unittest suite (uv-managed)
-specs/              Spec Kit feature specs (current: 001-dotfiles-bootstrap-validation)
-docs/               Operational docs (e.g. Codacy coverage rollout)
-docker/             Dockerfiles and compose configs (gstack-browser/ for Ubuntu 24.04 container)
-setup               Bash entrypoint that wraps dotfiles_tools with sensible defaults
-dotfiles-manifest.json  Source of truth for what installs where
+agents/                       Project-level agent doc templates (AGENTS.md, CLAUDE.md, GEMINI.md, copilot-instructions.md)
+claude/                       ~/.claude/ templates (settings.json, keybindings.json, CLAUDE.md)
+codex/                        ~/.codex/ templates (config.toml, rules/default.rules)
+gemini/                       ~/.gemini/ templates (settings.json, GEMINI.md)
+copilot/                      GitHub Copilot CLI template (copilot-instructions.md.template)
+gh/                           ~/.config/gh/ templates (config.yml)
+fish/                         ~/.config/fish/ templates and live files (fish_plugins, direnv.fish, env.fish)
+git/                          ~/.config/git/ live files (config)
+dotfiles_tools/               Python validation/setup CLI (stdlib only)
+scripts/                      Helper shell scripts (install-hooks.sh, quality-pipeline.sh, push-with-pr.sh, hooks/)
+tests/                        unittest suite (uv-managed)
+specs/                        Spec Kit feature specs (001-bootstrap-validation, 002-menu-recommendation, 002-optional-integrations)
+docs/                         Operational docs (e.g. Codacy coverage rollout)
+docker/                       Dockerfiles and compose configs (gstack-browser/ for Ubuntu 24.04 container)
+graph-obsidian-agent-docs/    Reference agent docs from the graph-obsidian project (read-only context)
+setup                         Bash entrypoint that wraps dotfiles_tools with sensible defaults
+dotfiles-manifest.json        Source of truth for what installs where
 ```
+
+Dot-prefixed directories (`.claude/`, `.codex/`, `.codacy/`, `.gstack/`, `.specify/`, `.agents/`, `.github/`, `.vscode/`) are tool state or CI config, intentionally excluded from this layout list.
 
 ## MCP Tool Availability
 
@@ -94,7 +99,7 @@ billing workflows:
 - `CODACY_PROJECT_NAME`
 - `CODACY_PROJECT_TOKEN`
 - `CODACY_USERNAME`
-- `GH_BILLING_TOKEN`
+- `GH_TOKEN` (also used by `gh` CLI; the GitHub Actions billing audit at `docs/operations/github-actions-usage-baseline.md` uses a file-backed copy of this token)
 
 These values come from direnv-managed local environment files, not from the
 repository. Do not commit them, print them, or add them to tracked config. If
@@ -128,12 +133,14 @@ git add <specific files>      # never git add -A
 git commit -m "..."
 ```
 
-Finalizing a PR: `./setup ship` is the canonical way to merge. It re-runs
-the Codacy SARIF upload after `gh pr update-branch` (the SHA churn is what
-breaks the required `Codacy Static Code Analysis` check on every merge),
-polls the four required Codacy checks, and squash-merges only when the PR
-is `CLEAN` or `UNSTABLE` after required checks are green. Requires
-`CODACY_PROJECT_TOKEN` and an authenticated `gh`.
+Finalizing a PR: `./setup ship` is the canonical way to merge. It runs
+`gh pr update-branch` if the branch is `BEHIND` its base, resolves the
+required GitHub status checks dynamically from branch protection or
+rulesets (the count is repo-dependent — not a fixed number), polls those
+checks until they all report `success`, and squash-merges only when the
+PR is `CLEAN` or `UNSTABLE`. Requires `CODACY_PROJECT_TOKEN` (for the
+SARIF upload that the validation workflow performs) and an authenticated
+`gh`.
 
 Runtime validation tooling uses Python standard library modules and uv-managed
 developer commands:
@@ -189,6 +196,9 @@ validation/setup code and must generate `coverage.xml` before Codacy upload.
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, see the spec documents in
-`specs/`. Recent implementations (setup menu recommendation, optional integrations)
-are complete. Check `specs/` for any new active specifications or design documents.
+`specs/`. Spec status (2026-05-15): `001-dotfiles-bootstrap-validation` is
+complete; `002-setup-optional-integrations` is complete; `002-setup-menu-recommendation`
+has shipped code (see `dotfiles_tools/machine_summary.py`) but its `tasks.md`
+checklist is unchecked — treat the implementation as canonical, the task list as
+stale. Check `specs/` for any new active specifications or design documents.
 <!-- SPECKIT END -->

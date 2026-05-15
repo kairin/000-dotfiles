@@ -52,7 +52,7 @@ cd ~/000-dotfiles
 ./setup
 ```
 
-You'll see a summary of your machine state and a 6-option menu:
+You'll see a summary of your machine state and a 7-option menu:
 
 ```
 1. Install / update developer tools        [recommended]
@@ -60,13 +60,14 @@ You'll see a summary of your machine state and a 6-option menu:
 3. Show full technical details
 4. Show tool and sign-in guidance
 5. Configure / verify API tokens
-6. Exit without writing
+6. Install / update Git hooks for this repo
+7. Exit without writing
 ```
 
 Since tools are missing on a fresh machine, **option 1 is highlighted**. Choose it.
 
 ```
-Choose [1-6]: 1
+Choose [1-7]: 1
 ```
 
 ### Step 3: Pick a tool phase
@@ -142,8 +143,9 @@ The menu is now back. Option 2 is now highlighted:
 3. Show full technical details
 4. Show tool and sign-in guidance
 5. Configure / verify API tokens
-6. Exit without writing
-Choose [1-6]: 2
+6. Install / update Git hooks for this repo
+7. Exit without writing
+Choose [1-7]: 2
 ```
 
 Choose option 2 to open the safe-changes submenu:
@@ -234,7 +236,8 @@ Machine setup summary
 3. Show full technical details
 4. Show tool and sign-in guidance
 5. Configure / verify API tokens
-6. Exit without writing
+6. Install / update Git hooks for this repo
+7. Exit without writing
 ```
 
 Option 2 is highlighted because configs have drifted. Choose it to review the dotfiles/fonts
@@ -246,7 +249,7 @@ To upgrade installed tools:
 
 ```bash
 ~/000-dotfiles/setup
-Choose [1-6]: 1
+Choose [1-7]: 1
 ```
 
 This runs:
@@ -260,7 +263,7 @@ This runs:
 If you want to inspect cache paths, font versions, or the full operation plan without applying:
 
 ```bash
-Choose [1-6]: 3
+Choose [1-7]: 3
 ```
 
 Shows raw cache state, package versions, and all pending operations.
