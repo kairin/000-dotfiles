@@ -1159,6 +1159,11 @@ cmd_ship() {
   else
     sarif_tmp="$(mktemp /tmp/ship-sarif-XXXXXXXX.sarif)"
     trap 'rm -f "${sarif_tmp:-}"' EXIT INT TERM
+    codacy-cli init \
+      --api-token "${CODACY_ACCOUNT_TOKEN:-}" \
+      --provider "${CODACY_ORGANIZATION_PROVIDER:-gh}" \
+      --organization "${CODACY_USERNAME:-}" \
+      --repository "${CODACY_PROJECT_NAME:-}" 2>/dev/null || true
     echo "[ship] step 4d: running pylint analysis → $sarif_tmp"
     if codacy-cli analyze --tool pylint --format sarif -o "$sarif_tmp"; then
       echo "[ship] step 4d: uploading SARIF for HEAD $head_oid"
