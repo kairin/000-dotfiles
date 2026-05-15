@@ -12,6 +12,7 @@ from .tool_installer import (
     collect_post_install_summary,
     build_tool_install_plan,
     execute_tool_install_operation,
+    prepare_apt_keyring_operations,
 )
 
 
@@ -232,9 +233,18 @@ def _execute_bootstrap_operations(
     backups: list[dict[str, Any]] = []
     completed_writes = 0
     executed: list[dict[str, Any]] = []
+    effective_runner = runner or CommandRunner()
+    if any(op.get("type") == "tool_install_apt_keyring" for op in report.operations):
+        try:
+            prepare_apt_keyring_operations(report.operations, runner=effective_runner)
+        except (OSError, BackupError, RuntimeError) as exc:
+            apt_keyring_op = next(
+                op for op in report.operations if op.get("type") == "tool_install_apt_keyring"
+            )
+            return _failed_report(report, executed, apt_keyring_op, backups, completed_writes, exc)
     for op in report.operations:
         try:
-            completed_writes += _execute_operation(op, repo_path, backup_path, backups, runner)
+            completed_writes += _execute_operation(op, repo_path, backup_path, backups, effective_runner)
             executed.append(op)
         except (OSError, BackupError, RuntimeError) as exc:
             return _failed_report(report, executed, op, backups, completed_writes, exc)

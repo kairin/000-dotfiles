@@ -172,8 +172,8 @@
     },
     {
       "id": "fish.env",
-      "source": "fish/env.fish.template",
-      "target": ".config/fish/env.fish",
+      "source": "fish/conf.d/env.fish.template",
+      "target": ".config/fish/conf.d/env.fish",
       "kind": "template",
       "profiles": ["machine"],
       "protected": false,

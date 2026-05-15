@@ -12,6 +12,7 @@ class ApplyInstallTests(DotfilesTestCase):
         self.assertTrue((home / ".claude" / "settings.json").exists())
         self.assertTrue((home / ".claude" / "hooks" / "load-project-env.sh").exists())
         self.assertTrue((home / ".config" / "fish" / "functions" / "direnv.fish").exists())
+        self.assertTrue((home / ".config" / "fish" / "conf.d" / "env.fish").exists())
         self.assertFalse((home / ".config" / "git" / "config").exists())
 
     def test_apply_merge_restores_missing_env_blocks_in_stale_mcp_json(self):

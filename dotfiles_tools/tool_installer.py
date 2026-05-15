@@ -23,6 +23,7 @@ _APT_REASON_SUFFIX = {"install": "apt", "upgrade": "apt --only-upgrade"}
 __all__ = (
     "build_tool_install_plan",
     "execute_tool_install_operation",
+    "prepare_apt_keyring_operations",
     "verify_installed_tools",
     "collect_post_install_summary",
     "run_post_install_actions",
@@ -516,23 +517,50 @@ def _execute_apt(op: dict[str, Any], runner: CommandRunner, *, mode: str) -> int
     return 1
 
 
-def _execute_apt_keyring(op: dict[str, Any], runner: CommandRunner, cache_dir: Path) -> int:
-    packages = [str(pkg) for pkg in op.get("packages", []) if pkg]
-    if not packages:
-        return 0
-    apt_get = runner.which("apt-get")
-    if not apt_get:
-        op["result"] = "apt-get not found; install manually"
-        return 0
+def _is_ascii_armored_openpgp(path: Path) -> bool:
+    try:
+        with path.open("rb") as handle:
+            return handle.read(64).startswith(b"-----BEGIN PGP PUBLIC KEY BLOCK-----")
+    except OSError:
+        return False
+
+
+def _apt_keyring_needs_install(keyring_path: Path) -> bool:
+    return not keyring_path.exists() or (
+        keyring_path.suffix == ".gpg" and _is_ascii_armored_openpgp(keyring_path)
+    )
+
+
+def _prepare_apt_keyring(
+    op: dict[str, Any],
+    runner: CommandRunner,
+    cache_dir: Path,
+    downloaded_keyring: Path,
+    keyring_path: Path,
+) -> Path:
+    if keyring_path.suffix != ".gpg" or not _is_ascii_armored_openpgp(downloaded_keyring):
+        return downloaded_keyring
+
+    gpg = runner.which("gpg")
+    if not gpg:
+        op["result"] = "gpg not found; cannot dearmor apt keyring"
+        raise RuntimeError(op["result"])
+    dearmored_keyring = cache_dir / f"{keyring_path.stem}.dearmored.gpg"
+    runner.run([gpg, "--dearmor", "--yes", "--output", str(dearmored_keyring), str(downloaded_keyring)])
+    return dearmored_keyring
+
+
+def _prepare_apt_keyring_source(op: dict[str, Any], runner: CommandRunner, cache_dir: Path) -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
     prefix = _sudo_prefix()
     keyring_path = Path(op["keyring_path"])
     source_path = Path(op["source_path"])
 
-    if not keyring_path.exists():
+    if _apt_keyring_needs_install(keyring_path):
         cached_keyring = cache_dir / keyring_path.name
         runner.download(op["keyring_url"], cached_keyring)
-        runner.run([*prefix, "install", "-D", "-m", "0644", str(cached_keyring), str(keyring_path)])
+        install_keyring = _prepare_apt_keyring(op, runner, cache_dir, cached_keyring, keyring_path)
+        runner.run([*prefix, "install", "-D", "-m", "0644", str(install_keyring), str(keyring_path)])
 
     rendered_source = op["source_line"].replace("{ARCH}", _detect_dpkg_arch(runner))
     cached_source = cache_dir / source_path.name
@@ -542,6 +570,30 @@ def _execute_apt_keyring(op: dict[str, Any], runner: CommandRunner, cache_dir: P
         legacy_source = source_path.with_suffix(".list")
         if legacy_source.exists():
             runner.run([*prefix, "rm", "-f", str(legacy_source)])
+
+
+def prepare_apt_keyring_operations(
+    operations: list[dict[str, Any]],
+    *,
+    runner: CommandRunner,
+) -> None:
+    for op in operations:
+        if op.get("type") != "tool_install_apt_keyring":
+            continue
+        cache_dir = Path(op.get("cache_dir") or Path.home() / TOOL_CACHE_REL)
+        _prepare_apt_keyring_source(op, runner, cache_dir)
+
+
+def _execute_apt_keyring(op: dict[str, Any], runner: CommandRunner, cache_dir: Path) -> int:
+    packages = [str(pkg) for pkg in op.get("packages", []) if pkg]
+    if not packages:
+        return 0
+    apt_get = runner.which("apt-get")
+    if not apt_get:
+        op["result"] = "apt-get not found; install manually"
+        return 0
+    prefix = _sudo_prefix()
+    _prepare_apt_keyring_source(op, runner, cache_dir)
 
     _apt_update_then_install(runner, prefix, apt_get, packages, mode=op.get("mode", "install"))
     return 1

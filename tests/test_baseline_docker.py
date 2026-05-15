@@ -98,3 +98,14 @@ class DockerImageContextTests(DotfilesTestCase):
         for arg in ("HOST_UID", "HOST_GID", "HOST_USER"):
             self.assertIn(f"ARG {arg}", text,
                           f"Dockerfile missing ARG {arg}; container will not match host ownership")
+
+    def test_dockerfile_installs_codex_cli(self) -> None:
+        text = (REPO_ROOT / "docker" / "gstack-browser" / "Dockerfile").read_text()
+        self.assertIn("ARG CODEX_VERSION=0.130.0", text)
+        self.assertIn("@openai/codex", text)
+        self.assertIn("codex --version", text)
+
+    def test_dockerfile_installs_unzip_before_bun(self) -> None:
+        text = (REPO_ROOT / "docker" / "gstack-browser" / "Dockerfile").read_text()
+        self.assertIn("unzip", text)
+        self.assertLess(text.index("unzip"), text.index("ARG BUN_VERSION"))

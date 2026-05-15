@@ -6,7 +6,7 @@ All notable changes to this project are documented here.
 
 ### Added
 
-- feat(setup): add `ship` subcommand for local-driven PR finalization (handles gh pr update-branch SHA churn automatically; polls four required Codacy checks before merging)
+- feat(setup): add `ship` subcommand for local-driven PR finalization (handles gh pr update-branch SHA churn automatically; polls required GitHub status checks dynamically from branch protection rules or rulesets before merging)
 
 ## [0.1.x] — 2026-05-03
 

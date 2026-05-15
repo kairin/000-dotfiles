@@ -93,6 +93,9 @@ class ToolInstallPlanTests(DotfilesTestCase):
         self.assertEqual(op["type"], "tool_install_apt")
         self.assertEqual(set(op["packages"]), set(DEV_BASE_PACKAGES))
 
+    def test_dev_base_includes_newgrp_provider(self) -> None:
+        self.assertIn("util-linux-extra", DEV_BASE_PACKAGES)
+
     def test_dev_base_phase_excludes_tool_baseline(self) -> None:
         home = self.make_home()
         runner = FakeRunner(which={"dpkg-query": "/usr/bin/dpkg-query"})
@@ -589,6 +592,54 @@ class ToolInstallExecuteTests(DotfilesTestCase):
         }
         execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
         self.assertIn(["sudo", "rm", "-f", str(legacy_source)], runner.commands)
+
+    def test_apt_keyring_dearmors_ascii_gpg_keyring(self) -> None:
+        home = self.make_home()
+        cache_dir = home / ".cache" / "tool-installers"
+        keyring_path = home / "keyrings" / "docker.gpg"
+        keyring_path.parent.mkdir(parents=True, exist_ok=True)
+        keyring_path.write_text("-----BEGIN PGP PUBLIC KEY BLOCK-----\nold\n")
+        runner = FakeRunner(
+            which={
+                "apt-get": "/usr/bin/apt-get",
+                "dpkg": "/usr/bin/dpkg",
+                "gpg": "/usr/bin/gpg",
+            },
+        )
+
+        def download_ascii_key(url: str, target: Path) -> None:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("-----BEGIN PGP PUBLIC KEY BLOCK-----\nnew\n")
+            runner.downloads.append((url, target))
+
+        runner.download = download_ascii_key  # type: ignore[method-assign]
+        op = {
+            "entry_id": "tools.docker",
+            "recipe": "tool_installs",
+            "type": "tool_install_apt_keyring",
+            "mode": "install",
+            "packages": ["docker-ce"],
+            "keyring_url": "https://download.docker.com/linux/ubuntu/gpg",
+            "keyring_path": str(keyring_path),
+            "source_line": (
+                "Types: deb\n"
+                "URIs: https://download.docker.com/linux/ubuntu\n"
+                "Suites: noble\n"
+                "Components: stable\n"
+                "Architectures: {ARCH}\n"
+                f"Signed-By: {keyring_path}"
+            ),
+            "source_path": str(home / "sources.list.d" / "docker.sources"),
+        }
+
+        execute_tool_install_operation(op, runner=runner, cache_dir=cache_dir)
+
+        self.assertTrue(any(cmd[:2] == ["/usr/bin/gpg", "--dearmor"] for cmd in runner.commands))
+        install_cmds = [cmd for cmd in runner.commands if cmd[:3] == ["sudo", "install", "-D"]]
+        self.assertTrue(
+            any(cmd[-1] == str(keyring_path) and cmd[-2].endswith(".dearmored.gpg") for cmd in install_cmds),
+            f"expected dearmored keyring install command, got {install_cmds}",
+        )
 
     def test_sudo_gating_as_root(self) -> None:
         home = self.make_home()

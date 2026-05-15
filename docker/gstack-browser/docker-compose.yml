@@ -11,6 +11,8 @@ services:
     image: gstack-browser:latest
     container_name: gstack-dev
     restart: unless-stopped
+    init: true
+    shm_size: "2gb"
     # Run with the host's uid/gid so files written from inside the container
     # are owned by the host user.
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
@@ -19,9 +21,9 @@ services:
       HOME: "/home/${HOST_USER:-kkk}"
       USER: "${HOST_USER:-kkk}"
       LOGNAME: "${HOST_USER:-kkk}"
-    # Tokens used by gstack skills. `gstack-shell` populates these by parsing
-    # .envrc.local on the host. Empty defaults so the container still starts
-    # when tokens are absent.
+      GSTACK_CONTAINER: "1"
+    # Tokens used by gstack skills. setup's gstack container commands populate
+    # this from an allowlisted, direnv-loaded project environment.
     env_file:
       - .env
     volumes:
@@ -29,6 +31,8 @@ services:
       - "${HOST_HOME:-/home/kkk}/Apps:${HOST_HOME:-/home/kkk}/Apps"
       # Claude Code config (skill symlinks, settings, hooks).
       - "${HOST_HOME:-/home/kkk}/.claude:${HOST_HOME:-/home/kkk}/.claude"
+      # Codex config, auth, plugins, memories, and generated skill docs.
+      - "${HOST_HOME:-/home/kkk}/.codex:${HOST_HOME:-/home/kkk}/.codex"
       # gstack state (sessions, analytics, projects).
       - "${HOST_HOME:-/home/kkk}/.gstack:${HOST_HOME:-/home/kkk}/.gstack"
       # Git identity (read-only).

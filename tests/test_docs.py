@@ -30,7 +30,7 @@ class DocsTests(DotfilesTestCase):
     def test_docs_cover_optional_codacy_environment_flow(self):
         getting_started = (REPO_ROOT / "docs" / "getting-started.md").read_text()
         rollout = (REPO_ROOT / "docs" / "codacy-coverage-rollout.md").read_text()
-        fish_env = (REPO_ROOT / "fish" / "env.fish.template").read_text()
+        fish_env = (REPO_ROOT / "fish" / "conf.d" / "env.fish.template").read_text()
 
         combined_docs = getting_started + "\n" + rollout
         for text in (
@@ -57,3 +57,25 @@ class DocsTests(DotfilesTestCase):
 
         self.assertIn("project optional integrations menu", fish_env)
         self.assertIn("Do not export Codacy tokens globally here", fish_env)
+
+    def test_manifest_fish_env_target_is_conf_d(self):
+        """T021: fish.env target path matches conf.d/ — catches regression if manifest reverts."""
+        import json
+        manifest = json.loads((REPO_ROOT / "dotfiles-manifest.json").read_text())
+        fish_env = next(e for e in manifest["entries"] if e.get("id") == "fish.env")
+        self.assertIn("conf.d", fish_env["target"])
+        self.assertIn("conf.d", fish_env["source"])
+
+    def test_codacy_rollout_has_required_checks_field(self):
+        """T022: codacy-rollout.json has required_checks separate from expected_checks."""
+        import json
+        rollout = json.loads((REPO_ROOT / "codacy-rollout.json").read_text())
+        dotfiles_entry = next(r for r in rollout["repositories"] if "000-dotfiles" in r["repo"])
+        self.assertIn("required_checks", dotfiles_entry,
+            "codacy-rollout.json must have required_checks distinct from expected_checks")
+        self.assertIn("codacy-safety-net", dotfiles_entry["required_checks"])
+
+    def test_quality_pipeline_does_not_claim_four_required_checks(self):
+        """T025: quality-pipeline.sh must not imply all Codacy app checks are required."""
+        pipeline = (REPO_ROOT / "scripts" / "quality-pipeline.sh").read_text()
+        self.assertNotIn("four required GitHub checks", pipeline)

@@ -31,7 +31,7 @@ codex/                        ~/.codex/ templates (config.toml, rules/default.ru
 gemini/                       ~/.gemini/ templates (settings.json, GEMINI.md)
 copilot/                      GitHub Copilot CLI template (copilot-instructions.md.template)
 gh/                           ~/.config/gh/ templates (config.yml)
-fish/                         ~/.config/fish/ templates and live files (fish_plugins, direnv.fish, env.fish)
+fish/                         ~/.config/fish/ templates and live files (fish_plugins, conf.d/direnv.fish, conf.d/env.fish)
 git/                          ~/.config/git/ live files (config)
 dotfiles_tools/               Python validation/setup CLI (stdlib only)
 scripts/                      Helper shell scripts (install-hooks.sh, quality-pipeline.sh, push-with-pr.sh, hooks/)
@@ -134,13 +134,16 @@ git commit -m "..."
 ```
 
 Finalizing a PR: `./setup ship` is the canonical way to merge. It runs
-`gh pr update-branch` if the branch is `BEHIND` its base, resolves the
-required GitHub status checks dynamically from branch protection or
-rulesets (the count is repo-dependent — not a fixed number), polls those
-checks until they all report `success`, and squash-merges only when the
-PR is `CLEAN` or `UNSTABLE`. Requires `CODACY_PROJECT_TOKEN` (for the
-SARIF upload that the validation workflow performs) and an authenticated
-`gh`.
+`gh pr update-branch` if the branch is `BEHIND` its base, then step 4d
+runs `codacy-cli analyze` and uploads SARIF using `CODACY_PROJECT_TOKEN`
+before check polling begins. `codacy-safety-net` is the single required
+GitHub check (enforced by branch protection); the three Codacy app checks
+(`Codacy Static Code Analysis`, `Codacy Coverage Variation`, `Codacy Diff
+Coverage`) are advisory — they appear on PRs once Codacy processes uploaded
+artifacts but are not enforced and do not block merges. `./setup ship`
+resolves required checks dynamically from branch protection or rulesets,
+polls until they report `success`, and squash-merges only when the PR is
+`CLEAN` or `UNSTABLE`. Requires an authenticated `gh` and `CODACY_PROJECT_TOKEN`.
 
 Runtime validation tooling uses Python standard library modules and uv-managed
 developer commands:
@@ -162,19 +165,29 @@ uv run --with coverage coverage xml
 ```bash
 ./setup                 # installs docker via TOOL_BASELINE (apt_keyring)
 ./setup docker-build    # builds gstack-browser:latest (~5 min first time)
+./setup gstack-setup /home/kkk/Apps/gstack
+./setup gstack-codex /home/kkk/Apps/gstack
 ./setup gstack-shell    # enters a shell inside the running container
 ```
 
-Inside the container, `claude`, `/qa`, `/review`, etc. work the same as natively. The container mounts the host's `~/Apps`, `~/.claude`, and `~/.gstack` at identical paths so absolute paths inside gstack skill files keep working without translation.
+Verified state as of 2026-05-16: Docker Engine 29.5.0 works without host `sudo` after `newgrp docker`; `gstack-browser:latest` builds; `gstack-dev` runs; `./setup gstack-setup` completed inside the container; Codex CLI 0.130.0, passwordless sudo, Playwright Chromium, and `/home/kkk/Apps/gstack/browse/dist/browse` are available in the container. The completion record is `docs/operations/gstack-browser-docker-rollout.md`.
+
+On Ubuntu 26.04, do not run `/home/kkk/Apps/gstack/./setup` on the host for browser-backed setup; run `./setup gstack-setup /home/kkk/Apps/gstack` from this repo so Playwright Chromium is verified inside Ubuntu 24.04. Normal git operations against `/home/kkk/Apps/gstack` still happen on the host.
+
+Inside the container, run `codex` directly or use `./setup gstack-codex`; the wrapper detects `gstack-dev` and does not require Docker there. `claude`, `/qa`, `/review`, etc. work the same as natively. The container mounts the host's `~/Apps`, `~/.codex`, `~/.claude`, and `~/.gstack` at identical paths so absolute paths inside gstack skill files keep working without translation.
 
 **Path preservation invariant:** Container paths match host paths exactly (`/home/$USER/...`). Do not change container HOME or mount paths or skill bash commands referencing absolute paths will break.
 
 **Files:**
 - `docker/gstack-browser/Dockerfile` — image definition
-- `docker/gstack-browser/docker-compose.yml` — long-running container with volume mounts
+- `docker/gstack-browser/docker-compose.yml` — long-running container with volume mounts; notable settings:
+  - `shm_size: "2gb"` — required for Chromium stability (default 64 MB causes renderer crashes)
+  - `GSTACK_CONTAINER=1` env var — set automatically; wrapper commands detect container context via this
+  - `HOME`, `USER`, `LOGNAME` env vars — set to match host user so tool state resolves correctly
+  - `~/.gitconfig` mounted read-only — prevents container from modifying host git identity
 - `docker/gstack-browser/README.md` — humans-only operational overview
 
-**Tokens:** `./setup gstack-shell` regenerates `docker/gstack-browser/.env` from `.envrc.local` on each run, forwarding `GITHUB_TOKEN`, `CODACY_*`, `HF_*`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc. The `.env` file is gitignored.
+**Tokens:** gstack container commands regenerate `docker/gstack-browser/.env` from the direnv-loaded project environment on each run, forwarding only allowlisted values such as `GITHUB_TOKEN`, `CODACY_*`, `HF_*`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GOOGLE_*`. The `.env` file is gitignored.
 
 When Playwright issue #40117 is resolved, the Docker workflow becomes optional — host browser skills will work natively again. The container path can stay as a fallback.
 

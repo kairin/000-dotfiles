@@ -90,3 +90,33 @@ Choose one approach:
 - GitHub issue: [Link to tracking issue if exists]
 - Codacy project: https://app.codacy.com/[organization]/[repository]
 - Backup files: `~/branch-protection-backup-2026-05-06/`
+
+## Restored: 2026-05-16
+
+### Approach taken (Decision D2=A)
+
+Instead of restoring the original three Codacy app checks, only `codacy-safety-net` is required. This check is workflow-based (`.github/workflows/codacy-safety-net.yml`) and fires on every PR regardless of which files changed.
+
+### Ruleset created: "Protect main" (ID: 16046743)
+
+- **Target:** default branch (`~DEFAULT_BRANCH`)
+- **Enforcement:** active
+- **Required status checks:** `codacy-safety-net` only
+  - `strict_required_status_checks_policy`: false (no requirement to be up-to-date before merge)
+- **Additional rules:** deletion prevention, non-fast-forward prevention, pull request required
+- **Advisory only (not required):** Codacy Static Code Analysis, Codacy Coverage Variation, Codacy Diff Coverage
+
+### Why this approach
+
+The three Codacy app checks still do not trigger on bash-only or docs-only PRs (no Python files changed). Requiring them again would reproduce the original blocking problem. The `codacy-safety-net` workflow always runs and provides a reliable gate without causing false blocks on non-Python changes.
+
+### Verification
+
+```bash
+gh api repos/kairin/000-dotfiles/rulesets --jq '.[].name'
+# → Protect main
+
+gh api repos/kairin/000-dotfiles/rulesets/16046743 \
+  --jq '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks'
+# → [{"context":"codacy-safety-net","integration_id":15368}]
+```

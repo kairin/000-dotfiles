@@ -13,6 +13,7 @@ from dotfiles_tools.bootstrap import (
     _status,
     _has_manual_or_refused_work,
     _collect_post_install_backups,
+    _execute_bootstrap_operations,
     build_bootstrap_plan,
     apply_bootstrap,
     build_tool_install_subplan,
@@ -27,6 +28,8 @@ class FakeRunner:
     def __init__(self, *, which: dict[str, str] | None = None) -> None:
         self.which_map = which or {}
         self.installed_dpkg: set[str] = set()
+        self.commands: list[list[str]] = []
+        self.downloads: list[tuple[str, Path]] = []
 
     def which(self, command: str) -> str | None:
         return self.which_map.get(command)
@@ -48,7 +51,8 @@ class FakeRunner:
                 zf.writestr(EXPECTED_TTF, b"fake-font-bytes")
             target.write_bytes(buf.getvalue())
         else:
-            target.write_text("#!/bin/sh\necho fake\n")
+            target.write_text("-----BEGIN PGP PUBLIC KEY BLOCK-----\nfake\n")
+        self.downloads.append((url, target))
 
     def run(
         self,
@@ -58,7 +62,13 @@ class FakeRunner:
         check: bool = True,
         timeout: float | None = None,
     ) -> subprocess.CompletedProcess[str]:
+        self.commands.append(list(args))
         command = Path(args[0]).name if args else ""
+        if command == "gpg" and "--output" in args:
+            output = Path(args[args.index("--output") + 1])
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(b"dearmored-keyring")
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
         if command == "dpkg-query":
             package = args[-1]
             if package in self.installed_dpkg:
@@ -158,6 +168,70 @@ class CollectPostInstallBackupsTests(DotfilesTestCase):
     def test_skips_none_backups(self):
         actions = [{"status": "ran", "backups": None}]
         self.assertEqual(_collect_post_install_backups(actions), [])
+
+
+class ExecuteBootstrapOperationsTests(DotfilesTestCase):
+    def test_prepares_apt_keyrings_before_first_apt_update(self) -> None:
+        home = self.make_home()
+        keyring_path = home / "keyrings" / "docker.gpg"
+        keyring_path.parent.mkdir(parents=True, exist_ok=True)
+        keyring_path.write_text("-----BEGIN PGP PUBLIC KEY BLOCK-----\nstale\n")
+        cache_dir = home / ".cache" / "tools"
+        operations = [
+            {
+                "operation_id": "op-001",
+                "entry_id": "tools.git",
+                "recipe": "tool_installs",
+                "type": "tool_install_apt_upgrade",
+                "mode": "upgrade",
+                "packages": ["git"],
+                "cache_dir": str(cache_dir),
+            },
+            {
+                "operation_id": "op-002",
+                "entry_id": "tools.docker",
+                "recipe": "tool_installs",
+                "type": "tool_install_apt_keyring",
+                "mode": "install",
+                "packages": ["docker-ce"],
+                "keyring_url": "https://download.docker.com/linux/ubuntu/gpg",
+                "keyring_path": str(keyring_path),
+                "source_line": (
+                    "Types: deb\n"
+                    "URIs: https://download.docker.com/linux/ubuntu\n"
+                    "Suites: noble\n"
+                    "Components: stable\n"
+                    "Architectures: {ARCH}\n"
+                    f"Signed-By: {keyring_path}"
+                ),
+                "source_path": str(home / "sources.list.d" / "docker.sources"),
+                "cache_dir": str(cache_dir),
+            },
+        ]
+        runner = FakeRunner(which={
+            "apt-get": "/usr/bin/apt-get",
+            "dpkg": "/usr/bin/dpkg",
+            "gpg": "/usr/bin/gpg",
+        })
+        report = Report(
+            "bootstrap-install-tools",
+            "warning",
+            str(REPO_ROOT),
+            home=str(home),
+            operations=operations,
+        )
+
+        result = _execute_bootstrap_operations(report, REPO_ROOT, home / ".backups", runner)
+
+        self.assertNotEqual(result.status, "failed")
+        apt_update_index = next(
+            i for i, cmd in enumerate(runner.commands) if cmd == ["sudo", "/usr/bin/apt-get", "update"]
+        )
+        keyring_install_index = next(
+            i for i, cmd in enumerate(runner.commands)
+            if cmd[:3] == ["sudo", "install", "-D"] and cmd[-1] == str(keyring_path)
+        )
+        self.assertLess(keyring_install_index, apt_update_index)
 
 
 class BuildBootstrapPlanTests(DotfilesTestCase):
