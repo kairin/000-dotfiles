@@ -160,6 +160,8 @@ class SetupDockerSubcommandsTests(DotfilesTestCase):
         home = self.make_home()
         bin_dir = home / "bin"
         bin_dir.mkdir()
+        workdir = home / "Apps" / "gstack"
+        workdir.mkdir(parents=True)
         log_path = home / "docker.log"
         fake_docker = bin_dir / "docker"
         fake_docker.write_text(
@@ -188,7 +190,7 @@ class SetupDockerSubcommandsTests(DotfilesTestCase):
         try:
             result = _run_setup(
                 "gstack-setup",
-                "/home/kkk/Apps/gstack",
+                str(workdir),
                 env=env,
                 timeout=10.0,
             )
@@ -202,7 +204,7 @@ class SetupDockerSubcommandsTests(DotfilesTestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         self.assertIn(
-            "exec -w /home/kkk/Apps/gstack gstack-dev ./setup --host auto",
+            f"exec -w {workdir} gstack-dev ./setup --host auto",
             log_path.read_text(),
         )
 
