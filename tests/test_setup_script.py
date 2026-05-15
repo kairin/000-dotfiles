@@ -1382,6 +1382,7 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         self.write_fake_ship_codacy_cli(bin_dir, codacy_log)
 
         env = self.env_for(bin_dir, home)
+        env["CODACY_PROJECT_TOKEN"] = "test-token"
 
         result = run_setup("ship", "17", cwd=repo, executable=repo / "setup", env=env)
 
@@ -1389,7 +1390,13 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         self.assertIn("base=main", result.stdout)
         self.assertIn("PR #17 is MERGED", result.stdout)
         self.assertIn("step 4b: resolving required GitHub checks", result.stdout)
-        self.assertFalse(codacy_log.exists(), "setup ship must not invoke local codacy-cli")
+        self.assertIn("step 4d: codacy SARIF analysis and upload", result.stdout)
+        self.assertTrue(codacy_log.exists(), "setup ship must invoke codacy-cli for SARIF upload")
+        codacy_lines = codacy_log.read_text().splitlines()
+        self.assertTrue(
+            any("analyze" in line for line in codacy_lines),
+            "codacy-cli analyze must be called during ship",
+        )
 
         gh_lines = gh_log.read_text().splitlines()
         self.assertTrue(any(line.startswith("pr view 17 ") for line in gh_lines))

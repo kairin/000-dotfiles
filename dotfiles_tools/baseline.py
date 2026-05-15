@@ -302,7 +302,7 @@ DEV_BASE_GROUPS = (
     ("json_text", ("jq", "ripgrep", "fd-find")),
     ("editors",   ("vim", "nano")),
     ("shell",     ("tmux", "less", "man-db")),
-    ("system",    ("htop", "tree", "file")),
+    ("system",    ("htop", "tree", "file", "util-linux-extra")),
     ("network",   ("openssh-client", "bind9-dnsutils", "iputils-ping", "net-tools")),
 )
 DEV_BASE_PACKAGES = tuple(pkg for _, group in DEV_BASE_GROUPS for pkg in group)

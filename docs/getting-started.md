@@ -17,7 +17,7 @@ Code, Codex, Gemini, Copilot) and scaffolds AI agent guidelines for your project
 
 | Tool | Purpose | Config file |
 |---|---|---|
-| **fish** | Shell | `~/.config/fish/env.fish`, `direnv.fish` |
+| **fish** | Shell | `~/.config/fish/conf.d/env.fish`, `conf.d/direnv.fish` |
 | **direnv** | Fish shell direnv hook | `~/.config/fish/functions/direnv.fish` |
 | **git** | Version control (manual) | `~/.config/git/config` |
 | **gh** | GitHub CLI | `~/.config/gh/config.yml` |
@@ -410,7 +410,7 @@ If the setup script reports config drift:
 3. If you want the repo's version: choose option 2 and confirm
 4. Backups are created before overwrite (default: `~/.dotfiles-backups/`)
 
-**Note:** Some files are intentionally excluded from drift resolution and your customizations are always preserved. These files are marked `user_customizable` and include: `claude/settings.json`, `claude/keybindings.json`, `claude/CLAUDE.md`, `codex/config.toml`, `codex/default.rules`, `gemini/settings.json`, `gemini/GEMINI.md`, `gh/config.yml`, `fish/env.fish`, and `fish/functions/direnv.fish`. Option 2 will never overwrite these files even if they differ from the template.
+**Note:** Some files are intentionally excluded from drift resolution and your customizations are always preserved. These files are marked `user_customizable` and include: `claude/settings.json`, `claude/keybindings.json`, `claude/CLAUDE.md`, `codex/config.toml`, `codex/default.rules`, `gemini/settings.json`, `gemini/GEMINI.md`, `gh/config.yml`, `fish/conf.d/env.fish`, and `fish/functions/direnv.fish`. Option 2 will never overwrite these files even if they differ from the template.
 
 ### Font icons look broken in my terminal
 

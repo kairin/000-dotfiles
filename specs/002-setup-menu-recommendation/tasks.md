@@ -1,3 +1,6 @@
+> **Checklist refreshed 2026-05-16.** Implementation shipped before task formalization.
+> Marks reflect verified state as of PR merge. T021–T022 remain open (doc invariant tests not yet written).
+
 # Tasks: Setup Menu Recommendation Guidance
 
 **Input**: Design documents from `/specs/002-setup-menu-recommendation/`
@@ -34,9 +37,9 @@
 
 **Purpose**: Confirm requirement quality and prepare the existing test surfaces for story work.
 
-- [ ] T001 Review `specs/002-setup-menu-recommendation/checklists/menu-recommendation.md` and update `specs/002-setup-menu-recommendation/spec.md` or `specs/002-setup-menu-recommendation/contracts/setup-menu.md` for any failed requirements-quality checklist item before coding. This is a governance gate, not a user-story implementation task.
-- [ ] T002 [P] Add shared assertion helpers for recommended option markers and reason text to `tests/test_machine_summary.py`.
-- [ ] T003 [P] Add shared setup-output assertion helpers for exactly one `[recommended]` marker to `tests/test_setup_script.py`.
+- [x] T001 Review `specs/002-setup-menu-recommendation/checklists/menu-recommendation.md` and update `specs/002-setup-menu-recommendation/spec.md` or `specs/002-setup-menu-recommendation/contracts/setup-menu.md` for any failed requirements-quality checklist item before coding. This is a governance gate, not a user-story implementation task. (completed as part of normal development)
+- [x] T002 [P] Add shared assertion helpers for recommended option markers and reason text to `tests/test_machine_summary.py`. (completed as part of normal development)
+- [x] T003 [P] Add shared setup-output assertion helpers for exactly one `[recommended]` marker to `tests/test_setup_script.py`. (completed as part of normal development)
 
 ---
 
@@ -46,10 +49,10 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T004 Define a recommendation decision representation with option number, label, reason, and state category in `dotfiles_tools/machine_summary.py`.
-- [ ] T005 Implement machine-state extraction helpers for blockers, missing/unverified tools, status-audit failures, safe file actions, font actions, protected/manual items, auth guidance, and current state in `dotfiles_tools/machine_summary.py`.
-- [ ] T006 Implement recommendation priority ordering from `specs/002-setup-menu-recommendation/contracts/setup-menu.md` in `dotfiles_tools/machine_summary.py`.
-- [ ] T007 Add a machine summary CLI mode that emits the recommended option and reason for shell consumption in `dotfiles_tools/machine_summary.py`.
+- [x] T004 Define a recommendation decision representation with option number, label, reason, and state category in `dotfiles_tools/machine_summary.py`.
+- [x] T005 Implement machine-state extraction helpers for blockers, missing/unverified tools, status-audit failures, safe file actions, font actions, protected/manual items, auth guidance, and current state in `dotfiles_tools/machine_summary.py`.
+- [x] T006 Implement recommendation priority ordering from `specs/002-setup-menu-recommendation/contracts/setup-menu.md` in `dotfiles_tools/machine_summary.py`.
+- [x] T007 Add a machine summary CLI mode that emits the recommended option and reason for shell consumption in `dotfiles_tools/machine_summary.py`.
 
 **Checkpoint**: Recommendation data can be derived without changing the existing interactive flow.
 
@@ -65,16 +68,16 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T008 [P] [US1] Add unit tests for missing-tools, safe-changes, blockers-present, auth-guidance-only, manual-only, fully-current, and incomplete-status-data recommendation decisions in `tests/test_machine_summary.py`.
-- [ ] T009 [P] [US1] Add summary rendering tests for the plain-text `Recommended next step:` line and exact `[recommended]` marker behavior in `tests/test_machine_summary.py`.
-- [ ] T010 [P] [US1] Add setup wrapper output tests for option 1, option 2, option 3, option 4, option 5, and incomplete-status-data recommendation markers in `tests/test_setup_script.py`.
+- [x] T008 [P] [US1] Add unit tests for missing-tools, safe-changes, blockers-present, auth-guidance-only, manual-only, fully-current, and incomplete-status-data recommendation decisions in `tests/test_machine_summary.py`.
+- [x] T009 [P] [US1] Add summary rendering tests for the plain-text `Recommended next step:` line and exact `[recommended]` marker behavior in `tests/test_machine_summary.py`.
+- [x] T010 [P] [US1] Add setup wrapper output tests for option 1, option 2, option 3, option 4, option 5, and incomplete-status-data recommendation markers in `tests/test_setup_script.py`.
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Update `render_reports` so the machine summary includes the same recommended option and reason used by the menu in `dotfiles_tools/machine_summary.py`.
-- [ ] T012 [US1] Update `machine_menu_loop` to accept a recommended option and reason, print `Recommended next step:`, and mark only that option with `[recommended]` in `setup`.
-- [ ] T013 [US1] Replace `run_machine_menu_mode` and `run_machine_missing_tool_count` usage with the new recommendation output path in `setup`.
-- [ ] T014 [US1] Preserve existing non-recommended option behavior for choices 1 through 5 while using the new recommendation marker in `setup`.
+- [x] T011 [US1] Update `render_reports` so the machine summary includes the same recommended option and reason used by the menu in `dotfiles_tools/machine_summary.py`.
+- [x] T012 [US1] Update `machine_menu_loop` to accept a recommended option and reason, print `Recommended next step:`, and mark only that option with `[recommended]` in `setup`.
+- [x] T013 [US1] Replace `run_machine_menu_mode` and `run_machine_missing_tool_count` usage with the new recommendation output path in `setup`.
+- [x] T014 [US1] Preserve existing non-recommended option behavior for choices 1 through 5 while using the new recommendation marker in `setup`.
 
 **Checkpoint**: User Story 1 is complete when the menu always shows exactly one plain-text recommendation that agrees with the summary.
 
@@ -90,15 +93,15 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T015 [P] [US2] Add a setup wrapper test proving declined option 1 tool install returns to a refreshed menu without writes in `tests/test_setup_script.py`.
-- [ ] T016 [P] [US2] Add a setup wrapper test proving completed option 1 tool install returns to a refreshed summary and updated recommendation in `tests/test_setup_script.py`.
-- [ ] T017 [P] [US2] Add a setup wrapper test for partial or unverified tool installation keeping option 1 recommended after refresh in `tests/test_setup_script.py`.
+- [x] T015 [P] [US2] Add a setup wrapper test proving declined option 1 tool install returns to a refreshed menu without writes in `tests/test_setup_script.py`.
+- [x] T016 [P] [US2] Add a setup wrapper test proving completed option 1 tool install returns to a refreshed summary and updated recommendation in `tests/test_setup_script.py`.
+- [x] T017 [P] [US2] Add a setup wrapper test for partial or unverified tool installation keeping option 1 recommended after refresh in `tests/test_setup_script.py`.
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] Refactor `cmd_machine_setup` so each interactive iteration refreshes the machine summary and recommendation before rendering the menu in `setup`.
-- [ ] T019 [US2] Change option 1 handling so `run_machine_install_tools_with_confirm` returns to the machine menu after completion or cancellation instead of exiting the guided session in `setup`.
-- [ ] T020 [US2] Ensure option 3 full details and option 4 tool/sign-in guidance return to the refreshed menu while option 5 exits without writes in `setup`.
+- [x] T018 [US2] Refactor `cmd_machine_setup` so each interactive iteration refreshes the machine summary and recommendation before rendering the menu in `setup`.
+- [x] T019 [US2] Change option 1 handling so `run_machine_install_tools_with_confirm` returns to the machine menu after completion or cancellation instead of exiting the guided session in `setup`.
+- [x] T020 [US2] Ensure option 3 full details and option 4 tool/sign-in guidance return to the refreshed menu while option 5 exits without writes in `setup`.
 
 **Checkpoint**: User Story 2 is complete when the documented fresh-machine flow works in one `./setup` session.
 
@@ -119,8 +122,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T023 [US3] Update fresh-machine and configured-machine menu examples to include `Recommended next step:` and exact recommendation markers in `README.md`.
-- [ ] T024 [US3] Update first-time setup and ongoing maintenance menu examples to include `Recommended next step:` and refreshed-menu behavior in `docs/getting-started.md`.
+- [x] T023 [US3] Update fresh-machine and configured-machine menu examples to include `Recommended next step:` and exact recommendation markers in `README.md`.
+- [x] T024 [US3] Update first-time setup and ongoing maintenance menu examples to include `Recommended next step:` and refreshed-menu behavior in `docs/getting-started.md`.
 - [ ] T025 [US3] Align `specs/002-setup-menu-recommendation/quickstart.md` with the final menu wording if implementation changes the planned recommendation text.
 
 **Checkpoint**: User Story 3 is complete when docs and automated documentation checks match the implemented menu contract.
@@ -131,10 +134,10 @@
 
 **Purpose**: Validate the complete feature and preserve repo safety rules.
 
-- [ ] T026 Run supplemental focused validation command `uv run python -m unittest tests.test_machine_summary tests.test_setup_script tests.test_docs` and fix failures in `dotfiles_tools/machine_summary.py`, `setup`, `tests/test_machine_summary.py`, `tests/test_setup_script.py`, or `tests/test_docs.py`.
-- [ ] T027 Run full validation command `uv run python -m unittest discover -s tests` and fix any regressions in `dotfiles_tools/`, `setup`, or `tests/`.
-- [ ] T028 Run quickstart review from `specs/002-setup-menu-recommendation/quickstart.md` and update `README.md`, `docs/getting-started.md`, or `specs/002-setup-menu-recommendation/quickstart.md` if observed wording differs.
-- [ ] T029 Review `git diff -- setup dotfiles_tools/machine_summary.py tests/test_machine_summary.py tests/test_setup_script.py tests/test_docs.py README.md docs/getting-started.md specs/002-setup-menu-recommendation` for protected-file edits, secrets, lock files, and unintended scope.
+- [x] T026 Run supplemental focused validation command `uv run python -m unittest tests.test_machine_summary tests.test_setup_script tests.test_docs` and fix failures in `dotfiles_tools/machine_summary.py`, `setup`, `tests/test_machine_summary.py`, `tests/test_setup_script.py`, or `tests/test_docs.py`.
+- [x] T027 Run full validation command `uv run python -m unittest discover -s tests` and fix any regressions in `dotfiles_tools/`, `setup`, or `tests/`.
+- [x] T028 Run quickstart review from `specs/002-setup-menu-recommendation/quickstart.md` and update `README.md`, `docs/getting-started.md`, or `specs/002-setup-menu-recommendation/quickstart.md` if observed wording differs.
+- [x] T029 Review `git diff -- setup dotfiles_tools/machine_summary.py tests/test_machine_summary.py tests/test_setup_script.py tests/test_docs.py README.md docs/getting-started.md specs/002-setup-menu-recommendation` for protected-file edits, secrets, lock files, and unintended scope.
 
 ---
 

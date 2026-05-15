@@ -27,6 +27,9 @@ other tools know your codebase conventions.
 | **AI coding assistants** | Claude Code, Codex, Gemini, Copilot, SpecKit | Latest versions; sign-in on first run |
 | **Fonts** | JetBrainsMono, FiraCode, Hack, MesloLGS Nerd Fonts | Auto-downloaded and installed |
 | **Project scaffolding** | AI agent docs | `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` per project |
+| **Container runtime** | Docker Engine | Required for gstack-browser container (Ubuntu 24.04 + Playwright); apt_keyring install from official Docker CE repo |
+| **HuggingFace Hub** | `hf` (optional) | `uv tool install huggingface-hub`; for HF API access; sign in with `hf auth login` |
+| **Local code analysis** | Codacy CLI (optional) | curl installer from codacy-cli-v2 script; for local Codacy analysis runs |
 
 ## Quick start
 
@@ -172,7 +175,7 @@ $ ~/000-dotfiles/setup
         DONE.
 ```
 
-Nothing is written without your explicit confirmation (`[y/N]`). Files are backed up before overwrite (default: `~/.dotfiles-backups/`). The script is idempotent—safe to run repeatedly. User-customizable files (such as `~/.claude/settings.json`, `~/.config/gh/config.yml`, `~/.config/fish/env.fish`, and 11 others — 14 total; see `dotfiles-manifest.json` for the full list) skip drift detection and are never silently overwritten by option 2.
+Nothing is written without your explicit confirmation (`[y/N]`). Files are backed up before overwrite (default: `~/.dotfiles-backups/`). The script is idempotent—safe to run repeatedly. User-customizable files (such as `~/.claude/settings.json`, `~/.config/gh/config.yml`, `~/.config/fish/conf.d/env.fish`, and 11 others — 14 total; see `dotfiles-manifest.json` for the full list) skip drift detection and are never silently overwritten by option 2.
 
 ---
 
@@ -235,7 +238,7 @@ A good dotfiles repo should:
 | `gemini/` | `~/.gemini/` | `settings.json`, global `GEMINI.md` |
 | `copilot/` | `~/.copilot/` | global `copilot-instructions.md` |
 | `gh/` | `~/.config/gh/` | `config.yml` |
-| `fish/` | `~/.config/fish/` | `fish_plugins`, `conf.d/direnv.fish` (auto-installs direnv hook), `functions/direnv.fish`, `env.fish` |
+| `fish/` | `~/.config/fish/` | `fish_plugins`, `conf.d/direnv.fish` (auto-installs direnv hook), `conf.d/env.fish` (auto-loaded env vars), `functions/direnv.fish` |
 | `git/` | `~/.config/git/` | `config` |
 | `dotfiles_tools/` | — | Python validation/setup CLI (`python -m dotfiles_tools …`) |
 | `scripts/` | — | Helper shell scripts (`install-hooks.sh`, `quality-pipeline.sh`, `push-with-pr.sh`, `hooks/`) |
@@ -261,7 +264,19 @@ Files ending in `.template` are copy-and-customize sources. Placeholders follow 
 | `./setup doctor [--home PATH] [--profile NAME]` | Read-only machine audit (wraps `dotfiles_tools doctor`) |
 | `./setup quality` | Run the local quality pipeline (`scripts/quality-pipeline.sh`): tests, coverage, Codacy upload |
 | `./setup hooks` | Install or update this repo's Git hooks, including the pre-push guard that blocks direct pushes to `main` |
+| `./setup docker-build` | Build the Ubuntu 24.04 `gstack-browser:latest` image for Playwright-backed gstack skills |
+| `./setup gstack-setup [/home/kkk/Apps/gstack]` | Run gstack's `./setup --host auto` inside the container so Chromium setup does not run on Ubuntu 26.04 |
+| `./setup gstack-codex [/home/kkk/Apps/gstack]` | Open Codex inside the container for browser-backed gstack skills |
+| `./setup gstack-shell` | Open a bash shell inside the container for manual gstack/browser debugging |
 | `./setup ship [<pr-number>]` | Finalize a PR: refresh branch (`gh pr update-branch` if `BEHIND`), poll required checks, squash-merge when `CLEAN`/`UNSTABLE` |
+
+### Completed gstack Docker workflow
+
+The Ubuntu 26.04 Playwright workaround is implemented and verified. Docker installs through the developer-tools menu, the post-install flow adds the user to the `docker` group, dev-base installs `util-linux-extra` for `newgrp`, and `./setup docker-build` builds `gstack-browser:latest`.
+
+The running `gstack-dev` container mounts `~/Apps`, `~/.codex`, `~/.claude`, `~/.gstack`, and `~/.config/gh` at the same paths. `./setup gstack-setup` completed inside the container, generated Claude and Codex gstack skills, downloaded Playwright Chromium, and ran the gstack migrations. Inside the container, passwordless sudo, Codex CLI 0.130.0, and the gstack `browse` binary are verified.
+
+For the detailed completion record, see `docs/operations/gstack-browser-docker-rollout.md`.
 
 Menu options during `./setup`:
 - **Option 1:** Install or update developer tools. Opens a submenu that
@@ -302,17 +317,19 @@ Once a PR is open, `./setup ship` drives it to merged:
 ./setup ship 183          # ships PR #183 explicitly
 ```
 
-`setup ship` requires `CODACY_PROJECT_TOKEN` to be exported (the Codacy SARIF
-upload that gates the `Codacy Static Code Analysis` check is uploaded by the
-`.github/workflows/dotfiles-validation.yml` workflow itself, not by `./setup
-ship`) and `gh` to be authenticated. It runs `gh pr update-branch` automatically
-when the branch is `BEHIND` `main`, then resolves the required GitHub status
-checks dynamically from the branch's protection rules or rulesets (the count is
-repo-dependent; on `main` today they are `Codacy Static Code Analysis`,
-`Codacy Coverage Variation`, `Codacy Diff Coverage`, and `codacy-safety-net`),
-polls them until they all report `success`, and squash-merges only when the PR
-is `CLEAN` or `UNSTABLE`. `UNSTABLE` is allowed because non-required advisory
-jobs can be skipped or cancelled.
+`setup ship` requires `CODACY_PROJECT_TOKEN` to be exported — step 4d of the
+ship sequence runs `codacy-cli analyze` and uploads SARIF via that token before
+polling required checks. It also requires `gh` to be authenticated. It runs
+`gh pr update-branch` automatically when the branch is `BEHIND` `main`, then
+resolves the required GitHub status checks dynamically from the branch's
+protection rules or rulesets and polls them until they all report `success`.
+`codacy-safety-net` is the ONLY required GitHub check (enforced by branch
+protection). The three Codacy app checks (`Codacy Static Code Analysis`,
+`Codacy Coverage Variation`, `Codacy Diff Coverage`) are advisory — they appear
+green on the PR once Codacy processes the uploaded SARIF and coverage but are
+not enforced by branch protection and do not block merges. The squash-merge
+proceeds only when the PR is `CLEAN` or `UNSTABLE`. `UNSTABLE` is allowed
+because non-required advisory jobs can be skipped or cancelled.
 The default check polling window is 15 minutes; override with
 `SHIP_CHECK_TIMEOUT=<seconds>` or `SHIP_CHECK_INTERVAL=<seconds>` only when
 debugging.

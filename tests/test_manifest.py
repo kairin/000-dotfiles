@@ -45,6 +45,13 @@ class ManifestTests(DotfilesTestCase):
         with self.assertRaises(ManifestError):
             parse_manifest(bad, REPO_ROOT)
 
+    def test_fish_env_installs_to_conf_d(self):
+        manifest = load_manifest(REPO_ROOT)
+        entries = manifest.entry_map()
+        self.assertIn("fish.env", entries)
+        self.assertEqual(entries["fish.env"].source, "fish/conf.d/env.fish.template")
+        self.assertEqual(entries["fish.env"].target, ".config/fish/conf.d/env.fish")
+
     def test_include_protected_requires_exact_protected_id(self):
         manifest = load_manifest(REPO_ROOT)
         self.assertEqual(validate_included_protected(manifest, ["git.config"]), {"git.config"})

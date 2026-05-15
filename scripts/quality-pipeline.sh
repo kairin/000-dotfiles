@@ -139,8 +139,10 @@ rm -f "$SARIF"
 # ----------------------------------------------------------------------------
 echo -e "\n${CYAN}[STAGE 7/7] Codacy server-side gate (informational)${NC}"
 echo "  Codacy processes the uploaded artifacts asynchronously."
-echo "  The four required GitHub checks (incl. 'Codacy Static Code Analysis')"
-echo "  will turn green automatically once Codacy finishes processing."
+echo "  'codacy-safety-net' is the only required GitHub check (enforced by branch protection)."
+echo "  The three Codacy app checks (Static Code Analysis, Coverage Variation, Diff Coverage)"
+echo "  are advisory — they appear green on the PR once Codacy finishes processing but are"
+echo "  not enforced by branch protection and do not block merges."
 
 echo ""
 echo -e "${GREEN}✓ Quality pipeline complete${NC}"
