@@ -84,7 +84,12 @@ fi
 # ----------------------------------------------------------------------------
 echo -e "\n${CYAN}[STAGE 3/7] Running pylint analysis...${NC}"
 SARIF="/tmp/pylint-$$.sarif"
+# codacy-cli analyze requires .codacy/codacy.yaml; write a minimal static
+# config so the analyze step works without an API call or account token.
+mkdir -p .codacy
+printf -- '---\ntools:\n  - name: pylint\n' > .codacy/codacy.yaml
 codacy-cli analyze --tool pylint --format sarif -o "$SARIF"
+rm -f .codacy/codacy.yaml
 
 # ----------------------------------------------------------------------------
 # Stage 4: coverage upload — handled by .github/workflows/dotfiles-validation.yml
