@@ -84,8 +84,11 @@ fi
 # ----------------------------------------------------------------------------
 echo -e "\n${CYAN}[STAGE 3/7] Running pylint analysis...${NC}"
 SARIF="/tmp/pylint-$$.sarif"
-# codacy-cli analyze requires .codacy/codacy.yaml; write a minimal static
-# config so the analyze step works without an API call or account token.
+# REGRESSION GUARD: do NOT remove — codacy-cli analyze exits 0 with empty SARIF when
+# .codacy/codacy.yaml is absent (it prints "No configuration file" but returns 0).
+# .codacy/ is gitignored (.gitignore:27); this write is the only option without account token.
+# The test test_quality_pipeline_is_non_blocking_and_uses_local_prereqs asserts this block exists.
+# See AGENTS.md "## Codacy CLI Configuration Constraint" for the full rationale.
 mkdir -p .codacy
 printf -- '---\ntools:\n  - name: pylint\n' > .codacy/codacy.yaml
 codacy-cli analyze --tool pylint --format sarif -o "$SARIF"

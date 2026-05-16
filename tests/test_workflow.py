@@ -65,6 +65,40 @@ class WorkflowTests(DotfilesTestCase):
         self.assertIn("git merge-base HEAD origin/main", pipeline)
         self.assertNotIn("CODACY_ACCOUNT_TOKEN", pipeline)
         self.assertNotIn("GITHUB_TOKEN", pipeline)
+        # codacy-cli analyze exits 0 silently with empty SARIF when .codacy/codacy.yaml is absent.
+        # .codacy/ is gitignored (.gitignore line 27) — cannot be committed, must be written ephemerally.
+        # Regex asserts the full write structure (mkdir + printf + path + cleanup), not just strings
+        # that may appear in comments. See AGENTS.md "## Codacy CLI Configuration Constraint".
+        self.assertRegex(
+            pipeline,
+            r"mkdir -p \.codacy",
+            "quality-pipeline.sh must run 'mkdir -p .codacy' before analyze",
+        )
+        self.assertRegex(
+            pipeline,
+            r"printf[^\n]*'---\\ntools:\\n  - name: pylint\\n'[^\n]*>[ \t]*\.codacy/codacy\.yaml",
+            "quality-pipeline.sh must write valid pylint config to .codacy/codacy.yaml "
+            "(.codacy/ is gitignored; static write is the only option without CODACY_ACCOUNT_TOKEN)",
+        )
+        self.assertRegex(
+            pipeline,
+            r"rm -f \.codacy/codacy\.yaml",
+            "quality-pipeline.sh must clean up .codacy/codacy.yaml after analyze",
+        )
+        # Ordering: write must precede analyze, cleanup must follow.
+        # Anchor 'codacy-cli analyze' to a non-comment line (must be at line start or after whitespace,
+        # not preceded by '#') so we match the executable invocation, not the explanatory comment.
+        mkdir_match = re.search(r"^mkdir -p \.codacy", pipeline, re.MULTILINE)
+        analyze_match = re.search(r"^codacy-cli analyze", pipeline, re.MULTILINE)
+        cleanup_match = re.search(r"^rm -f \.codacy/codacy\.yaml", pipeline, re.MULTILINE)
+        self.assertLess(
+            mkdir_match.start(), analyze_match.start(),
+            "'mkdir -p .codacy' must appear before 'codacy-cli analyze'",
+        )
+        self.assertLess(
+            analyze_match.start(), cleanup_match.start(),
+            "'codacy-cli analyze' must appear before 'rm -f .codacy/codacy.yaml'",
+        )
 
     def test_pre_push_blocks_direct_main_push_before_quality_checks(self):
         home = self.make_home()

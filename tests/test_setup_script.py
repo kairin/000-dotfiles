@@ -502,34 +502,40 @@ exit 64
             bin_dir / "codacy-cli",
             textwrap.dedent(
                 f"""#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\\n' "$*" >> "{log_path}"
+# fake codacy-cli — mirrors real behavior: analyze exits 0 but empty SARIF without config
 cmd="${{1:-}}"
 shift || true
 case "$cmd" in
+  init)
+    printf '%s\\n' "init $*" >> "{log_path}"
+    # Create minimal config as real codacy-cli init would
+    mkdir -p .codacy
+    printf -- '---\\ntools:\\n  - name: pylint\\n' > .codacy/codacy.yaml
+    ;;
   analyze)
-    out=""
-    while (($#)); do
-      case "$1" in
-        -o)
-          out="${{2:-}}"
-          shift 2
-          ;;
-        *)
-          shift
-          ;;
-      esac
+    printf 'analyze\\n' >> "{log_path}"
+    if [[ ! -f .codacy/codacy.yaml ]]; then
+      echo "No configuration file was found, execute init command first." >&2
+      while [[ $# -gt 0 ]]; do
+        [[ "$1" == "-o" ]] && {{ printf '{{"runs":[]}}' > "$2"; shift 2; }} || shift
+      done
+      exit 0
+    fi
+    while [[ $# -gt 0 ]]; do
+      [[ "$1" == "-o" ]] && {{ printf 'SARIF\\n' > "$2"; shift 2; }} || shift
     done
-    [[ -n "$out" ]] || exit 64
-    printf 'SARIF\\n' > "$out"
-    exit 0
     ;;
   upload)
-    exit 0
+    printf 'upload\\n' >> "{log_path}"
+    ;;
+  --version)
+    echo "codacy-cli 0.0.0-fake"
+    ;;
+  *)
+    echo "unexpected codacy-cli call: $cmd $*" >&2
+    exit 1
     ;;
 esac
-echo "unexpected codacy-cli call: $cmd $*" >&2
-exit 64
 """
             ),
         )
@@ -1396,6 +1402,22 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         self.assertTrue(
             any("analyze" in line for line in codacy_lines),
             "codacy-cli analyze must be called during ship",
+        )
+        # init) arm logs "init <full argv>" — use startswith, not == "init"
+        self.assertTrue(
+            any(line.startswith("init ") for line in codacy_lines),
+            "codacy-cli init must be called during ship to populate .codacy/codacy.yaml",
+        )
+        self.assertTrue(
+            any("--api-token" in line for line in codacy_lines if line.startswith("init ")),
+            "codacy-cli init must be called with --api-token (CODACY_ACCOUNT_TOKEN)",
+        )
+        # Ordering: init must precede analyze
+        init_idx = next(i for i, line in enumerate(codacy_lines) if line.startswith("init "))
+        analyze_idx = next(i for i, line in enumerate(codacy_lines) if line == "analyze")
+        self.assertLess(
+            init_idx, analyze_idx,
+            "codacy-cli init must run before codacy-cli analyze (init writes .codacy/codacy.yaml)",
         )
 
         gh_lines = gh_log.read_text().splitlines()

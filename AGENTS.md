@@ -191,6 +191,39 @@ Inside the container, run `codex` directly or use `./setup gstack-codex`; the wr
 
 When Playwright issue #40117 is resolved, the Docker workflow becomes optional — host browser skills will work natively again. The container path can stay as a fallback.
 
+## Codacy CLI Configuration Constraint
+
+`codacy-cli analyze` silently exits 0 and produces an empty SARIF file when
+`.codacy/codacy.yaml` does not exist. It prints "No configuration file was found,
+execute init command first." but does **not** return a non-zero exit code.
+
+`.codacy/` is gitignored (`.gitignore` line 27, commit 46af6c8). Do not attempt to
+restore a committed `.codacy/codacy.yaml` — prior commits 81b38aa, 8d47730 did this
+and were removed when `.codacy/` was gitignored. The file gets silently untracked.
+
+Two patterns for ephemerally providing the config (DO NOT mix these):
+
+**In `scripts/quality-pipeline.sh`** (`CODACY_ACCOUNT_TOKEN` must NOT appear — test enforced):
+```bash
+mkdir -p .codacy
+printf -- '---\ntools:\n  - name: pylint\n' > .codacy/codacy.yaml
+codacy-cli analyze --tool pylint --format sarif -o "$SARIF"
+rm -f .codacy/codacy.yaml
+```
+
+**In `./setup ship` step 4d** (`CODACY_ACCOUNT_TOKEN` available via direnv):
+```bash
+codacy-cli init --api-token "${CODACY_ACCOUNT_TOKEN:-}" --provider gh \
+  --organization "${CODACY_USERNAME:-}" --repository "${CODACY_PROJECT_NAME:-}" 2>/dev/null || true
+codacy-cli analyze --tool pylint --format sarif -o "$SARIF"
+```
+
+The `/codacy` skill (`~/.claude/skills/codacy/SKILL.md`) documents all procedures
+and troubleshooting. Invoke it before running `codacy-cli`.
+
+Known non-fatal warnings: `tools//patterns failed with status 404` (codacy-cli bug),
+`"Repository Analysis" is disabled` (advisory; 200 OK = upload succeeded).
+
 ## Hook Trigger Map
 
 Use these layers precisely: tool instructions are Markdown context files, tool hooks are CLI-specific session/tool hooks, and repo hooks are Git hooks that run for any caller.
