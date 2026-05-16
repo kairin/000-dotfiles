@@ -222,7 +222,7 @@ A good dotfiles repo should:
 | Protected files never auto-overwritten | ✓ git config, fish plugins, etc. |
 | No secrets or tokens committed | ✓ Auth files `.gitignore`d |
 | Multi-platform support | ✓ Linux, WSL, Pi, Pixel Terminal |
-| Validation & test coverage | ✓ 120 unit tests; CI/CD integration |
+| Validation & test coverage | ✓ 307 unit tests (55 test classes, 5.8k LOC); CI/CD integration |
 | AI tool config management | ✓ Claude, Codex, Gemini, Copilot |
 | Per-project AI agent scaffolding | ✓ `AGENTS.md` + symlinks |
 

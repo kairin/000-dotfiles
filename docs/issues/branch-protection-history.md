@@ -1,5 +1,12 @@
 # Branch Protection History
 
+> **Phase 3 Reversal (2026-05-16, PR #254):** The "Restored: 2026-05-16"
+> section below describes an interim "safety-net only" state that was
+> superseded later that same day by PR #254. Branch protection now requires
+> all four Codacy checks unconditionally. `./setup ship` is the canonical
+> merge path. Treat this file as a historical log; do not act on its policy
+> or configuration claims.
+
 ## Original Configuration (Removed 2026-05-06)
 
 The main branch had two layers of protection configured:
