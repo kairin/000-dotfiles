@@ -221,28 +221,16 @@ def build_unsupported_plan(home: Path, context: dict[str, Any]) -> dict[str, Any
 
 
 def unsupported_nerd_summary(home: Path, context: dict[str, Any], item: NerdFontItem, reason: str) -> dict[str, Any]:
-    paths = nerd_paths(home, item)
-    return {
-        "entry_id": item.entry_id,
-        "label": item.label,
-        "family": item.family,
-        "source_type": "nerd_font_release",
-        "source": f"GitHub latest release asset {NERD_FONTS_REPO}/{item.asset_name}",
-        "asset_name": item.asset_name,
-        "state": "unsupported",
-        "installed_version": None,
-        "latest_version": None,
-        "cached_version": None,
-        "candidate_version": None,
-        "target": str(paths["install_dir"]),
-        "cache_path": str(paths["archive"]),
-        "terminal_face": item.terminal_face,
-        "platform": context["platform"],
-        "requires_sudo": False,
-        "terminal_impact": terminal_impact(context["platform"]),
-        "host_action": host_action(context),
-        "reason": reason,
-    }
+    return nerd_font_summary_record(
+        context,
+        item,
+        nerd_paths(home, item),
+        "unsupported",
+        reason,
+        None,
+        None,
+        None,
+    )
 
 
 def unsupported_apt_summary(context: dict[str, Any], item: dict[str, str], reason: str) -> dict[str, Any]:

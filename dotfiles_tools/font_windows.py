@@ -6,8 +6,9 @@ from typing import Any
 
 from .backups import create_backup
 from .font_assets import windows_font_install_script
-from .font_catalog import FONT_CACHE_REL, FONT_FACE, FONT_INSTALL_BASE_REL, WINDOWS_ENTRY_ID, FontError, NerdFontItem
+from .font_catalog import FONT_FACE, WINDOWS_ENTRY_ID, FontError, NerdFontItem
 from .font_context import check_windows_fonts_installed, host_action, terminal_impact
+from .font_records import manual_op, nerd_paths
 from .font_runner import CommandRunner
 
 
@@ -112,33 +113,11 @@ def windows_terminal_update_operation(item: NerdFontItem, settings: str) -> dict
     }
 
 
-def nerd_paths(home: Path, item: NerdFontItem) -> dict[str, Path]:
-    cache_dir = home / FONT_CACHE_REL
-    return {
-        "cache_dir": cache_dir,
-        "archive": cache_dir / item.asset_name,
-        "version": cache_dir / f"{item.cache_stem}.version.json",
-        "extract_dir": cache_dir / item.cache_stem,
-        "install_dir": home / FONT_INSTALL_BASE_REL / item.install_dir_name,
-    }
-
-
 def _windows_skip_op(entry_id: str, reason: str) -> dict[str, Any]:
     return {
         "entry_id": entry_id,
         "type": "font_skip",
         "target": "Windows per-user font store",
-        "reason": reason,
-        "requires_approval": False,
-        "recipe": "fonts",
-    }
-
-
-def manual_op(entry_id: str, reason: str) -> dict[str, Any]:
-    return {
-        "entry_id": entry_id,
-        "type": "font_manual",
-        "target": "",
         "reason": reason,
         "requires_approval": False,
         "recipe": "fonts",
