@@ -522,9 +522,8 @@ def _auth_check_verify_command(
     try:
         # Use the same PATH the tool was found on so the right binary is called.
         env = {**os.environ, "PATH": search_path, "HOME": str(home)}
-        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit.dangerous-subprocess-use-audit
         # `verify` originates from internal TOOL_BASELINE/AUTH_TOOLS tuples, not user input.
-        result = subprocess.run(  # nosec B603
+        result = subprocess.run(  # nosec B603 # nosemgrep
             list(verify),
             capture_output=True,
             text=True,

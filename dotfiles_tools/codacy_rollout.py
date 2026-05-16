@@ -201,9 +201,8 @@ class GitHubCliClient:
         return checks
 
     def _run(self, args: list[str]) -> str:
-        # nosec B603 # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit.dangerous-subprocess-use-audit
         # args come from internal `gh api ...` invocations in this module; never user input.
-        result = subprocess.run(args, capture_output=True, text=True, check=False)  # nosec B603
+        result = subprocess.run(args, capture_output=True, text=True, check=False)  # nosec B603 # nosemgrep
         if result.returncode != 0:
             return ""
         return result.stdout.strip()
