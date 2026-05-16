@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
-import subprocess
+import subprocess  # nosec B404 -- subprocess use is intentional; args are internal, never user input
 from typing import Any, Iterable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -201,7 +201,9 @@ class GitHubCliClient:
         return checks
 
     def _run(self, args: list[str]) -> str:
-        result = subprocess.run(args, capture_output=True, text=True, check=False)
+        # nosec B603 # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit.dangerous-subprocess-use-audit
+        # args come from internal `gh api ...` invocations in this module; never user input.
+        result = subprocess.run(args, capture_output=True, text=True, check=False)  # nosec B603
         if result.returncode != 0:
             return ""
         return result.stdout.strip()
@@ -230,45 +232,59 @@ class CodacyApiClient:
         self.token = token or os.environ.get("CODACY_ACCOUNT_TOKEN", "") or os.environ.get("CODACY_API_TOKEN", "")
 
     def repository_state(self, repo: str) -> dict[str, Any]:
-        fixture = os.environ.get("CODACY_AUDIT_CODACY_STATE_JSON")
-        if fixture:
-            data = json.loads(Path(fixture).read_text())
-            return data.get(repo, data)
+        fixture_state = _load_codacy_fixture_state(repo)
+        if fixture_state is not None:
+            return fixture_state
         if not self.token:
-            return {
-                "exists": False,
-                "coding_standard_applied": False,
-                "gate_policy_applied": False,
-                "latest_pr_quality": {},
-                "error": "CODACY_ACCOUNT_TOKEN is not set",
-            }
-        owner, name = repo.split("/", 1)
-        url = f"https://app.codacy.com/api/v3/analysis/organizations/gh/{owner}/repositories/{name}"
-        request = Request(url, headers={"api-token": self.token})
-        try:
-            with urlopen(request, timeout=15) as response:
-                data = json.loads(response.read().decode("utf-8"))
-        except HTTPError as error:
-            return {"exists": False, "error": f"Codacy API HTTP {error.code}"}
-        except (OSError, URLError, json.JSONDecodeError) as error:
-            return {"exists": False, "error": str(error)}
-        body = data.get("data", data)
-        return {
-            "exists": True,
-            "coding_standard_applied": bool(
-                body.get("codingStandard")
-                or body.get("coding_standard")
-                or body.get("codingStandardName")
-                or body.get("codingStandardId")
-            ),
-            "gate_policy_applied": bool(
-                body.get("qualityGate")
-                or body.get("quality_gate")
-                or body.get("qualityGateName")
-                or body.get("qualityGateId")
-            ),
-            "latest_pr_quality": body.get("latest_pr_quality") or body.get("latestPullRequest") or {},
-        }
+            return _codacy_state_missing_token()
+        fetched = _fetch_codacy_repository(repo, self.token)
+        if "error" in fetched:
+            return fetched
+        return _build_codacy_state(fetched["data"])
+
+
+def _load_codacy_fixture_state(repo: str) -> dict[str, Any] | None:
+    fixture = os.environ.get("CODACY_AUDIT_CODACY_STATE_JSON")
+    if not fixture:
+        return None
+    data = json.loads(Path(fixture).read_text())
+    return data.get(repo, data)
+
+
+def _codacy_state_missing_token() -> dict[str, Any]:
+    return {
+        "exists": False,
+        "coding_standard_applied": False,
+        "gate_policy_applied": False,
+        "latest_pr_quality": {},
+        "error": "CODACY_ACCOUNT_TOKEN is not set",
+    }
+
+
+def _fetch_codacy_repository(repo: str, token: str) -> dict[str, Any]:
+    owner, name = repo.split("/", 1)
+    url = f"https://app.codacy.com/api/v3/analysis/organizations/gh/{owner}/repositories/{name}"
+    request = Request(url, headers={"api-token": token})
+    try:
+        # nosec B310 -- URL is hardcoded https to app.codacy.com; no user-controlled scheme.
+        with urlopen(request, timeout=15) as response:  # nosec B310
+            data = json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        return {"exists": False, "error": f"Codacy API HTTP {error.code}"}
+    except (OSError, URLError, json.JSONDecodeError) as error:
+        return {"exists": False, "error": str(error)}
+    return {"data": data.get("data", data)}
+
+
+def _build_codacy_state(body: dict[str, Any]) -> dict[str, Any]:
+    coding_standard_keys = ("codingStandard", "coding_standard", "codingStandardName", "codingStandardId")
+    gate_keys = ("qualityGate", "quality_gate", "qualityGateName", "qualityGateId")
+    return {
+        "exists": True,
+        "coding_standard_applied": any(body.get(key) for key in coding_standard_keys),
+        "gate_policy_applied": any(body.get(key) for key in gate_keys),
+        "latest_pr_quality": body.get("latest_pr_quality") or body.get("latestPullRequest") or {},
+    }
 
 
 def render_audit_table(results: Iterable[AuditResult]) -> str:
@@ -396,28 +412,41 @@ def _summarize_rulesets(data: Any, default_branch: str) -> dict[str, Any]:
     summary = _empty_protection_summary()
     rulesets = data if isinstance(data, list) else []
     for ruleset in rulesets:
-        if not isinstance(ruleset, dict) or ruleset.get("target", "branch") != "branch":
-            continue
-        if ruleset.get("enforcement") == "disabled":
-            continue
-        if not _ruleset_matches_default_branch(ruleset, default_branch):
+        if not _ruleset_applies(ruleset, default_branch):
             continue
         summary["protects_default_branch"] = True
         for rule in ruleset.get("rules", []) or []:
-            rule_type = rule.get("type")
-            if rule_type == "pull_request":
-                summary["requires_pull_request"] = True
-            elif rule_type == "non_fast_forward":
-                summary["blocks_force_pushes"] = True
-            elif rule_type == "deletion":
-                summary["blocks_deletions"] = True
-            elif rule_type == "required_status_checks":
-                for status_check in (rule.get("parameters") or {}).get("required_status_checks", []) or []:
-                    context = status_check.get("context") or status_check.get("name")
-                    if context:
-                        summary["required_checks"].append(context)
+            _apply_rule_to_summary(rule, summary)
     summary["required_checks"] = sorted(set(summary["required_checks"]))
     return summary
+
+
+def _ruleset_applies(ruleset: Any, default_branch: str) -> bool:
+    if not isinstance(ruleset, dict) or ruleset.get("target", "branch") != "branch":
+        return False
+    if ruleset.get("enforcement") == "disabled":
+        return False
+    return _ruleset_matches_default_branch(ruleset, default_branch)
+
+
+def _apply_rule_to_summary(rule: dict[str, Any], summary: dict[str, Any]) -> None:
+    rule_type = rule.get("type")
+    handlers = {
+        "pull_request": lambda r, s: s.__setitem__("requires_pull_request", True),
+        "non_fast_forward": lambda r, s: s.__setitem__("blocks_force_pushes", True),
+        "deletion": lambda r, s: s.__setitem__("blocks_deletions", True),
+        "required_status_checks": _append_required_checks_from_rule,
+    }
+    handler = handlers.get(rule_type)
+    if handler:
+        handler(rule, summary)
+
+
+def _append_required_checks_from_rule(rule: dict[str, Any], summary: dict[str, Any]) -> None:
+    for status_check in (rule.get("parameters") or {}).get("required_status_checks", []) or []:
+        context = status_check.get("context") or status_check.get("name")
+        if context:
+            summary["required_checks"].append(context)
 
 
 def _summarize_branch_protection(data: Any) -> dict[str, Any]:
@@ -426,16 +455,17 @@ def _summarize_branch_protection(data: Any) -> dict[str, Any]:
         return summary
     summary["protects_default_branch"] = True
     summary["requires_pull_request"] = bool(data.get("required_pull_request_reviews"))
-    force = data.get("allow_force_pushes") or {}
-    deletions = data.get("allow_deletions") or {}
-    summary["blocks_force_pushes"] = not bool(force.get("enabled"))
-    summary["blocks_deletions"] = not bool(deletions.get("enabled"))
-    required = data.get("required_status_checks") or {}
-    checks = []
-    checks.extend(required.get("contexts") or [])
-    checks.extend((item.get("context") for item in required.get("checks") or [] if item.get("context")))
-    summary["required_checks"] = sorted(set(checks))
+    summary["blocks_force_pushes"] = not bool((data.get("allow_force_pushes") or {}).get("enabled"))
+    summary["blocks_deletions"] = not bool((data.get("allow_deletions") or {}).get("enabled"))
+    summary["required_checks"] = _branch_protection_required_checks(data.get("required_status_checks") or {})
     return summary
+
+
+def _branch_protection_required_checks(required: dict[str, Any]) -> list[str]:
+    checks: list[str] = []
+    checks.extend(required.get("contexts") or [])
+    checks.extend(item.get("context") for item in required.get("checks") or [] if item.get("context"))
+    return sorted(set(checks))
 
 
 def _empty_protection_summary() -> dict[str, Any]:

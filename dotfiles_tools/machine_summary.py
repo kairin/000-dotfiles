@@ -235,13 +235,25 @@ def _extend_blocked_context(lines: list[str], action_summary: dict[str, int | bo
     lines.append(f"  - Stop on {_plural(action_summary['blockers'], 'blocking issue')}; fix before applying.")
 
 
-def _extend_auth_guidance_context(lines: list[str], doctor: Report) -> None:
-    auth_guidance = doctor.extra.get("auth_guidance") or []
+def _partition_auth_guidance(
+    auth_guidance: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     pending = [item for item in auth_guidance if item.get("state") == "available"]
     signed_in = [item for item in auth_guidance if item.get("state") == "signed_in"]
-    if signed_in:
-        identities = ", ".join(_auth_identity_label(item) for item in signed_in)
-        lines.append(f"  - Verified sign-ins: {identities}.")
+    return pending, signed_in
+
+
+def _append_signed_in_line(lines: list[str], signed_in: list[dict[str, Any]]) -> None:
+    if not signed_in:
+        return
+    identities = ", ".join(_auth_identity_label(item) for item in signed_in)
+    lines.append(f"  - Verified sign-ins: {identities}.")
+
+
+def _extend_auth_guidance_context(lines: list[str], doctor: Report) -> None:
+    auth_guidance = doctor.extra.get("auth_guidance") or []
+    pending, signed_in = _partition_auth_guidance(auth_guidance)
+    _append_signed_in_line(lines, signed_in)
     if pending:
         commands = ", ".join(str(item.get("command")) for item in pending)
         lines.append(f"  - Pending sign-ins: {commands}.")
@@ -471,17 +483,18 @@ def _extend_tool_check_lines(lines: list[str], tool_checks: list[dict[str, Any]]
         lines.append(f"    {item.get('command')}: {item.get('install_hint')}")
 
 
-def _extend_auth_summary_line(lines: list[str], auth_guidance: list[dict[str, Any]]) -> None:
-    pending = [item for item in auth_guidance if item.get("state") == "available"]
-    signed_in = [item for item in auth_guidance if item.get("state") == "signed_in"]
-    if signed_in:
-        identities = ", ".join(_auth_identity_label(item) for item in signed_in)
-        lines.append(f"  - Verified sign-ins: {identities}.")
+def _append_pending_auth_line(lines: list[str], pending: list[dict[str, Any]], signed_in: list[dict[str, Any]]) -> None:
     if pending:
         commands = ", ".join(str(item.get("command")) for item in pending)
         lines.append(f"  - Auth checks are manual: {commands}.")
     elif not signed_in:
         lines.append("  - No auth guidance items applicable.")
+
+
+def _extend_auth_summary_line(lines: list[str], auth_guidance: list[dict[str, Any]]) -> None:
+    pending, signed_in = _partition_auth_guidance(auth_guidance)
+    _append_signed_in_line(lines, signed_in)
+    _append_pending_auth_line(lines, pending, signed_in)
 
 
 def _auth_identity_label(item: dict[str, Any]) -> str:

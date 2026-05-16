@@ -394,13 +394,20 @@ def _extend_auth_status(lines: list[str], auth_items: list[dict[str, Any]]) -> N
     if not visible:
         return
     lines.append("")
-    signed_in = [item for item in visible if item["state"] == "signed_in"]
-    pending = [item for item in visible if item["state"] == "available"]
+    signed_in, pending = _partition_auth_items(visible)
     _append_signed_in_block(lines, signed_in, has_pending=bool(pending))
     _append_pending_block(lines, pending, has_signed_in=bool(signed_in))
     if not signed_in and not pending:
         lines.append("")
         lines.append("  No auth guidance items applicable.")
+
+
+def _partition_auth_items(
+    visible: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    signed_in = [item for item in visible if item["state"] == "signed_in"]
+    pending = [item for item in visible if item["state"] == "available"]
+    return signed_in, pending
 
 
 def _append_signed_in_block(lines: list[str], signed_in: list[dict[str, Any]], *, has_pending: bool) -> None:
@@ -515,6 +522,8 @@ def _auth_check_verify_command(
     try:
         # Use the same PATH the tool was found on so the right binary is called.
         env = {**os.environ, "PATH": search_path, "HOME": str(home)}
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit.dangerous-subprocess-use-audit
+        # `verify` originates from internal TOOL_BASELINE/AUTH_TOOLS tuples, not user input.
         result = subprocess.run(  # nosec B603
             list(verify),
             capture_output=True,
@@ -525,7 +534,7 @@ def _auth_check_verify_command(
         if result.returncode == 0:
             detail = _extract_signed_in_detail(result.stdout + result.stderr)
             return {**base, "state": "signed_in", "signed_in_detail": detail}
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  # nosec B110 -- intentional: probe failure means tool unavailable; caller falls back to "available" state
         pass
     return {**base, "state": "available"}
 
@@ -543,27 +552,42 @@ def _json_paths_present(data: Any, paths: tuple[tuple[str, ...], ...]) -> bool:
 
 
 def _extract_signed_in_detail(output: str) -> str:
+    json_detail = _signed_in_detail_from_json(output)
+    if json_detail is not None:
+        return json_detail
+    text_detail = _signed_in_detail_from_text(output)
+    if text_detail is not None:
+        return text_detail
+    return "signed in"
+
+
+def _signed_in_detail_from_json(output: str) -> str | None:
     try:
         data = json.loads(output)
     except json.JSONDecodeError:
-        data = None
-    if isinstance(data, dict) and data.get("loggedIn") is True:
-        email = data.get("email")
-        org_name = data.get("orgName")
-        auth_method = data.get("authMethod")
-        if email and org_name:
-            return f"{email} ({org_name})"
-        if email:
-            return str(email)
-        if org_name:
-            return str(org_name)
-        if auth_method:
-            return str(auth_method)
-    for line in output.splitlines():
-        line = line.strip()
+        return None
+    if not isinstance(data, dict) or data.get("loggedIn") is not True:
+        return None
+    email = data.get("email")
+    org_name = data.get("orgName")
+    if email and org_name:
+        return f"{email} ({org_name})"
+    return _first_str(email, org_name, data.get("authMethod"))
+
+
+def _first_str(*candidates: Any) -> str | None:
+    for value in candidates:
+        if value:
+            return str(value)
+    return None
+
+
+def _signed_in_detail_from_text(output: str) -> str | None:
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
         if "logged in" in line.lower() or "account" in line.lower():
             return line.lstrip("!✓- ") or "signed in"
-    return "signed in"
+    return None
 
 
 if __name__ == "__main__":
