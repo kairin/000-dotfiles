@@ -4,12 +4,12 @@ Single source of truth for LLM agents. `CLAUDE.md` and `GEMINI.md` symlink to th
 
 For human-facing setup instructions (quick start, scenarios, command reference), see `README.md`. For deep system-design and convention claims, see [ARCHITECTURE.md](ARCHITECTURE.md). This file focuses on the conventions agents must respect.
 
-## What this repo is <!-- anchor: what-this-repo-is -->
-
+## What this repo is
+<!-- anchor: what-this-repo-is -->
 A collection of config templates for AI coding tools (Claude Code, Codex, Gemini CLI, gh CLI) and shell environment (fish, git), plus a small Python CLI (`dotfiles_tools`) and a bash entrypoint (`./setup`) that audit and apply those templates. Every file with a `.template` suffix is meant to be copied to its target path and customized — it is never executed or sourced directly from here.
 
-## Protected Files — NEVER Modify Without Explicit Per-File Directive <!-- anchor: protected-files -->
-
+## Protected Files — NEVER Modify Without Explicit Per-File Directive
+<!-- anchor: protected-files -->
 <!-- mirrors: ARCHITECTURE.md#protected-files-canonical-list -->
 
 | File | Why protected |
@@ -24,8 +24,8 @@ A collection of config templates for AI coding tools (Claude Code, Codex, Gemini
 - If a task seems to require touching a protected file, stop and ask.
 - `git show origin/main:<file>` is the authoritative original.
 
-## Key paths <!-- anchor: key-paths -->
-
+## Key paths
+<!-- anchor: key-paths -->
 ```
 agents/                       Project-level agent doc templates (AGENTS.md, CLAUDE.md, GEMINI.md, copilot-instructions.md)
 claude/                       ~/.claude/ templates (settings.json, keybindings.json, CLAUDE.md)
@@ -49,8 +49,8 @@ ARCHITECTURE.md               Canonical hub for system design and convention cla
 
 Dot-prefixed directories (`.claude/`, `.codex/`, `.codacy/`, `.gstack/`, `.specify/`, `.agents/`, `.github/`, `.vscode/`) are tool state or CI config, intentionally excluded from this layout list.
 
-## MCP Tool Availability <!-- anchor: mcp -->
-
+## MCP Tool Availability
+<!-- anchor: mcp -->
 <!-- mirrors: ARCHITECTURE.md#mcp-tool-availability -->
 
 Two MCP servers are available to agents when the required tokens are set.
@@ -73,32 +73,32 @@ the session-start output. Recovery: `./setup repair-codacy-env`.
 Per-project extra variables: create `.claude/env-allowlist` with one variable
 name per line; the hook merges those into the forwarded set.
 
-### GitHub MCP (`mcp__github__*`) <!-- anchor: mcp-github -->
-
+### GitHub MCP (`mcp__github__*`)
+<!-- anchor: mcp-github -->
 Available when `GITHUB_TOKEN` is set. `$GITHUB_TOKEN` is automatically loaded by the SessionStart hook from `.envrc.local` — no manual sourcing needed.
 
 Key tools: `create_issue`, `list_issues`, `create_pull_request`, `list_pull_requests`, `get_pull_request`, `get_pull_request_files`, `get_pull_request_reviews`, `get_pull_request_status`, `push_files`, `search_code`, `search_repositories`.
 
 Prerequisite: `gh auth login` must have been run. If `gh` is not authenticated, `GITHUB_TOKEN` silently becomes an empty string and all GitHub MCP calls will fail — run `gh auth status` to verify.
 
-### Codacy MCP (`mcp__codacy__*`) <!-- anchor: mcp-codacy -->
-
+### Codacy MCP (`mcp__codacy__*`)
+<!-- anchor: mcp-codacy -->
 Available when `CODACY_ACCOUNT_TOKEN` is set. The token is a machine-level account token stored at `~/.codacy/account-token`. It is automatically loaded into `$CODACY_ACCOUNT_TOKEN` by the SessionStart hook — no manual sourcing needed. A project-level token alone is insufficient.
 
 Key tools: `codacy_list_repository_issues`, `codacy_get_file_issues`, `codacy_get_file_coverage`, `codacy_get_pull_request_files_coverage`, `codacy_cli_analyze`, `codacy_setup_repository`.
 
 Background and the broader auth surface (project token bridges, machine-level vs project-level tokens): see [ARCHITECTURE.md#auth-guidance](ARCHITECTURE.md#auth-guidance) and [ARCHITECTURE.md#token-bridges](ARCHITECTURE.md#project-token-bridges).
 
-## Template Convention <!-- anchor: templates -->
-
+## Template Convention
+<!-- anchor: templates -->
 <!-- mirrors: ARCHITECTURE.md#template-convention -->
 
 - Files ending in `.template` are copy-and-customize — never source or execute from this path.
 - Placeholders follow the pattern `{{UPPER_SNAKE_CASE}}` (double-braces, no spaces) and must all be replaced before use.
 - No secrets, tokens, or API keys are stored anywhere in this repo. Auth files are excluded by `.gitignore` and the global git ignore.
 
-## Local API Access <!-- anchor: local-api -->
-
+## Local API Access
+<!-- anchor: local-api -->
 When this repo is opened in a shell that has loaded `.envrc` and `.envrc.local`,
 agents may use the following environment variables for local Codacy and GitHub
 billing workflows:
@@ -115,8 +115,8 @@ repository. Do not commit them, print them, or add them to tracked config. If
 the shell output shows `direnv: export ...`, treat those exports as available
 for the current session only.
 
-## Symlink Convention <!-- anchor: symlinks -->
-
+## Symlink Convention
+<!-- anchor: symlinks -->
 <!-- mirrors: ARCHITECTURE.md#symlink-convention -->
 
 `CLAUDE.md` and `GEMINI.md` at the repo root are symlinks to `AGENTS.md`. At the project level, `agents/CLAUDE.md.template` and `agents/GEMINI.md.template` are symlinks to `agents/AGENTS.md.template`. This keeps one source of truth per scope.
@@ -127,16 +127,16 @@ ls -la CLAUDE.md GEMINI.md
 # expected: both point to AGENTS.md
 ```
 
-## Making Changes <!-- anchor: making-changes -->
-
+## Making Changes
+<!-- anchor: making-changes -->
 - Adding a new tool config: create a `<tool>/` directory with `<file>.template` files; update `README.md` table and the bootstrap commands.
 - Updating an existing template: edit the `.template` file directly; note in the commit message if any placeholder names changed.
 - Never commit files containing real credentials. Run `git diff --staged` before every commit and check for tokens, keys, or personal paths.
 - Adding a curl-based installer to `TOOL_BASELINE`: declare `"interpreter": "..."` in `install_args` if the script is anything other than bash. `_execute_curl` runs the script under that interpreter (Ubuntu's default `/bin/sh` is dash and rejects bash extensions).
 - Adding a new bootstrap tool to `TOOL_BASELINE`: declare a `post_install` tuple (may be empty) listing follow-up actions. `kind="auto"` runs when the user passes `--yes`; `kind="guidance"` only prints the command. Templates may use `{which:<name>}` and `{user}` placeholders; unresolved placeholders downgrade to guidance automatically.
 
-## Development Workflow <!-- anchor: dev-workflow -->
-
+## Development Workflow
+<!-- anchor: dev-workflow -->
 <!-- mirrors: ARCHITECTURE.md#development-workflow -->
 
 ```bash
@@ -180,8 +180,8 @@ quality pipeline (7 stages) are documented at
 [ARCHITECTURE.md#pre-push](ARCHITECTURE.md#pre-push-hook) and
 [ARCHITECTURE.md#quality-pipeline](ARCHITECTURE.md#local-quality-pipeline).
 
-## Docker-based browser automation <!-- anchor: docker-browser -->
-
+## Docker-based browser automation
+<!-- anchor: docker-browser -->
 <!-- mirrors: ARCHITECTURE.md#docker-based-browser-automation -->
 
 When Playwright lacks Ubuntu 26.04 binaries, gstack browser skills run inside
@@ -194,8 +194,8 @@ the 9 docker-compose settings, mount list, verified-state record, and
 file inventory, see
 [ARCHITECTURE.md#docker-based-browser-automation](ARCHITECTURE.md#docker-based-browser-automation).
 
-## Codacy CLI Configuration Constraint <!-- anchor: codacy-cli -->
-
+## Codacy CLI Configuration Constraint
+<!-- anchor: codacy-cli -->
 <!-- mirrors: ARCHITECTURE.md#codacy-cli-configuration -->
 
 `codacy-cli analyze` silently exits 0 and produces an empty SARIF file when
@@ -234,8 +234,8 @@ checks from running on the PR.
 Coverage upload paths (Path A: GitHub Actions baseline / Path B: Codacy
 server diff) are documented at [ARCHITECTURE.md#codacy-coverage-paths](ARCHITECTURE.md#coverage-upload-paths).
 
-## Hook Trigger Map <!-- anchor: hooks -->
-
+## Hook Trigger Map
+<!-- anchor: hooks -->
 <!-- mirrors: ARCHITECTURE.md#hook-trigger-map -->
 
 The Git repo hook (`.git/hooks/pre-push`) blocks direct pushes to `main`

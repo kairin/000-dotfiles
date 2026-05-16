@@ -15,19 +15,24 @@ def _read(path: str) -> str:
 
 
 class ArchitectureHubTests(DotfilesTestCase):
-    def test_every_h2_has_same_line_anchor_comment(self):
-        arch = _read("ARCHITECTURE.md")
+    def test_every_h2_has_anchor_comment_on_next_line(self):
+        """Each ARCHITECTURE.md H2 must be followed by an
+        ``<!-- anchor: slug -->`` line. The anchor lives on the line
+        immediately after the heading so it does not pollute GitHub's
+        auto-derived slug (markdownlint MD051 trips on inline HTML)."""
+        arch_lines = _read("ARCHITECTURE.md").splitlines()
         missing: list[str] = []
-        for line in arch.splitlines():
+        for idx, line in enumerate(arch_lines):
             if not line.startswith("## "):
                 continue
-            if "<!-- anchor: " not in line:
-                missing.append(line)
+            next_line = arch_lines[idx + 1] if idx + 1 < len(arch_lines) else ""
+            if not ANCHOR_PATTERN.search(next_line):
+                missing.append(f"line {idx + 1}: {line!r}")
         self.assertEqual(
             missing,
             [],
-            "Every ARCHITECTURE.md H2 must carry a same-line "
-            "<!-- anchor: slug --> comment. Missing on:\n  "
+            "Every ARCHITECTURE.md H2 must have an <!-- anchor: slug --> "
+            "comment on the line immediately following it. Missing on:\n  "
             + "\n  ".join(missing),
         )
 

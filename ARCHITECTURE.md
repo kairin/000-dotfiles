@@ -5,12 +5,13 @@
 > instead of repeating content. See [Drift Prevention](#drift-prevention) for
 > the rule satellites must follow.
 
-Every H2 below carries a same-line `<!-- anchor: kebab-slug -->` comment so
-satellites can deep-link to a stable target. The HTML comment is invisible to
-human readers; the canonical URL is GitHub's auto-derived heading slug.
+Every H2 below carries a `<!-- anchor: kebab-slug -->` comment on the line
+immediately following the heading. The HTML comment is invisible to human
+readers and is parsed by `tests/test_architecture.py`; the canonical URL
+satellites link to is GitHub's auto-derived slug from the heading text.
 
-## Table of Contents <!-- anchor: toc -->
-
+## Table of Contents
+<!-- anchor: toc -->
 - [Overview](#overview) — what this repo is and is not
 - [System Design](#system-design) — bootstrap, drift detection, safe changes, validation
 - [Tool Catalog](#tool-catalog) — the 13 entries in `TOOL_BASELINE`
@@ -29,8 +30,8 @@ human readers; the canonical URL is GitHub's auto-derived heading slug.
 
 ---
 
-## Overview <!-- anchor: overview -->
-
+## Overview
+<!-- anchor: overview -->
 This repository is a collection of config templates for AI coding tools
 (Claude Code, Codex, Gemini CLI, Copilot CLI, gh CLI) plus shell environment
 (fish, git, direnv), together with a stdlib-only Python CLI
@@ -49,12 +50,12 @@ this repo.
 
 ---
 
-## System Design <!-- anchor: system-design -->
-
+## System Design
+<!-- anchor: system-design -->
 Four sub-flows: bootstrap, drift detection, safe changes, validation.
 
-### Bootstrap <!-- anchor: bootstrap -->
-
+### Bootstrap
+<!-- anchor: bootstrap -->
 The 13-entry `TOOL_BASELINE` (`dotfiles_tools/baseline.py:11-289`) declares
 every tool that should be present on a developer machine, its `install_method`
 (`apt`, `apt_keyring`, `npm`, `uv_tool`, `curl_installer`, `manual`), and any
@@ -65,8 +66,8 @@ The actual installation is dispatched from bash (`setup` script) for the
 options that need `sudo` (`apt`, `apt_keyring`); Python validates state but
 does not invoke `sudo` directly.
 
-### Drift detection <!-- anchor: drift-detection -->
-
+### Drift detection
+<!-- anchor: drift-detection -->
 `run_doctor()` (`dotfiles_tools/doctor.py:211`) compares every manifest entry
 against its on-disk target. For each entry it computes `expected_text()`
 (`dotfiles_tools/templates.py:19`) — the rendered template — and compares it
@@ -75,8 +76,8 @@ flagged as drifted regardless of content; entries marked `protected: true`
 are also never auto-overwritten. The doctor returns a `Report` whose `extra`
 dict carries `auth_guidance` for the menu summary.
 
-### Safe changes <!-- anchor: safe-changes -->
-
+### Safe changes
+<!-- anchor: safe-changes -->
 `./setup` option 2 ("Apply safe dotfiles updates") has a sub-menu that
 separates ordinary dotfiles from font installation. Every overwrite is
 preceded by a backup written under `$HOME/.dotfiles-backups/` via
@@ -84,8 +85,8 @@ preceded by a backup written under `$HOME/.dotfiles-backups/` via
 flag is an explicit opt-in that allows overwriting protected files; without
 it the protected files are skipped.
 
-### Validation <!-- anchor: validation -->
-
+### Validation
+<!-- anchor: validation -->
 Two read-only audit entry points:
 
 - `./setup verify` (no `uv` required, CI-safe).
@@ -108,8 +109,8 @@ Two read-only audit entry points:
 
 ---
 
-## Tool Catalog <!-- anchor: tool-catalog -->
-
+## Tool Catalog
+<!-- anchor: tool-catalog -->
 The canonical enumeration of every tool the bootstrap manages. Source of
 truth: `TOOL_BASELINE` at `dotfiles_tools/baseline.py:11-289`.
 
@@ -140,13 +141,13 @@ Notes:
 
 ---
 
-## Auth Guidance <!-- anchor: auth-guidance -->
-
+## Auth Guidance
+<!-- anchor: auth-guidance -->
 Auth coverage has two parts: per-tool sign-in checks (`AUTH_GUIDANCE`) and
 project-level token bridges (`.envrc`, Codacy, repair helpers).
 
-### Tool sign-ins <!-- anchor: auth-tool-signins -->
-
+### Tool sign-ins
+<!-- anchor: auth-tool-signins -->
 The 7-entry `AUTH_GUIDANCE` tuple at `dotfiles_tools/baseline.py:311-357`
 drives the `[+]/[ ]/[?]` status display in option 4 and the auth context
 lines in the menu summary banner.
@@ -172,8 +173,8 @@ The `[recommended]` tag on menu option 4 is gated by
 `_recommendation_for_auth_guidance()` (`machine_summary.py:132`), which fires
 only when at least one verifiable tool is pending sign-in.
 
-### Project Token Bridges <!-- anchor: token-bridges -->
-
+### Project Token Bridges
+<!-- anchor: token-bridges -->
 Distinct from per-tool sign-ins. Two scopes:
 
 - **Machine-level account tokens.** Codacy `~/.codacy/account-token` (text);
@@ -196,8 +197,8 @@ Distinct from per-tool sign-ins. Two scopes:
 
 ---
 
-## Protected Files Canonical List <!-- anchor: protected-files-canonical-list -->
-
+## Protected Files Canonical List
+<!-- anchor: protected-files-canonical-list -->
 Four files are protected. Agents may read them freely; writing requires an
 explicit per-file directive from the user. The full why and the agent-facing
 rules live in [AGENTS.md#protected-files](AGENTS.md#protected-files-never-modify-without-explicit-per-file-directive).
@@ -215,12 +216,12 @@ The bootstrap respects this list via the `protected: true` field in
 
 ---
 
-## MCP Tool Availability <!-- anchor: mcp-tool-availability -->
-
+## MCP Tool Availability
+<!-- anchor: mcp-tool-availability -->
 Two MCP servers are auto-registered when their tokens are present.
 
-### Token loading via SessionStart hook <!-- anchor: mcp-token-loading -->
-
+### Token loading via SessionStart hook
+<!-- anchor: mcp-token-loading -->
 `~/.claude/hooks/load-project-env.sh` runs at every Claude Code session
 start. It reads the current project's `.envrc` / `.envrc.local` and exports
 an allowlisted set of variables into every Bash tool call for the session.
@@ -236,8 +237,8 @@ GitHub and Codacy MCP servers with `claude mcp add`. This is bash, not
 Python; the function is invoked once at the end of `cmd_apply` via
 `setup:1561`.
 
-### GitHub MCP <!-- anchor: mcp-github -->
-
+### GitHub MCP
+<!-- anchor: mcp-github -->
 Available when `GITHUB_TOKEN` is set (auto-loaded by the SessionStart
 hook). Namespace `mcp__github__*`. Prerequisite: `gh auth login` must have
 been run; if not, `GITHUB_TOKEN` is empty and all GitHub MCP calls fail
@@ -246,8 +247,8 @@ silently. Verify with `gh auth status`. Key tools: `create_issue`,
 `get_pull_request_status`, `push_files`, `search_code`,
 `search_repositories`.
 
-### Codacy MCP <!-- anchor: mcp-codacy -->
-
+### Codacy MCP
+<!-- anchor: mcp-codacy -->
 Available when `CODACY_ACCOUNT_TOKEN` is set. The token is a machine-level
 account token stored at `~/.codacy/account-token`; a project-level token
 (`CODACY_PROJECT_TOKEN`) alone is not enough. Namespace `mcp__codacy__*`.
@@ -257,8 +258,8 @@ Key tools: `codacy_list_repository_issues`, `codacy_get_file_coverage`,
 
 ---
 
-## Template Convention <!-- anchor: template-convention -->
-
+## Template Convention
+<!-- anchor: template-convention -->
 Files ending in `.template` are copy-and-customize. Never source or execute
 from this repo. Placeholders follow `{{UPPER_SNAKE_CASE}}` (double-braces,
 no spaces) and must all be replaced before the rendered file becomes a
@@ -274,8 +275,8 @@ template's own self-documentation. See `CHANGELOG.md` entry under
 
 ---
 
-## Symlink Convention <!-- anchor: symlink-convention -->
-
+## Symlink Convention
+<!-- anchor: symlink-convention -->
 Two scopes, four symlinks:
 
 | Symlink | Target | Scope |
@@ -292,12 +293,12 @@ file breaks the single-source pattern and is enforced by the
 
 ---
 
-## Development Workflow <!-- anchor: development-workflow -->
-
+## Development Workflow
+<!-- anchor: development-workflow -->
 Three layers: local commands, the pre-push hook, and `./setup ship`.
 
-### Local commands <!-- anchor: dev-local -->
-
+### Local commands
+<!-- anchor: dev-local -->
 ```bash
 git status
 git diff
@@ -322,8 +323,8 @@ uv run --with coverage coverage run -m unittest discover -s tests
 uv run --with coverage coverage xml
 ```
 
-### Pre-push hook <!-- anchor: pre-push -->
-
+### Pre-push hook
+<!-- anchor: pre-push -->
 Installed via `./setup hooks` or `./scripts/install-hooks.sh`. Runs on
 every `git push` regardless of which CLI initiated the push. Five steps,
 all in `scripts/hooks/pre-push:1-140`:
@@ -340,8 +341,8 @@ all in `scripts/hooks/pre-push:1-140`:
 is the separate `scripts/quality-pipeline.sh` script (see below) and
 `./setup ship` step 4d.
 
-### Local quality pipeline <!-- anchor: quality-pipeline -->
-
+### Local quality pipeline
+<!-- anchor: quality-pipeline -->
 `scripts/quality-pipeline.sh` is the developer-side Codacy upload helper
 (distinct from the pre-push hook). 7 stages, documented in the script
 header:
@@ -357,8 +358,8 @@ header:
 Modes: default runs stages 1–7; `--codacy-only` runs only 3, 5, 6, 7.
 Exit codes: 0 pass, 1 stage failed, 3 prerequisite missing (PATH or env).
 
-### `./setup ship` <!-- anchor: ship -->
-
+### `./setup ship`
+<!-- anchor: ship -->
 Canonical merge path. Defined at `cmd_ship()` (`setup:1080`). Requires an
 authenticated `gh` and `CODACY_PROJECT_TOKEN` exported (auto-loaded by
 direnv).
@@ -387,8 +388,8 @@ Flow:
 
 ---
 
-## Python Module Architecture <!-- anchor: python-module-architecture -->
-
+## Python Module Architecture
+<!-- anchor: python-module-architecture -->
 Stdlib only — no runtime dependencies. Validation tooling is `uv`-managed
 (`uv run python -m unittest discover -s tests`), but the `dotfiles_tools/`
 package itself never imports anything outside the standard library.
@@ -426,15 +427,15 @@ Python side validates token presence; the bash side runs `claude mcp add`.
 
 ---
 
-## Docker-based Browser Automation <!-- anchor: docker-based-browser-automation -->
-
+## Docker-based Browser Automation
+<!-- anchor: docker-based-browser-automation -->
 Playwright lacks prebuilt Chromium binaries for Ubuntu 26.04
 (`microsoft/playwright#40117`). To unblock gstack browser skills (`/qa`,
 `/browse`, `/qa-only`) on Ubuntu 26.04 hosts, this repo ships an
 Ubuntu 24.04 Docker container.
 
-### Daily commands <!-- anchor: docker-daily -->
-
+### Daily commands
+<!-- anchor: docker-daily -->
 ```bash
 ./setup                              # installs docker via TOOL_BASELINE (apt_keyring)
 ./setup docker-build                 # builds gstack-browser:latest (~5 min first time)
@@ -444,8 +445,8 @@ Ubuntu 24.04 Docker container.
 ./setup gstack-exec -- <command>     # runs <command> inside the container
 ```
 
-### Container settings <!-- anchor: docker-settings -->
-
+### Container settings
+<!-- anchor: docker-settings -->
 Nine load-bearing settings live in `docker/gstack-browser/docker-compose.yml`:
 
 1. `shm_size: "2gb"` — required for Chromium stability (default 64 MB causes renderer crashes).
@@ -459,8 +460,8 @@ Nine load-bearing settings live in `docker/gstack-browser/docker-compose.yml`:
 8. `.env` regenerated per run from direnv allowlist (file is gitignored).
 9. Tokens forwarded: `GITHUB_TOKEN`, `CODACY_*`, `HF_*`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_*`.
 
-### Verified state <!-- anchor: docker-verified -->
-
+### Verified state
+<!-- anchor: docker-verified -->
 As of 2026-05-17: Docker Engine 29.5.0 works without host `sudo` after
 `newgrp docker`; `gstack-browser:latest` builds; `gstack-dev` runs;
 `./setup gstack-setup` completed inside the container; Codex CLI 0.130.0,
@@ -478,8 +479,8 @@ Files: `docker/gstack-browser/Dockerfile`,
 
 ---
 
-## Codacy CLI Configuration <!-- anchor: codacy-cli-configuration -->
-
+## Codacy CLI Configuration
+<!-- anchor: codacy-cli-configuration -->
 `codacy-cli analyze` silently exits 0 and produces an empty SARIF file
 when `.codacy/codacy.yaml` does not exist. It prints
 "No configuration file was found, execute init command first." but does
@@ -487,8 +488,8 @@ not return a non-zero exit code. `.codacy/` is gitignored at
 `.gitignore` line 27 (since commit 46af6c8), so the config file cannot be
 committed. Two non-overlapping patterns ephemerally provide the config.
 
-### Pattern A — `scripts/quality-pipeline.sh` (no account token) <!-- anchor: codacy-pattern-a -->
-
+### Pattern A — `scripts/quality-pipeline.sh` (no account token)
+<!-- anchor: codacy-pattern-a -->
 ```bash
 mkdir -p .codacy
 printf -- '---\ntools:\n  - name: pylint\n' > .codacy/codacy.yaml
@@ -499,8 +500,8 @@ rm -f .codacy/codacy.yaml
 This pattern does **not** read `CODACY_ACCOUNT_TOKEN`; that variable must
 not appear in `quality-pipeline.sh` (enforced by `tests/test_docs.py`).
 
-### Pattern B — `./setup ship` step 4d (account token available) <!-- anchor: codacy-pattern-b -->
-
+### Pattern B — `./setup ship` step 4d (account token available)
+<!-- anchor: codacy-pattern-b -->
 ```bash
 codacy-cli init --api-token "${CODACY_ACCOUNT_TOKEN:-}" --provider gh \
   --organization "${CODACY_USERNAME:-}" --repository "${CODACY_PROJECT_NAME:-}" 2>/dev/null || true
@@ -516,8 +517,8 @@ Known non-fatal messages: `tools//patterns failed with status 404`
 means the SARIF was accepted). Neither blocks the four required Codacy
 checks from running on the PR.
 
-### Coverage upload paths <!-- anchor: codacy-coverage-paths -->
-
+### Coverage upload paths
+<!-- anchor: codacy-coverage-paths -->
 Coverage data reaches Codacy via two independent paths that must not be
 conflated:
 
@@ -538,8 +539,8 @@ See `~/.claude/skills/codacy/SKILL.md` for procedures and the runbooks at
 
 ---
 
-## Hook Trigger Map <!-- anchor: hook-trigger-map -->
-
+## Hook Trigger Map
+<!-- anchor: hook-trigger-map -->
 Use these layers precisely: tool instructions are Markdown context files,
 tool hooks are CLI-specific session/tool hooks, and the repo hook is the
 Git hook that runs for any caller.
@@ -559,19 +560,19 @@ guard is at lines 22-36.
 
 ---
 
-## Drift Prevention <!-- anchor: drift-prevention -->
-
+## Drift Prevention
+<!-- anchor: drift-prevention -->
 Three layers keep satellites aligned with this hub.
 
-### Layer 1 — Convention comments (zero-cost) <!-- anchor: drift-comments -->
-
+### Layer 1 — Convention comments (zero-cost)
+<!-- anchor: drift-comments -->
 Every H2 in `ARCHITECTURE.md` carries a same-line `<!-- anchor: slug -->`
 comment. Satellites that mirror a hub concept carry a
 `<!-- mirrors: ARCHITECTURE.md#slug -->` comment near the mirrored content,
 so a doc-test can find both ends of the relationship.
 
-### Layer 2 — Doc owner map + tests <!-- anchor: drift-owner-map -->
-
+### Layer 2 — Doc owner map + tests
+<!-- anchor: drift-owner-map -->
 `dotfiles_tools/doc_owners.py` is a data file enumerating
 `(canonical_anchor, owning_file, mirror_files)` tuples. Tests assert:
 
@@ -590,8 +591,8 @@ so a doc-test can find both ends of the relationship.
 Pre-push hook step 1 runs `unittest discover` (`scripts/hooks/pre-push:38-61`),
 so the new tests block any push that breaks drift contracts.
 
-### Layer 3 — Doctor-style validation (optional) <!-- anchor: drift-doctor -->
-
+### Layer 3 — Doctor-style validation (optional)
+<!-- anchor: drift-doctor -->
 Future work: extend `dotfiles_tools/doctor.py` with a `--check-docs`
 flag that scans for broken intra-document anchor links and stale
 `<!-- mirrors: -->` references. Deferred to a follow-up; not required
@@ -599,8 +600,8 @@ for the initial hub-and-spoke landing.
 
 ---
 
-## Design History <!-- anchor: design-history -->
-
+## Design History
+<!-- anchor: design-history -->
 Three completed Spec Kit specs and one documentation reconciliation
 record. Full task lists stay in `specs/` and `docs/issues/`; this section
 points to them and summarizes the outcome.
