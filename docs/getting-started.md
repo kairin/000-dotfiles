@@ -317,8 +317,14 @@ behind a secondary menu so they do not compete with the core setup actions.
 Choose `Optional integrations and APIs`. The menu dynamically shows only the integrations you need:
 
 1. **Manage GitHub (gh) API access** — available only if `gh` is not yet authenticated. Offers to install `gh` via `apt` if not found.
-2. **Configure HuggingFace API token** — available only if no HF token is found in `$HF_TOKEN` or `~/.cache/huggingface/token`. Offers to install `huggingface-hub` via `uv tool install` if not found.
-3. **Manage Codacy API access** — always available.
+2. **Manage Codacy API access** — always available.
+
+> The project-level "Optional integrations and APIs" submenu only covers
+> GitHub and Codacy (`setup:2563-2602`). HuggingFace token configuration
+> lives in the machine-level **option 5** menu (`setup:2403-2437`); when
+> you need it, run `./setup` from outside a project root and pick option 5
+> there. See [ARCHITECTURE.md#auth-guidance](../ARCHITECTURE.md#auth-guidance)
+> for the full auth surface.
 
 #### Codacy setup
 
