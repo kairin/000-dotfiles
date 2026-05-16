@@ -25,16 +25,14 @@ Each `00N-*/` folder follows the same Spec Kit layout:
 - **contracts/** — Formal contracts for the CLI and manifest format (JSON Schema)
 - **checklists/** — Specification quality gates
 
-## Status (2026-05-15)
+## Status (2026-05-17)
 
-- `001-dotfiles-bootstrap-validation`: **complete**. All 63 tasks marked `[x]`.
-  Specification validated.
-- `002-setup-optional-integrations`: **complete**. All 42 tasks marked `[x]`.
-- `002-setup-menu-recommendation`: **implementation shipped, task checklist
-  stale**. The state-aware menu and the machine-summary recommendation engine
-  are live (see `dotfiles_tools/machine_summary.py`), but the 29-task checklist
-  in `tasks.md` is still all `[ ]`. Treat the implementation as canonical;
-  refresh the checklist before relying on it as a progress signal.
+- `001-dotfiles-bootstrap-validation`: complete (63/63 tasks).
+- `002-setup-optional-integrations`: complete (42/42 tasks).
+- `002-setup-menu-recommendation`: code-canonical, `tasks.md` stale —
+  see the SUPERSEDED-BY-CODE banner at the top of that spec's `spec.md`.
+
+Consolidated design history: [../ARCHITECTURE.md#design-history](../ARCHITECTURE.md#design-history).
 
 ## How to use this folder
 

@@ -1,5 +1,12 @@
 # Feature Specification: Setup Menu Recommendation Guidance
 
+> **Spec status (2026-05-17): SUPERSEDED-BY-CODE.** Implementation
+> shipped. Canonical reference: `dotfiles_tools/machine_summary.py`
+> (`render_machine_summary` at line 23, `_recommendation_for_auth_guidance`
+> at line 132). The `tasks.md` checklist in this directory is stale; do
+> not update the checkboxes. Architectural context lives in
+> [../../ARCHITECTURE.md#design-history](../../ARCHITECTURE.md#design-history).
+
 **Feature Branch**: `20260503-setup-menu-recommendation`
 **Created**: 2026-05-02
 **Status**: Draft
