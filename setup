@@ -1159,6 +1159,9 @@ cmd_ship() {
   else
     sarif_tmp="$(mktemp /tmp/ship-sarif-XXXXXXXX.sarif)"
     trap 'rm -f "${sarif_tmp:-}"' EXIT INT TERM
+    # REGRESSION GUARD: codacy-cli init must precede analyze — init writes .codacy/codacy.yaml.
+    # Without it, analyze exits 0 but produces empty SARIF.
+    # The test test_ship_uses_github_required_checks_and_no_temporary_codacy_worktrees asserts this.
     codacy-cli init \
       --api-token "${CODACY_ACCOUNT_TOKEN:-}" \
       --provider "${CODACY_ORGANIZATION_PROVIDER:-gh}" \
