@@ -91,7 +91,7 @@ def _execute_apply_operations(report: Report, repo_path: Path, backup_path: Path
             completed_writes += _execute_operation(op, repo_path, backup_path, backups)
             executed.append(op)
         except (OSError, BackupError) as exc:
-            return _failed_apply_report(report, executed, op, backups, completed_writes, exc)
+            return failed_report(report, executed, op, backups, completed_writes, exc)
     report.backups = backups
     report.status = "warning" if any(op["type"] == "refuse" for op in report.operations) else "ok"
     return report
@@ -163,7 +163,7 @@ def _symlink_operation(op: dict[str, Any]) -> None:
     target.symlink_to(op["link_target"])
 
 
-def _failed_apply_report(
+def failed_report(
     report: Report,
     executed: list[dict[str, Any]],
     op: dict[str, Any],
