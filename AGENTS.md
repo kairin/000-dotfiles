@@ -2,13 +2,15 @@
 
 Single source of truth for LLM agents. `CLAUDE.md` and `GEMINI.md` symlink to this file.
 
-For human-facing setup instructions (quick start, scenarios, command reference), see `README.md`. This file focuses on conventions agents must respect.
+For human-facing setup instructions (quick start, scenarios, command reference), see `README.md`. For deep system-design and convention claims, see [ARCHITECTURE.md](ARCHITECTURE.md). This file focuses on the conventions agents must respect.
 
 ## What this repo is
-
+<!-- anchor: what-this-repo-is -->
 A collection of config templates for AI coding tools (Claude Code, Codex, Gemini CLI, gh CLI) and shell environment (fish, git), plus a small Python CLI (`dotfiles_tools`) and a bash entrypoint (`./setup`) that audit and apply those templates. Every file with a `.template` suffix is meant to be copied to its target path and customized — it is never executed or sourced directly from here.
 
 ## Protected Files — NEVER Modify Without Explicit Per-File Directive
+<!-- anchor: protected-files -->
+<!-- mirrors: ARCHITECTURE.md#protected-files-canonical-list -->
 
 | File | Why protected |
 |---|---|
@@ -23,7 +25,7 @@ A collection of config templates for AI coding tools (Claude Code, Codex, Gemini
 - `git show origin/main:<file>` is the authoritative original.
 
 ## Key paths
-
+<!-- anchor: key-paths -->
 ```
 agents/                       Project-level agent doc templates (AGENTS.md, CLAUDE.md, GEMINI.md, copilot-instructions.md)
 claude/                       ~/.claude/ templates (settings.json, keybindings.json, CLAUDE.md)
@@ -42,11 +44,14 @@ docker/                       Dockerfiles and compose configs (gstack-browser/ f
 graph-obsidian-agent-docs/    Reference agent docs from the graph-obsidian project (read-only context)
 setup                         Bash entrypoint that wraps dotfiles_tools with sensible defaults
 dotfiles-manifest.json        Source of truth for what installs where
+ARCHITECTURE.md               Canonical hub for system design and convention claims
 ```
 
 Dot-prefixed directories (`.claude/`, `.codex/`, `.codacy/`, `.gstack/`, `.specify/`, `.agents/`, `.github/`, `.vscode/`) are tool state or CI config, intentionally excluded from this layout list.
 
 ## MCP Tool Availability
+<!-- anchor: mcp -->
+<!-- mirrors: ARCHITECTURE.md#mcp-tool-availability -->
 
 Two MCP servers are available to agents when the required tokens are set.
 
@@ -69,7 +74,7 @@ Per-project extra variables: create `.claude/env-allowlist` with one variable
 name per line; the hook merges those into the forwarded set.
 
 ### GitHub MCP (`mcp__github__*`)
-
+<!-- anchor: mcp-github -->
 Available when `GITHUB_TOKEN` is set. `$GITHUB_TOKEN` is automatically loaded by the SessionStart hook from `.envrc.local` — no manual sourcing needed.
 
 Key tools: `create_issue`, `list_issues`, `create_pull_request`, `list_pull_requests`, `get_pull_request`, `get_pull_request_files`, `get_pull_request_reviews`, `get_pull_request_status`, `push_files`, `search_code`, `search_repositories`.
@@ -77,19 +82,23 @@ Key tools: `create_issue`, `list_issues`, `create_pull_request`, `list_pull_requ
 Prerequisite: `gh auth login` must have been run. If `gh` is not authenticated, `GITHUB_TOKEN` silently becomes an empty string and all GitHub MCP calls will fail — run `gh auth status` to verify.
 
 ### Codacy MCP (`mcp__codacy__*`)
-
+<!-- anchor: mcp-codacy -->
 Available when `CODACY_ACCOUNT_TOKEN` is set. The token is a machine-level account token stored at `~/.codacy/account-token`. It is automatically loaded into `$CODACY_ACCOUNT_TOKEN` by the SessionStart hook — no manual sourcing needed. A project-level token alone is insufficient.
 
 Key tools: `codacy_list_repository_issues`, `codacy_get_file_issues`, `codacy_get_file_coverage`, `codacy_get_pull_request_files_coverage`, `codacy_cli_analyze`, `codacy_setup_repository`.
 
+Background and the broader auth surface (project token bridges, machine-level vs project-level tokens): see [ARCHITECTURE.md#auth-guidance](ARCHITECTURE.md#auth-guidance) and [ARCHITECTURE.md#token-bridges](ARCHITECTURE.md#project-token-bridges).
+
 ## Template Convention
+<!-- anchor: templates -->
+<!-- mirrors: ARCHITECTURE.md#template-convention -->
 
 - Files ending in `.template` are copy-and-customize — never source or execute from this path.
 - Placeholders follow the pattern `{{UPPER_SNAKE_CASE}}` (double-braces, no spaces) and must all be replaced before use.
 - No secrets, tokens, or API keys are stored anywhere in this repo. Auth files are excluded by `.gitignore` and the global git ignore.
 
 ## Local API Access
-
+<!-- anchor: local-api -->
 When this repo is opened in a shell that has loaded `.envrc` and `.envrc.local`,
 agents may use the following environment variables for local Codacy and GitHub
 billing workflows:
@@ -107,6 +116,8 @@ the shell output shows `direnv: export ...`, treat those exports as available
 for the current session only.
 
 ## Symlink Convention
+<!-- anchor: symlinks -->
+<!-- mirrors: ARCHITECTURE.md#symlink-convention -->
 
 `CLAUDE.md` and `GEMINI.md` at the repo root are symlinks to `AGENTS.md`. At the project level, `agents/CLAUDE.md.template` and `agents/GEMINI.md.template` are symlinks to `agents/AGENTS.md.template`. This keeps one source of truth per scope.
 
@@ -117,7 +128,7 @@ ls -la CLAUDE.md GEMINI.md
 ```
 
 ## Making Changes
-
+<!-- anchor: making-changes -->
 - Adding a new tool config: create a `<tool>/` directory with `<file>.template` files; update `README.md` table and the bootstrap commands.
 - Updating an existing template: edit the `.template` file directly; note in the commit message if any placeholder names changed.
 - Never commit files containing real credentials. Run `git diff --staged` before every commit and check for tokens, keys, or personal paths.
@@ -125,6 +136,8 @@ ls -la CLAUDE.md GEMINI.md
 - Adding a new bootstrap tool to `TOOL_BASELINE`: declare a `post_install` tuple (may be empty) listing follow-up actions. `kind="auto"` runs when the user passes `--yes`; `kind="guidance"` only prints the command. Templates may use `{which:<name>}` and `{user}` placeholders; unresolved placeholders downgrade to guidance automatically.
 
 ## Development Workflow
+<!-- anchor: dev-workflow -->
+<!-- mirrors: ARCHITECTURE.md#development-workflow -->
 
 ```bash
 git status                    # check what changed
@@ -142,11 +155,12 @@ checks `Codacy Static Code Analysis`, `Codacy Coverage Variation`, and
 `Codacy Diff Coverage`. `./setup ship` resolves the full required set from
 the GitHub API dynamically (branch protection or rulesets) and polls every
 check until they report `success` before squash-merging when the PR is
-`CLEAN` or `UNSTABLE`. When the merge state is `BLOCKED` solely because
-GitHub requires a PR review (which a solo PR author cannot self-satisfy),
-ship adds `--admin` to bypass the review gate (the admin-bypass actor on
-the ruleset; see `./setup ship` steps 5-6). Requires an authenticated `gh`
-and `CODACY_PROJECT_TOKEN`.
+`CLEAN` or `UNSTABLE`. When `mergeStateStatus` is `BLOCKED` after all four
+required checks pass, ship adds `--admin` to bypass the remaining gate
+(`setup:1287-1296`); the code does not introspect the BLOCKED reason, so
+treat admin bypass as eligible whenever required checks are green and the
+PR has no other blocking signal. Requires an authenticated `gh` and
+`CODACY_PROJECT_TOKEN`.
 
 Runtime validation tooling uses Python standard library modules and uv-managed
 developer commands:
@@ -161,40 +175,28 @@ uv run --with coverage coverage run -m unittest discover -s tests
 uv run --with coverage coverage xml
 ```
 
+Pre-push hook details (5 steps; does NOT upload Codacy SARIF) and the local
+quality pipeline (7 stages) are documented at
+[ARCHITECTURE.md#pre-push](ARCHITECTURE.md#pre-push-hook) and
+[ARCHITECTURE.md#quality-pipeline](ARCHITECTURE.md#local-quality-pipeline).
+
 ## Docker-based browser automation
+<!-- anchor: docker-browser -->
+<!-- mirrors: ARCHITECTURE.md#docker-based-browser-automation -->
 
-`gstack` skills that drive a browser (`/qa`, `/browse`, `/qa-only`) use Playwright. Playwright does not ship prebuilt Chromium binaries for Ubuntu 26.04 (tracked at [microsoft/playwright#40117](https://github.com/microsoft/playwright/issues/40117)). To unblock browser skills on hosts where Playwright lacks support, this repo ships an Ubuntu 24.04 Docker container that runs gstack + Playwright + Chromium natively.
-
-```bash
-./setup                 # installs docker via TOOL_BASELINE (apt_keyring)
-./setup docker-build    # builds gstack-browser:latest (~5 min first time)
-./setup gstack-setup /home/kkk/Apps/gstack
-./setup gstack-codex /home/kkk/Apps/gstack
-./setup gstack-shell    # enters a shell inside the running container
-```
-
-Verified state as of 2026-05-16: Docker Engine 29.5.0 works without host `sudo` after `newgrp docker`; `gstack-browser:latest` builds; `gstack-dev` runs; `./setup gstack-setup` completed inside the container; Codex CLI 0.130.0, passwordless sudo, Playwright Chromium, and `/home/kkk/Apps/gstack/browse/dist/browse` are available in the container. The completion record is `docs/operations/gstack-browser-docker-rollout.md`.
-
-On Ubuntu 26.04, do not run `/home/kkk/Apps/gstack/./setup` on the host for browser-backed setup; run `./setup gstack-setup /home/kkk/Apps/gstack` from this repo so Playwright Chromium is verified inside Ubuntu 24.04. Normal git operations against `/home/kkk/Apps/gstack` still happen on the host.
-
-Inside the container, run `codex` directly or use `./setup gstack-codex`; the wrapper detects `gstack-dev` and does not require Docker there. `claude`, `/qa`, `/review`, etc. work the same as natively. The container mounts the host's `~/Apps`, `~/.codex`, `~/.claude`, and `~/.gstack` at identical paths so absolute paths inside gstack skill files keep working without translation.
-
-**Path preservation invariant:** Container paths match host paths exactly (`/home/$USER/...`). Do not change container HOME or mount paths or skill bash commands referencing absolute paths will break.
-
-**Files:**
-- `docker/gstack-browser/Dockerfile` — image definition
-- `docker/gstack-browser/docker-compose.yml` — long-running container with volume mounts; notable settings:
-  - `shm_size: "2gb"` — required for Chromium stability (default 64 MB causes renderer crashes)
-  - `GSTACK_CONTAINER=1` env var — set automatically; wrapper commands detect container context via this
-  - `HOME`, `USER`, `LOGNAME` env vars — set to match host user so tool state resolves correctly
-  - `~/.gitconfig` mounted read-only — prevents container from modifying host git identity
-- `docker/gstack-browser/README.md` — humans-only operational overview
-
-**Tokens:** gstack container commands regenerate `docker/gstack-browser/.env` from the direnv-loaded project environment on each run, forwarding only allowlisted values such as `GITHUB_TOKEN`, `CODACY_*`, `HF_*`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GOOGLE_*`. The `.env` file is gitignored.
-
-When Playwright issue #40117 is resolved, the Docker workflow becomes optional — host browser skills will work natively again. The container path can stay as a fallback.
+When Playwright lacks Ubuntu 26.04 binaries, gstack browser skills run inside
+an Ubuntu 24.04 container. From the host: `./setup docker-build`,
+`./setup gstack-setup`, `./setup gstack-codex`, `./setup gstack-shell`,
+`./setup gstack-exec`. **Path-preservation invariant:** container paths
+must match host paths exactly; do not change container `HOME` or mount
+paths, or skill commands that reference absolute paths will break. For
+the 9 docker-compose settings, mount list, verified-state record, and
+file inventory, see
+[ARCHITECTURE.md#docker-based-browser-automation](ARCHITECTURE.md#docker-based-browser-automation).
 
 ## Codacy CLI Configuration Constraint
+<!-- anchor: codacy-cli -->
+<!-- mirrors: ARCHITECTURE.md#codacy-cli-configuration -->
 
 `codacy-cli analyze` silently exits 0 and produces an empty SARIF file when
 `.codacy/codacy.yaml` does not exist. It prints "No configuration file was found,
@@ -229,16 +231,25 @@ Known non-fatal messages: `tools//patterns failed with status 404` (codacy-cli b
 on the upload response = SARIF accepted). Neither blocks the four required Codacy
 checks from running on the PR.
 
+Coverage upload paths (Path A: GitHub Actions baseline / Path B: Codacy
+server diff) are documented at [ARCHITECTURE.md#codacy-coverage-paths](ARCHITECTURE.md#coverage-upload-paths).
+
 ## Hook Trigger Map
+<!-- anchor: hooks -->
+<!-- mirrors: ARCHITECTURE.md#hook-trigger-map -->
 
-Use these layers precisely: tool instructions are Markdown context files, tool hooks are CLI-specific session/tool hooks, and repo hooks are Git hooks that run for any caller.
+The Git repo hook (`.git/hooks/pre-push`) blocks direct pushes to `main`
+regardless of which CLI initiated the push. Install once per repo with
+`./setup hooks` or `./scripts/install-hooks.sh`. CLI-specific tool hooks
+are a separate layer:
 
-- **Claude Code:** Claude hooks are configured through Claude settings files and can be inspected with `/hooks`. `~/.claude/hooks/load-project-env.sh` is only active when a Claude settings file registers it.
-- **Gemini CLI:** Gemini CLI does not run Claude Code hooks automatically. Use Gemini's own hook surface only if intentionally configured. Verify and manage hooks using the interactive `/hooks` slash command inside a session, or `gemini hooks --help` in the shell. Do not run `gemini hooks migrate` unless the user explicitly asks to migrate Claude hooks into Gemini.
-- **Codex CLI:** Codex loads global and project `AGENTS.md` context.
-- **Copilot CLI:** Copilot auto-loads instruction files and extra directories from `COPILOT_CUSTOM_INSTRUCTIONS_DIRS`; inspect loaded context with `/instructions` or `/env`.
+- **Claude Code:** `/hooks` slash command; SessionStart hook.
+- **Gemini CLI:** `gemini hooks --help`; do NOT run `gemini hooks migrate`.
+- **Codex CLI:** loads `AGENTS.md` context only (no tool-hook surface used here).
+- **Copilot CLI:** `/instructions`, `/env`; `COPILOT_CUSTOM_INSTRUCTIONS_DIRS`.
 
-Main-branch push prevention is enforced by Git's repo hook (`.git/hooks/pre-push`), not by any tool-specific hook. Run `./setup hooks` or `./scripts/install-hooks.sh` in each repo that needs protection; Git runs that hook automatically for every `git push` regardless of the caller.
+For the full 4-CLI matrix and per-CLI hook details, see
+[ARCHITECTURE.md#hook-trigger-map](ARCHITECTURE.md#hook-trigger-map).
 
 Do not add lock files unless runtime dependencies are introduced and the Spec
 Kit plan explains why they are needed. Coverage is only meaningful for real
@@ -247,9 +258,10 @@ validation/setup code and must generate `coverage.xml` before Codacy upload.
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, see the spec documents in
-`specs/`. Spec status (2026-05-15): `001-dotfiles-bootstrap-validation` is
+`specs/`. Spec status (2026-05-17): `001-dotfiles-bootstrap-validation` is
 complete; `002-setup-optional-integrations` is complete; `002-setup-menu-recommendation`
 has shipped code (see `dotfiles_tools/machine_summary.py`) but its `tasks.md`
 checklist is unchecked — treat the implementation as canonical, the task list as
 stale. Check `specs/` for any new active specifications or design documents.
+Consolidated design history: [ARCHITECTURE.md#design-history](ARCHITECTURE.md#design-history).
 <!-- SPECKIT END -->

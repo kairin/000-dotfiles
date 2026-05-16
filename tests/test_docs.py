@@ -85,3 +85,22 @@ class DocsTests(DotfilesTestCase):
         """
         pipeline = (REPO_ROOT / "scripts" / "quality-pipeline.sh").read_text()
         self.assertIn("All four Codacy checks are required", pipeline)
+
+    def test_architecture_hub_and_tests_present(self):
+        """Sentinel for the hub-and-spoke docs convention.
+
+        ARCHITECTURE.md and tests/test_architecture.py together enforce the
+        single-source-of-truth pattern documented at
+        ARCHITECTURE.md#drift-prevention. Removing either short-circuits the
+        whole convention; this assertion lives in test_docs.py (already
+        load-bearing) so it survives deletion of the architecture test file.
+        """
+        self.assertTrue(
+            (REPO_ROOT / "ARCHITECTURE.md").is_file(),
+            "ARCHITECTURE.md must exist — it is the canonical hub document.",
+        )
+        self.assertTrue(
+            (REPO_ROOT / "tests" / "test_architecture.py").is_file(),
+            "tests/test_architecture.py must exist — it enforces hub-and-spoke "
+            "drift contracts. See ARCHITECTURE.md#drift-prevention.",
+        )

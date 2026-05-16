@@ -70,7 +70,9 @@ else
         echo "   Analyzing: $file"
         RESULT=$(uv run --with radon radon cc "$file" -a 2>&1 | tail -1)
         echo "   $RESULT"
-        AVG=$(echo "$RESULT" | grep -oE '[0-9]+\.[0-9]+' | head -1)
+        # Data-only modules (e.g. doc_owners.py) produce no radon output;
+        # the grep below would fail under set -euo pipefail, so soften it.
+        AVG=$(echo "$RESULT" | grep -oE '[0-9]+\.[0-9]+' | head -1 || true)
         if [ -n "$AVG" ] && awk "BEGIN {exit !($AVG > 5)}"; then
             echo -e "   ${RED}✗ Average complexity $AVG exceeds 5.0${NC}"
             FAILED=1

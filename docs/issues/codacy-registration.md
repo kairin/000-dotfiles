@@ -1,5 +1,10 @@
 # Codacy Registration & Token Status
 
+> **Historical investigation (archived 2026-05-17).** This documents a past
+> investigation into Codacy MCP repository registration. Not current
+> guidance. For the canonical MCP-token loading flow, see
+> [../../ARCHITECTURE.md#mcp-tool-availability](../../ARCHITECTURE.md#mcp-tool-availability).
+
 ## The Discovery
 
 During investigation of Codacy integration failures, the Codacy MCP tool was invoked to list repositories under the organization "kairin":

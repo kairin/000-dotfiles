@@ -1,5 +1,10 @@
 # Root Cause: Deprecated Codacy API Endpoint (codacy-safety-net Failures)
 
+> **Historical investigation (archived 2026-05-17).** This documents a past
+> failure mode that has since been resolved. Not current guidance. For the
+> canonical local quality pipeline and CI behavior, see
+> [../../ARCHITECTURE.md#local-quality-pipeline](../../ARCHITECTURE.md#local-quality-pipeline).
+
 **Status:** Issue identified and documented
 **Affects:** 10 PRs (#181, #182, #183, #188, #204, #207, #212, #215, #220, #221)
 **Root Cause:** Pinned action version uses deprecated Codacy API endpoint
