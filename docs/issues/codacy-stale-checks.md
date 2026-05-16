@@ -1,5 +1,10 @@
 # Stale Codacy App Check Results
 
+> **Historical investigation (archived 2026-05-17).** This documents a past
+> failure mode that has since been resolved. Not current guidance. For the
+> canonical Codacy CLI configuration and the four required checks, see
+> [../../ARCHITECTURE.md#codacy-cli-configuration](../../ARCHITECTURE.md#codacy-cli-configuration).
+
 Several PRs merged with false "passing" signals from the Codacy app check integration. These checks were not fresh analyses of the current branch, but rather recycled results from older PR numbers. This masked the true status of code quality on the merged branches and could have hidden real issues if the code had diverged since the original check.
 
 ## The Pattern

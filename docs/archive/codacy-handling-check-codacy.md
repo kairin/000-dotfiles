@@ -1,5 +1,10 @@
 # Codacy Handling: Check Codacy
 
+> **Historical (archived 2026-05-17).** Branch-protection investigation log
+> retained for audit-trail value. Not current guidance. For the canonical
+> Codacy CLI configuration and the two ephemeral-config patterns, see
+> [../../ARCHITECTURE.md#codacy-cli-configuration](../../ARCHITECTURE.md#codacy-cli-configuration).
+
 This file records the local investigation into Codacy status and branch protection for `kairin/000-dotfiles`.
 
 ## Summary

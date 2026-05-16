@@ -1,4 +1,13 @@
-• I’m pulling the live GitHub tree and history now so the markdown file reflects the repo, not memory. After that I’ll add the
+# Codacy Handling — agent transcript (archived)
+
+> **Historical agent transcript (archived 2026-05-17).** Raw conversation
+> log from a prior debugging session; retained for audit value but not
+> current guidance. For the canonical Codacy CLI procedures and the
+> `./setup ship` flow, see
+> [../../ARCHITECTURE.md#codacy-cli-configuration](../../ARCHITECTURE.md#codacy-cli-configuration)
+> and [../../ARCHITECTURE.md#-setup-ship-](../../ARCHITECTURE.md#-setup-ship-).
+
+• I'm pulling the live GitHub tree and history now so the markdown file reflects the repo, not memory. After that I'll add the
   file at the repo root and commit it.
 
 • Searching the web
