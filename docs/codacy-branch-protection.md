@@ -49,6 +49,22 @@ Codacy Coverage Variation
 Codacy Diff Coverage
 ```
 
+For code repositories that also ship a local `codacy-safety-net` GitHub Actions
+workflow (uploading SARIF/coverage from CI), require that workflow as a fourth
+gate so the dashboard reports the branch as fully protected:
+
+```text
+codacy-safety-net
+Codacy Static Code Analysis
+Codacy Coverage Variation
+Codacy Diff Coverage
+```
+
+`codacy-safety-net` is emitted by the repo's own GitHub Actions workflow
+(`.github/workflows/codacy-safety-net.yml`, app_id `15368`); the three `Codacy
+*` checks are emitted by the Codacy GitHub App (app_id `56611`). They are
+distinct integrations — list both ids when writing the JSON templates below.
+
 Codacy may still show partial protection if only one of these checks is
 required while the matching coverage gates are enabled in Codacy, even when
 GitHub says the branch is protected.
@@ -79,8 +95,12 @@ Use this as the short checklist before marking a repository done:
 
 In `000-dotfiles`, Codacy initially reported `main` as partially protected
 because the repo already emitted coverage checks on PRs, but GitHub required
-only `Codacy Static Code Analysis`. The fix was to require all three Codacy
-contexts in both classic branch protection and the default-branch ruleset.
+only `Codacy Static Code Analysis`. An interim fix required the three Codacy
+app contexts; PR #254 (2026-05-16) extended this to **four required contexts**
+by adding the repo's local `codacy-safety-net` GitHub Actions workflow check
+(app_id `15368`). The four-check pattern is the current state for
+`000-dotfiles` — see the "coverage-enabled + local safety-net workflow"
+profile below.
 
 ## Inputs
 
@@ -295,6 +315,42 @@ gh api --method PUT "repos/$OWNER/$REPO/branches/$BRANCH/protection" --input - <
 JSON
 ```
 
+Coverage-enabled + local safety-net workflow profile (used by `000-dotfiles`
+per PR #254). Lists `codacy-safety-net` as the fourth required context so the
+dashboard reports the branch as fully protected:
+
+```bash
+gh api --method PUT "repos/$OWNER/$REPO/branches/$BRANCH/protection" --input - <<JSON
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": [
+      "codacy-safety-net",
+      "Codacy Static Code Analysis",
+      "Codacy Coverage Variation",
+      "Codacy Diff Coverage"
+    ]
+  },
+  "enforce_admins": true,
+  "required_pull_request_reviews": {
+    "dismiss_stale_reviews": false,
+    "require_code_owner_reviews": false,
+    "required_approving_review_count": 0,
+    "require_last_push_approval": false,
+    "required_review_thread_resolution": false
+  },
+  "restrictions": null,
+  "required_linear_history": false,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "block_creations": false,
+  "required_conversation_resolution": false,
+  "lock_branch": false,
+  "allow_fork_syncing": false
+}
+JSON
+```
+
 Classic protection may show `app_id: null` for Codacy coverage checks until
 Codacy emits those checks on a pull request. The context names still matter.
 
@@ -396,6 +452,55 @@ gh api --method POST "repos/$OWNER/$REPO/rulesets" --input - <<JSON
 JSON
 ```
 
+Coverage-enabled + local safety-net workflow profile (used by `000-dotfiles`,
+PR #254). `15368` is the GitHub App id for GitHub Actions itself, which emits
+the local `codacy-safety-net` workflow check:
+
+```bash
+SAFETY_NET_APP_ID="15368"
+
+gh api --method POST "repos/$OWNER/$REPO/rulesets" --input - <<JSON
+{
+  "name": "$RULESET_NAME",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "required_status_checks": [
+          { "context": "codacy-safety-net", "integration_id": $SAFETY_NET_APP_ID },
+          { "context": "Codacy Static Code Analysis", "integration_id": $CODACY_APP_ID },
+          { "context": "Codacy Coverage Variation", "integration_id": $CODACY_APP_ID },
+          { "context": "Codacy Diff Coverage", "integration_id": $CODACY_APP_ID }
+        ]
+      }
+    }
+  ],
+  "bypass_actors": []
+}
+JSON
+```
+
 If a suitable ruleset already exists, update it:
 
 Static-only profile for docs/config/template repositories:
@@ -472,6 +577,53 @@ gh api --method PUT "repos/$OWNER/$REPO/rulesets/$RULESET_ID" --input - <<JSON
       "parameters": {
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
+          { "context": "Codacy Static Code Analysis", "integration_id": $CODACY_APP_ID },
+          { "context": "Codacy Coverage Variation", "integration_id": $CODACY_APP_ID },
+          { "context": "Codacy Diff Coverage", "integration_id": $CODACY_APP_ID }
+        ]
+      }
+    }
+  ],
+  "bypass_actors": []
+}
+JSON
+```
+
+Coverage-enabled + local safety-net workflow profile (update form):
+
+```bash
+SAFETY_NET_APP_ID="15368"
+
+gh api --method PUT "repos/$OWNER/$REPO/rulesets/$RULESET_ID" --input - <<JSON
+{
+  "name": "$RULESET_NAME",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "required_status_checks": [
+          { "context": "codacy-safety-net", "integration_id": $SAFETY_NET_APP_ID },
           { "context": "Codacy Static Code Analysis", "integration_id": $CODACY_APP_ID },
           { "context": "Codacy Coverage Variation", "integration_id": $CODACY_APP_ID },
           { "context": "Codacy Diff Coverage", "integration_id": $CODACY_APP_ID }

@@ -1,7 +1,21 @@
 # Documentation Reconciliation Follow-Ups
 
-**Status:** Phase 2 complete; P1/P2/P3 items remain
-**Date:** 2026-05-15 (Phase 1) / 2026-05-16 (Phase 2)
+> **Phase 3 Reversal (2026-05-16, PR #254):** The Phase 2 "RESOLVED" entries
+> below that describe `codacy-safety-net` as the **only** required check, and
+> the three Codacy app checks (`Codacy Static Code Analysis`,
+> `Codacy Coverage Variation`, `Codacy Diff Coverage`) as **advisory**, were
+> SUPERSEDED. Codacy's repository dashboard flagged main as "not protected by
+> Codacy checks" under the Phase 2 policy. Branch protection (classic +
+> ruleset `Protect main`, id `16046743`) now requires **all four** Codacy
+> checks. `./setup ship` is the canonical path: it resolves the full required
+> set dynamically from the GitHub API, polls every check to green, and
+> performs the admin-bypass merge when `mergeStateStatus=BLOCKED` solely
+> because of the solo-reviewer requirement. Agents must not run `gh pr merge`
+> by hand in this repo. The historical Phase 1 / Phase 2 text below is
+> preserved as a log; do not act on its policy claims.
+
+**Status:** Historical log; Phase 2 policy superseded by PR #254 (Phase 3 reversal — see banner above)
+**Date:** 2026-05-15 (Phase 1) / 2026-05-16 (Phase 2) / 2026-05-16 (Phase 3 reversal)
 **Context:** PR #244 reconciled the first round of doc drift and was merged with
 `./setup ship 244`. The pre-push hook ran 292 unit tests successfully. Before
 merge, `gh pr checks` showed the Codacy app checks and `codacy-safety-net` all

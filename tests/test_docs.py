@@ -75,7 +75,13 @@ class DocsTests(DotfilesTestCase):
             "codacy-rollout.json must have required_checks distinct from expected_checks")
         self.assertIn("codacy-safety-net", dotfiles_entry["required_checks"])
 
-    def test_quality_pipeline_does_not_claim_four_required_checks(self):
-        """T025: quality-pipeline.sh must not imply all Codacy app checks are required."""
+    def test_quality_pipeline_claims_four_required_checks(self):
+        """T025: quality-pipeline.sh must state all four Codacy checks are required.
+
+        This test was inverted on 2026-05-16 (PR #254 follow-up). Original guard
+        protected the Phase 2 policy where only ``codacy-safety-net`` was required;
+        Phase 3 reversal made all four Codacy checks unconditionally required, so
+        the script's banner must now actively claim that.
+        """
         pipeline = (REPO_ROOT / "scripts" / "quality-pipeline.sh").read_text()
-        self.assertNotIn("four required GitHub checks", pipeline)
+        self.assertIn("All four Codacy checks are required", pipeline)

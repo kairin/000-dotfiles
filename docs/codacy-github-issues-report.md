@@ -1,7 +1,16 @@
 # Codacy & GitHub Protection Issues: Comprehensive Report
 
+> **Superseded for protection policy by PR #254 (2026-05-16).** The
+> remediation plan in this report (including the P2 recommendation to restore
+> protection with "conditional check enforcement") was the picture in early
+> May. PR #254 reversed that direction: `main` now requires all four Codacy
+> contexts unconditionally, with `./setup ship` performing the canonical
+> admin-bypass when the merge state lands `BLOCKED` solely because of the
+> solo-reviewer requirement. Treat the protection sections of this report as
+> historical context, not a remediation playbook.
+
 **Report Date:** 2026-05-06  
-**Status:** 13 PRs merged; 6 root causes identified; 3 priority fixes recommended  
+**Status:** 13 PRs merged; 6 root causes identified; 3 priority fixes recommended (protection-policy items superseded — see banner above)  
 **Prepared by:** Multi-agent parallel investigation and documentation
 
 ---

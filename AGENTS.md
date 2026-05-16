@@ -224,8 +224,10 @@ codacy-cli analyze --tool pylint --format sarif -o "$SARIF"
 The `/codacy` skill (`~/.claude/skills/codacy/SKILL.md`) documents all procedures
 and troubleshooting. Invoke it before running `codacy-cli`.
 
-Known non-fatal warnings: `tools//patterns failed with status 404` (codacy-cli bug),
-`"Repository Analysis" is disabled` (advisory; 200 OK = upload succeeded).
+Known non-fatal messages: `tools//patterns failed with status 404` (codacy-cli bug),
+`"Repository Analysis" is disabled` (informational Codacy server notice; 200 OK
+on the upload response = SARIF accepted). Neither blocks the four required Codacy
+checks from running on the PR.
 
 ## Hook Trigger Map
 

@@ -329,8 +329,10 @@ All four Codacy checks are required by branch protection: `codacy-safety-net`
 `Codacy Diff Coverage`) — they must all report green on the PR once Codacy
 finishes processing the uploaded SARIF and coverage before the merge can
 proceed. The squash-merge proceeds only when the PR is `CLEAN` or `UNSTABLE`.
-`UNSTABLE` is allowed because non-required advisory jobs can be skipped or
-cancelled.
+`UNSTABLE` is allowed because checks outside the four required Codacy
+contexts (other GitHub Actions jobs, advisory linters) can be skipped or
+cancelled without blocking the merge — the four required Codacy checks must
+still all be green.
 The default check polling window is 15 minutes; override with
 `SHIP_CHECK_TIMEOUT=<seconds>` or `SHIP_CHECK_INTERVAL=<seconds>` only when
 debugging.
