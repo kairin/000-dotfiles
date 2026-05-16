@@ -182,6 +182,7 @@ def apply_tool_installs(
             backup_dir=backup_path,
         )
         _attach_post_install_summary(report, summary)
+        _update_plan_with_post_install_verification(report, summary["verification"])
     return report
 
 
@@ -226,6 +227,22 @@ def _attach_post_install_summary(report: Report, summary: dict[str, Any]) -> Non
     report.backups.extend(summary["backups"])
     if summary["status"] == "warning":
         report.status = "warning"
+
+
+def _update_plan_with_post_install_verification(
+    plan: Report,
+    verification: list[dict[str, Any]],
+) -> None:
+    """Update plan.entries to reflect post-install verification state.
+
+    For each tool entry with entry_id="tools.{id}", mark as "present" if
+    verification shows verified=True; otherwise leave as-is to preserve
+    error states.
+    """
+    verified_ids = {v["entry_id"]: v for v in verification if v.get("verified")}
+    for entry in plan.entries:
+        if entry.get("entry_id") in verified_ids and entry.get("state") == "missing":
+            entry["state"] = "present"
 
 
 def _execute_bootstrap_operations(

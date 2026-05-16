@@ -1350,7 +1350,8 @@ run_machine_install_tools_apply() {
     --home "$HOME" \
     --backup-dir "$HOME/.dotfiles-backups" \
     --phase "$phase" \
-    --yes)
+    --yes) || return $?
+  refresh_uv_path
 }
 
 run_machine_install_tools_post_install_verify() {
@@ -1358,7 +1359,8 @@ run_machine_install_tools_post_install_verify() {
     --repo "$DOTFILES_REPO" \
     --home "$HOME" \
     --backup-dir "$HOME/.dotfiles-backups" \
-    --mode verify)
+    --mode verify) || return $?
+  refresh_uv_path
 }
 
 run_machine_install_tools_post_install_auto() {
@@ -1367,7 +1369,8 @@ run_machine_install_tools_post_install_auto() {
     --home "$HOME" \
     --backup-dir "$HOME/.dotfiles-backups" \
     --mode auto \
-    --yes)
+    --yes) || return $?
+  refresh_uv_path
 }
 
 run_machine_install_tools_post_install_guidance() {
@@ -1375,7 +1378,8 @@ run_machine_install_tools_post_install_guidance() {
     --repo "$DOTFILES_REPO" \
     --home "$HOME" \
     --backup-dir "$HOME/.dotfiles-backups" \
-    --mode guidance)
+    --mode guidance) || return $?
+  refresh_uv_path
 }
 
 run_machine_install_tools_phase_with_confirm() {

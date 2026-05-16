@@ -13,7 +13,7 @@ def windows_font_install_script(source_dir: str) -> str:
         "New-Item -ItemType Directory -Force -Path $FontDir | Out-Null; "
         f"Get-ChildItem -Path '{escaped}' -File | Where-Object {{ $_.Extension -in '.ttf','.otf' }} | ForEach-Object {{ "
         "$Dest = Join-Path $FontDir $_.Name; "
-        "if (-not (Test-Path $Dest)) { Copy-Item $_.FullName $Dest -Force }; "
+        "if (-not (Test-Path $Dest)) { Copy-Item $_.FullName $Dest -Force -ErrorAction SilentlyContinue 2>$null }; "
         "New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts' "
         "-Name \"$($_.BaseName) (TrueType)\" -Value $_.Name -PropertyType String -Force | Out-Null "
         "}"
