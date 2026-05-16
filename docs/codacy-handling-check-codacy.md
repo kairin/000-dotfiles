@@ -23,16 +23,25 @@ This file records the local investigation into Codacy status and branch protecti
 - Local Codacy setup support in `./setup`.
 - Codacy coverage checks on PRs.
 
-## Outstanding Gap
+## Outstanding Gap (historical, superseded 2026-05-16)
 
-The repo was not fully protected by the rollout definition until the branch protection and ruleset were updated to require the three Codacy contexts.
+The repo was not fully protected by the rollout definition until the branch
+protection and ruleset were updated to require every Codacy gate. The original
+gap described "the three Codacy contexts"; PR #254 (2026-05-16) extended the
+required set to four — see "Final Live State" below.
 
-## Final Live State
+## Final Live State (2026-05-16, PR #254)
 
-- Classic branch protection on `main` now requires:
-  - `Codacy Static Code Analysis`
-  - `Codacy Coverage Variation`
-  - `Codacy Diff Coverage`
-- The default-branch ruleset now matches the same contexts with strict checks.
-- The repo is currently clean and synced with `origin/main`.
+- Classic branch protection on `main` requires all four required gates:
+  - `codacy-safety-net` (GitHub Actions workflow, app_id `15368`)
+  - `Codacy Static Code Analysis` (Codacy app, app_id `56611`)
+  - `Codacy Coverage Variation` (Codacy app, app_id `56611`)
+  - `Codacy Diff Coverage` (Codacy app, app_id `56611`)
+- Ruleset `Protect main` (id `16046743`) requires the same four contexts with
+  `strict_required_status_checks_policy: true`.
+- `./setup ship` resolves the required set dynamically from the GitHub API and
+  polls every check to green before squash-merging. When `mergeStateStatus` is
+  `BLOCKED` solely because of the solo-reviewer requirement, ship uses the
+  canonical admin-bypass path (`gh pr merge --admin` invoked by `./setup ship`,
+  not by hand).
 

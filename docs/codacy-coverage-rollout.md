@@ -33,8 +33,12 @@ Use this document as the checklist for applying the same pattern to other repos.
    - `Codacy Coverage Variation`
    - `Codacy Diff Coverage`
 10. Updated GitHub protection after coverage checks were proven.
-   - Classic `main` branch protection requires all three Codacy contexts.
-   - The active default-branch ruleset requires the same three Codacy contexts.
+   - Classic `main` branch protection requires all four required gates: the three
+     Codacy app contexts above plus the local `codacy-safety-net` GitHub Actions
+     workflow check (app_id `15368`). The fourth check applies because this repo
+     ships `.github/workflows/codacy-safety-net.yml`; repositories without that
+     workflow only require the three Codacy app contexts.
+   - The active default-branch ruleset requires the same four contexts.
    - Both protection layers use strict status checks.
 
 ## Reuse Steps For Another Repo
@@ -149,6 +153,10 @@ Use this document as the checklist for applying the same pattern to other repos.
      - `Codacy Static Code Analysis`
      - `Codacy Coverage Variation`
      - `Codacy Diff Coverage`
+   - If the target repository also ships a `codacy-safety-net` GitHub Actions
+     workflow (as `000-dotfiles` does), add `codacy-safety-net` as a fourth
+     required context. See `docs/codacy-branch-protection.md` for the
+     coverage-enabled-with-safety-net JSON template.
 11. Configure Codacy gates for the target repo.
     - Static analysis gates should match the repo's quality policy.
     - Coverage gates only block when thresholds are set in Codacy.

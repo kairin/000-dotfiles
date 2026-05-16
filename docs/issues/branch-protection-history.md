@@ -91,9 +91,14 @@ Choose one approach:
 - Codacy project: https://app.codacy.com/[organization]/[repository]
 - Backup files: `~/branch-protection-backup-2026-05-06/`
 
-## Restored: 2026-05-16
+## Restored: 2026-05-16 (interim, superseded same day)
 
-### Approach taken (Decision D2=A)
+> **Superseded by PR #254 — see "Reversal: 2026-05-16 (PR #254)" below.** This
+> "Decision D2=A" approach was the interim state between the original block
+> and the final four-check policy. The text is preserved as a log; do not act
+> on its policy claims.
+
+### Approach taken (Decision D2=A) — interim only
 
 Instead of restoring the original three Codacy app checks, only `codacy-safety-net` is required. This check is workflow-based (`.github/workflows/codacy-safety-net.yml`) and fires on every PR regardless of which files changed.
 
@@ -101,16 +106,22 @@ Instead of restoring the original three Codacy app checks, only `codacy-safety-n
 
 - **Target:** default branch (`~DEFAULT_BRANCH`)
 - **Enforcement:** active
-- **Required status checks:** `codacy-safety-net` only
+- **Required status checks (interim):** `codacy-safety-net` only
   - `strict_required_status_checks_policy`: false (no requirement to be up-to-date before merge)
 - **Additional rules:** deletion prevention, non-fast-forward prevention, pull request required
-- **Advisory only (not required):** Codacy Static Code Analysis, Codacy Coverage Variation, Codacy Diff Coverage
+- **Interim non-required (now required after PR #254):** Codacy Static Code Analysis, Codacy Coverage Variation, Codacy Diff Coverage
 
-### Why this approach
+### Why this approach — and why it was reversed
 
-The three Codacy app checks still do not trigger on bash-only or docs-only PRs (no Python files changed). Requiring them again would reproduce the original blocking problem. The `codacy-safety-net` workflow always runs and provides a reliable gate without causing false blocks on non-Python changes.
+The interim rationale was: the three Codacy app checks do not trigger on
+bash-only or docs-only PRs (no Python files changed), so requiring them
+would reproduce the original blocking problem. In practice this caused
+Codacy's repository dashboard to flag `main` as "not protected by Codacy
+checks" and prompted PR #254 (same day) to make all four required and rely
+on `./setup ship`'s admin-bypass path for any `BLOCKED` merge state caused by
+the solo-reviewer requirement.
 
-### Verification
+### Verification (interim — historical only)
 
 ```bash
 gh api repos/kairin/000-dotfiles/rulesets --jq '.[].name'
@@ -118,5 +129,36 @@ gh api repos/kairin/000-dotfiles/rulesets --jq '.[].name'
 
 gh api repos/kairin/000-dotfiles/rulesets/16046743 \
   --jq '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks'
+# Interim output (now superseded):
 # → [{"context":"codacy-safety-net","integration_id":15368}]
+```
+
+## Reversal: 2026-05-16 (PR #254)
+
+The "Decision D2=A" interim policy above was reversed on the same day.
+Branch protection (classic + ruleset `Protect main`, id `16046743`) now
+requires all **four** contexts:
+
+- `codacy-safety-net` (app_id `15368` — GitHub Actions)
+- `Codacy Static Code Analysis` (app_id `56611` — Codacy app)
+- `Codacy Coverage Variation` (app_id `56611` — Codacy app)
+- `Codacy Diff Coverage` (app_id `56611` — Codacy app)
+
+`./setup ship` resolves the required set dynamically from the GitHub API
+and admin-bypasses the merge when `mergeStateStatus=BLOCKED` solely because
+of the solo-reviewer requirement and every required check is green.
+
+Current verification:
+
+```bash
+gh api repos/kairin/000-dotfiles/branches/main/protection \
+  --jq '.required_status_checks.contexts | sort'
+# → ["Codacy Coverage Variation","Codacy Diff Coverage","Codacy Static Code Analysis","codacy-safety-net"]
+
+gh api repos/kairin/000-dotfiles/rulesets/16046743 \
+  --jq '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks | sort_by(.context)'
+# → [{"context":"Codacy Coverage Variation","integration_id":56611},
+#    {"context":"Codacy Diff Coverage","integration_id":56611},
+#    {"context":"Codacy Static Code Analysis","integration_id":56611},
+#    {"context":"codacy-safety-net","integration_id":15368}]
 ```
