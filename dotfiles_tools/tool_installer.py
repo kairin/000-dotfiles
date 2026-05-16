@@ -319,6 +319,30 @@ def _tool_operations(
 # ---------------------------------------------------------------------------
 
 
+def _base_install_op(
+    *,
+    entry_id: str,
+    op_type: str,
+    requires_sudo: bool,
+    cache_dir: Path,
+    reason: str,
+    mode: str | None = None,
+) -> dict[str, Any]:
+    op: dict[str, Any] = {
+        "entry_id": entry_id,
+        "recipe": "tool_installs",
+        "type": op_type,
+        "requires_sudo": requires_sudo,
+        "requires_network": True,
+        "requires_approval": True,
+        "cache_dir": str(cache_dir),
+        "reason": reason,
+    }
+    if mode is not None:
+        op["mode"] = mode
+    return op
+
+
 def _apt_op(
     *,
     entry_id: str,
@@ -328,17 +352,15 @@ def _apt_op(
     cache_dir: Path,
     reason: str,
 ) -> dict[str, Any]:
-    return {
-        "entry_id": entry_id,
-        "recipe": "tool_installs",
-        "type": op_type,
-        "packages": packages,
-        "requires_sudo": requires_sudo,
-        "requires_network": True,
-        "requires_approval": True,
-        "cache_dir": str(cache_dir),
-        "reason": reason,
-    }
+    op = _base_install_op(
+        entry_id=entry_id,
+        op_type=op_type,
+        requires_sudo=requires_sudo,
+        cache_dir=cache_dir,
+        reason=reason,
+    )
+    op["packages"] = packages
+    return op
 
 
 def _apt_keyring_op(
@@ -349,22 +371,20 @@ def _apt_keyring_op(
     *,
     mode: str,
 ) -> dict[str, Any]:
-    return {
-        "entry_id": entry_id,
-        "recipe": "tool_installs",
-        "type": "tool_install_apt_keyring",
-        "mode": mode,
-        "packages": list(args.get("packages") or ()),
-        "keyring_url": args["keyring_url"],
-        "keyring_path": args["keyring_path"],
-        "source_line": args["source_line"],
-        "source_path": args["source_path"],
-        "requires_sudo": True,
-        "requires_network": True,
-        "requires_approval": True,
-        "cache_dir": str(cache_dir),
-        "reason": f"{mode} {item['label']} via GitHub keyring repo",
-    }
+    op = _base_install_op(
+        entry_id=entry_id,
+        op_type="tool_install_apt_keyring",
+        requires_sudo=True,
+        cache_dir=cache_dir,
+        reason=f"{mode} {item['label']} via GitHub keyring repo",
+        mode=mode,
+    )
+    op["packages"] = list(args.get("packages") or ())
+    op["keyring_url"] = args["keyring_url"]
+    op["keyring_path"] = args["keyring_path"]
+    op["source_line"] = args["source_line"]
+    op["source_path"] = args["source_path"]
+    return op
 
 
 def _curl_op(
@@ -375,21 +395,19 @@ def _curl_op(
     *,
     mode: str,
 ) -> dict[str, Any]:
-    return {
-        "entry_id": entry_id,
-        "recipe": "tool_installs",
-        "type": "tool_install_curl",
-        "mode": mode,
-        "url": args["url"],
-        "script_name": args.get("script_name", "installer.sh"),
-        "interpreter": args.get("interpreter", "bash"),
-        "install_to": args.get("install_to"),
-        "requires_sudo": item.get("requires_sudo", False),
-        "requires_network": True,
-        "requires_approval": True,
-        "cache_dir": str(cache_dir),
-        "reason": f"{mode} {item['label']} via {args['url']}",
-    }
+    op = _base_install_op(
+        entry_id=entry_id,
+        op_type="tool_install_curl",
+        requires_sudo=item.get("requires_sudo", False),
+        cache_dir=cache_dir,
+        reason=f"{mode} {item['label']} via {args['url']}",
+        mode=mode,
+    )
+    op["url"] = args["url"]
+    op["script_name"] = args.get("script_name", "installer.sh")
+    op["interpreter"] = args.get("interpreter", "bash")
+    op["install_to"] = args.get("install_to")
+    return op
 
 
 def _npm_op(
@@ -403,19 +421,17 @@ def _npm_op(
 ) -> dict[str, Any]:
     op_type = "tool_install_npm" if mode == "install" else "tool_install_npm_upgrade"
     prefix = home / ".local"
-    return {
-        "entry_id": entry_id,
-        "recipe": "tool_installs",
-        "type": op_type,
-        "mode": mode,
-        "package": args["package"],
-        "prefix": str(prefix),
-        "requires_sudo": item.get("requires_sudo", False),
-        "requires_network": True,
-        "requires_approval": True,
-        "cache_dir": str(cache_dir),
-        "reason": f"{mode} {item['label']} via npm in {prefix}",
-    }
+    op = _base_install_op(
+        entry_id=entry_id,
+        op_type=op_type,
+        requires_sudo=item.get("requires_sudo", False),
+        cache_dir=cache_dir,
+        reason=f"{mode} {item['label']} via npm in {prefix}",
+        mode=mode,
+    )
+    op["package"] = args["package"]
+    op["prefix"] = str(prefix)
+    return op
 
 
 def _uv_tool_op(
@@ -426,19 +442,15 @@ def _uv_tool_op(
     *,
     mode: str,
 ) -> dict[str, Any]:
-    op_type = "tool_install_uv_tool"
-    op: dict[str, Any] = {
-        "entry_id": entry_id,
-        "recipe": "tool_installs",
-        "type": op_type,
-        "mode": mode,
-        "package": args["package"],
-        "requires_sudo": item.get("requires_sudo", False),
-        "requires_network": True,
-        "requires_approval": True,
-        "cache_dir": str(cache_dir),
-        "reason": f"{mode} {item['label']} via uv tool",
-    }
+    op = _base_install_op(
+        entry_id=entry_id,
+        op_type="tool_install_uv_tool",
+        requires_sudo=item.get("requires_sudo", False),
+        cache_dir=cache_dir,
+        reason=f"{mode} {item['label']} via uv tool",
+        mode=mode,
+    )
+    op["package"] = args["package"]
     if "from_url" in args:
         op["from_url"] = args["from_url"]
     return op
