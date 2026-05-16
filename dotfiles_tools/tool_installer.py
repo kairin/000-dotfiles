@@ -505,13 +505,26 @@ def _sudo_prefix() -> list[str]:
     return ["sudo"]
 
 
-def _execute_apt(op: dict[str, Any], runner: CommandRunner, *, mode: str) -> int:
+def _apt_get_or_skip(
+    op: dict[str, Any],
+    runner: CommandRunner,
+    not_found_message: str,
+) -> tuple[list[str], str | None]:
+    """Return (packages, apt_get_path) or ([], None) if nothing to do.
+    Sets op['result'] when apt-get is missing."""
     packages = [str(pkg) for pkg in op.get("packages", []) if pkg]
     if not packages:
-        return 0
+        return [], None
     apt_get = runner.which("apt-get")
     if not apt_get:
-        op["result"] = "apt-get not found; install packages manually"
+        op["result"] = not_found_message
+        return [], None
+    return packages, apt_get
+
+
+def _execute_apt(op: dict[str, Any], runner: CommandRunner, *, mode: str) -> int:
+    packages, apt_get = _apt_get_or_skip(op, runner, "apt-get not found; install packages manually")
+    if not packages or not apt_get:
         return 0
     _apt_update_then_install(runner, _sudo_prefix(), apt_get, packages, mode=mode)
     return 1
@@ -585,12 +598,8 @@ def prepare_apt_keyring_operations(
 
 
 def _execute_apt_keyring(op: dict[str, Any], runner: CommandRunner, cache_dir: Path) -> int:
-    packages = [str(pkg) for pkg in op.get("packages", []) if pkg]
-    if not packages:
-        return 0
-    apt_get = runner.which("apt-get")
-    if not apt_get:
-        op["result"] = "apt-get not found; install manually"
+    packages, apt_get = _apt_get_or_skip(op, runner, "apt-get not found; install manually")
+    if not packages or not apt_get:
         return 0
     prefix = _sudo_prefix()
     _prepare_apt_keyring_source(op, runner, cache_dir)
@@ -784,7 +793,7 @@ def _collect_post_install_action_summary(
     return {
         "verification": verification,
         "post_install_actions": actions,
-        "backups": _collect_post_install_backups(actions),
+        "backups": collect_post_install_backups(actions),
         "status": _post_install_summary_status(mode, verification, actions),
     }
 
@@ -805,7 +814,7 @@ def _post_install_context(
     return effective_env, effective_runner, repo, home_path, backup
 
 
-def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     collected: list[dict[str, Any]] = []
     for action in actions:
         collected.extend(action.get("backups") or [])
@@ -881,11 +890,9 @@ def run_post_install_actions(
     guidance. `requires_protected_apply` copies the listed protected files
     from the repo before exec (only when yes=True and repo_path is set);
     existing targets are backed up to `backup_dir` first."""
-    effective_env = dict(os.environ if env is None else env)
-    effective_runner = runner or CommandRunner(env=effective_env, path=effective_env.get("PATH", ""))
-    repo = Path(repo_path).resolve() if repo_path else None
-    home_path = Path(home).expanduser().resolve()
-    backup = Path(backup_dir).expanduser().resolve() if backup_dir else None
+    effective_env, effective_runner, repo, home_path, backup = _post_install_context(
+        home, env=env, runner=runner, repo_path=repo_path, backup_dir=backup_dir,
+    )
     return _walk_post_install(
         effective_runner, effective_env, yes=yes,
         repo=repo, home=home_path, backup_dir=backup,

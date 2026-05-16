@@ -12,7 +12,6 @@ from dotfiles_tools.bootstrap import (
     _renumber_operations,
     _status,
     _has_manual_or_refused_work,
-    _collect_post_install_backups,
     _execute_bootstrap_operations,
     build_bootstrap_plan,
     apply_bootstrap,
@@ -20,6 +19,7 @@ from dotfiles_tools.bootstrap import (
     apply_tool_installs,
     run_tool_install_post_install,
 )
+from dotfiles_tools.tool_installer import collect_post_install_backups
 from dotfiles_tools.reports import Report
 from tests.helpers import DotfilesTestCase, REPO_ROOT
 
@@ -149,11 +149,11 @@ class HasManualOrRefusedWorkTests(DotfilesTestCase):
 
 class CollectPostInstallBackupsTests(DotfilesTestCase):
     def test_returns_empty_when_no_actions(self):
-        self.assertEqual(_collect_post_install_backups([]), [])
+        self.assertEqual(collect_post_install_backups([]), [])
 
     def test_returns_empty_when_no_backups_key(self):
         actions = [{"status": "ran", "tool": "gh"}]
-        self.assertEqual(_collect_post_install_backups(actions), [])
+        self.assertEqual(collect_post_install_backups(actions), [])
 
     def test_collects_backups_from_all_actions(self):
         b1 = {"entry_id": "a", "backup_target": "/tmp/a"}
@@ -162,12 +162,12 @@ class CollectPostInstallBackupsTests(DotfilesTestCase):
             {"status": "ran", "backups": [b1]},
             {"status": "ran", "backups": [b2]},
         ]
-        result = _collect_post_install_backups(actions)
+        result = collect_post_install_backups(actions)
         self.assertEqual(result, [b1, b2])
 
     def test_skips_none_backups(self):
         actions = [{"status": "ran", "backups": None}]
-        self.assertEqual(_collect_post_install_backups(actions), [])
+        self.assertEqual(collect_post_install_backups(actions), [])
 
 
 class ExecuteBootstrapOperationsTests(DotfilesTestCase):

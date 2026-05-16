@@ -5,7 +5,7 @@ from typing import Any, Mapping
 
 from .backups import BackupError
 from .fonts import CommandRunner, execute_font_operation, build_font_plan
-from .installer import build_plan, execute_manifest_operation
+from .installer import build_plan, execute_manifest_operation, failed_report
 from .reports import Report
 from .tool_installer import (
     TOOL_CACHE_REL,
@@ -20,6 +20,37 @@ WARNING_STATES = {"missing", "drifted", "protected", "manual", "unsupported", "n
 FAILED_STATES = {"invalid", "blocked"}
 TOOL_INSTALL_PHASES = {"all", "dev-base", "tools"}
 TOOL_POST_INSTALL_MODES = {"all", "verify", "auto", "guidance"}
+
+
+def _resolve_apply_paths(
+    repo: Path | str,
+    home: Path | str,
+    backup_dir: Path | str | None,
+) -> tuple[Path, Path, Path]:
+    repo_path = Path(repo).resolve()
+    home_path = Path(home).resolve()
+    backup_path = (
+        Path(backup_dir).expanduser().resolve()
+        if backup_dir
+        else home_path / ".dotfiles-backups"
+    )
+    return repo_path, home_path, backup_path
+
+
+def _required_yes_report(
+    command_name: str,
+    repo_path: Path,
+    home_path: Path,
+    profile: str,
+) -> Report:
+    return Report(
+        command_name,
+        "failed",
+        str(repo_path),
+        home=str(home_path),
+        profile=profile,
+        errors=[{"message": f"{command_name} requires --yes before writing"}],
+    )
 
 
 def build_bootstrap_plan(
@@ -73,18 +104,9 @@ def apply_bootstrap(
     env: Mapping[str, str] | None = None,
     runner: CommandRunner | None = None,
 ) -> Report:
-    repo_path = Path(repo).resolve()
-    home_path = Path(home).resolve()
-    backup_path = Path(backup_dir).expanduser().resolve() if backup_dir else home_path / ".dotfiles-backups"
+    repo_path, home_path, backup_path = _resolve_apply_paths(repo, home, backup_dir)
     if not yes:
-        return Report(
-            "bootstrap-apply",
-            "failed",
-            str(repo_path),
-            home=str(home_path),
-            profile=profile,
-            errors=[{"message": "bootstrap-apply requires --yes before writing"}],
-        )
+        return _required_yes_report("bootstrap-apply", repo_path, home_path, profile)
 
     report = build_bootstrap_plan(
         repo_path,
@@ -139,18 +161,9 @@ def apply_tool_installs(
     env: Mapping[str, str] | None = None,
     runner: CommandRunner | None = None,
 ) -> Report:
-    repo_path = Path(repo).resolve()
-    home_path = Path(home).resolve()
-    backup_path = Path(backup_dir).expanduser().resolve() if backup_dir else home_path / ".dotfiles-backups"
+    repo_path, home_path, backup_path = _resolve_apply_paths(repo, home, backup_dir)
     if not yes:
-        return Report(
-            "bootstrap-install-tools",
-            "failed",
-            str(repo_path),
-            home=str(home_path),
-            profile="machine",
-            errors=[{"message": "bootstrap-install-tools requires --yes before writing"}],
-        )
+        return _required_yes_report("bootstrap-install-tools", repo_path, home_path, "machine")
 
     plan = build_tool_install_subplan(repo_path, home_path, phase=phase, env=env, runner=runner)
     plan.command = "bootstrap-install-tools"
@@ -182,9 +195,7 @@ def run_tool_install_post_install(
     runner: CommandRunner | None = None,
     backup_dir: Path | str | None = None,
 ) -> Report:
-    repo_path = Path(repo).resolve()
-    home_path = Path(home).resolve()
-    backup_path = Path(backup_dir).expanduser().resolve() if backup_dir else home_path / ".dotfiles-backups"
+    repo_path, home_path, backup_path = _resolve_apply_paths(repo, home, backup_dir)
     if mode not in TOOL_POST_INSTALL_MODES:
         raise ValueError(f"unknown tool post-install mode: {mode}")
     report = Report(
@@ -205,13 +216,6 @@ def run_tool_install_post_install(
     )
     _attach_post_install_summary(report, summary)
     return report
-
-
-def _collect_post_install_backups(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    collected: list[dict[str, Any]] = []
-    for action in actions:
-        collected.extend(action.get("backups") or [])
-    return collected
 
 
 def _attach_post_install_summary(report: Report, summary: dict[str, Any]) -> None:
@@ -241,13 +245,13 @@ def _execute_bootstrap_operations(
             apt_keyring_op = next(
                 op for op in report.operations if op.get("type") == "tool_install_apt_keyring"
             )
-            return _failed_report(report, executed, apt_keyring_op, backups, completed_writes, exc)
+            return failed_report(report, executed, apt_keyring_op, backups, completed_writes, exc)
     for op in report.operations:
         try:
             completed_writes += _execute_operation(op, repo_path, backup_path, backups, effective_runner)
             executed.append(op)
         except (OSError, BackupError, RuntimeError) as exc:
-            return _failed_report(report, executed, op, backups, completed_writes, exc)
+            return failed_report(report, executed, op, backups, completed_writes, exc)
     report.backups = backups
     report.status = "warning" if _has_manual_or_refused_work(report) else "ok"
     return report
@@ -266,34 +270,6 @@ def _execute_operation(
     if op.get("recipe") == "fonts" or str(op.get("type", "")).startswith("font_"):
         return execute_font_operation(op, runner=runner, backup_dir=backup_path, backups=backups)
     return execute_manifest_operation(op, repo_path, backup_path, backups)
-
-
-def _failed_report(
-    report: Report,
-    executed: list[dict[str, Any]],
-    op: dict[str, Any],
-    backups: list[dict[str, Any]],
-    completed_writes: int,
-    exc: Exception,
-) -> Report:
-    report.errors.append({
-        "operation_id": op.get("operation_id", ""),
-        "entry_id": op.get("entry_id", ""),
-        "message": str(exc),
-    })
-    report.operations = executed + [op]
-    report.backups = backups
-    report.status = "partial" if completed_writes else "failed"
-    if completed_writes:
-        report.operations.append({
-            "operation_id": f"op-{len(report.operations) + 1:03d}",
-            "entry_id": op.get("entry_id", ""),
-            "type": "partial_apply",
-            "target": op.get("target"),
-            "reason": "stopped on first failed write",
-            "requires_approval": False,
-        })
-    return report
 
 
 def _has_manual_or_refused_work(report: Report) -> bool:
