@@ -1,5 +1,11 @@
 # PR Audit: Codacy and GitHub Protection Issues Summary
 
+> **Superseded by PR #254 (2026-05-16).** The "Restoration Plan" and
+> Priority P2 entries below recommended conditional check enforcement
+> (Codacy checks only for Python PRs). That direction was abandoned.
+> All four Codacy checks are now required unconditionally on `main`.
+> Treat the action items as historical record; do not act on them.
+
 **Status:** Comprehensive audit of 13 merged PRs conducted
 **Date:** 2026-05-06
 **Scope:** All PRs merged to main after branch protection removal

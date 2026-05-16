@@ -42,7 +42,7 @@ several P2 items (see "Phase 2 Resolutions" below).
   is loaded via direnv and documented as a ship prerequisite.
 - **Required checks policy** (P0): RESOLVED — `codacy-safety-net` confirmed as
   the only required GitHub check via active ruleset "Protect main" (ID
-  16046743). Codacy app checks (Static Code Analysis, Coverage Variation, Diff
+  16046743). (SUPERSEDED — see Phase 3 banner) Codacy app checks (Static Code Analysis, Coverage Variation, Diff
   Coverage) documented as advisory throughout; `codacy-rollout.json` updated to
   distinguish required from advisory checks.
 - **Doc invariant tests** (P2): RESOLVED — T021 (`fish/env.fish` target is
@@ -91,6 +91,6 @@ Shipped in this phase:
 - `cmd_ship` in `setup` wired to call `ship_upload_sarif` at steps 4d and 4h,
   making `CODACY_PROJECT_TOKEN` a documented ship prerequisite.
 - Required-check policy clarified: ruleset "Protect main" (ID 16046743) requires
-  only `codacy-safety-net`; Codacy app checks are advisory.
+  only `codacy-safety-net`; Codacy app checks are advisory. (SUPERSEDED — see Phase 3 banner)
 - Doc invariant tests T021, T022, T025 added to `tests/test_docs.py`.
 - `conf.d/env.fish` assertion added to `tests/test_apply_install.py`.
