@@ -29,6 +29,7 @@ ARG HOST_USER=kkk
 # Ensure an account matching the host uid/gid exists so volume-mounted files
 # retain correct ownership. Playwright images may already have uid 1000 assigned
 # to `ubuntu` while `pwuser` uses a different uid, so key off the target uid.
+# hadolint ignore=DL3008
 RUN set -eux; \
     target_user="$(getent passwd "${HOST_UID}" | cut -d: -f1 || true)"; \
     existing_host_uid="$(id -u "${HOST_USER}" 2>/dev/null || true)"; \
@@ -62,6 +63,7 @@ RUN set -eux; \
 
 # Core CLI tooling. The Playwright base image already has node and many libs;
 # we add the ones gstack skills reach for.
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git gh jq ripgrep fish curl ca-certificates direnv unzip \
     && rm -rf /var/lib/apt/lists/*

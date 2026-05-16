@@ -235,26 +235,57 @@ def _execute_bootstrap_operations(
     runner: CommandRunner | None,
 ) -> Report:
     backups: list[dict[str, Any]] = []
-    completed_writes = 0
     executed: list[dict[str, Any]] = []
     effective_runner = runner or CommandRunner()
-    if any(op.get("type") == "tool_install_apt_keyring" for op in report.operations):
-        try:
-            prepare_apt_keyring_operations(report.operations, runner=effective_runner)
-        except (OSError, BackupError, RuntimeError) as exc:
-            apt_keyring_op = next(
-                op for op in report.operations if op.get("type") == "tool_install_apt_keyring"
-            )
-            return failed_report(report, executed, apt_keyring_op, backups, completed_writes, exc)
-    for op in report.operations:
-        try:
-            completed_writes += _execute_operation(op, repo_path, backup_path, backups, effective_runner)
-            executed.append(op)
-        except (OSError, BackupError, RuntimeError) as exc:
-            return failed_report(report, executed, op, backups, completed_writes, exc)
+    preflight_failure = _run_apt_keyring_preflight(
+        report, executed, backups, effective_runner
+    )
+    if preflight_failure is not None:
+        return preflight_failure
+    loop_failure = _run_operations_loop(
+        report, executed, backups, repo_path, backup_path, effective_runner
+    )
+    if loop_failure is not None:
+        return loop_failure
     report.backups = backups
     report.status = "warning" if _has_manual_or_refused_work(report) else "ok"
     return report
+
+
+def _run_apt_keyring_preflight(
+    report: Report,
+    executed: list[dict[str, Any]],
+    backups: list[dict[str, Any]],
+    runner: CommandRunner,
+) -> Report | None:
+    if not any(op.get("type") == "tool_install_apt_keyring" for op in report.operations):
+        return None
+    try:
+        prepare_apt_keyring_operations(report.operations, runner=runner)
+    except (OSError, BackupError, RuntimeError) as exc:
+        apt_keyring_op = next(
+            op for op in report.operations if op.get("type") == "tool_install_apt_keyring"
+        )
+        return failed_report(report, executed, apt_keyring_op, backups, 0, exc)
+    return None
+
+
+def _run_operations_loop(
+    report: Report,
+    executed: list[dict[str, Any]],
+    backups: list[dict[str, Any]],
+    repo_path: Path,
+    backup_path: Path,
+    runner: CommandRunner,
+) -> Report | None:
+    completed_writes = 0
+    for op in report.operations:
+        try:
+            completed_writes += _execute_operation(op, repo_path, backup_path, backups, runner)
+            executed.append(op)
+        except (OSError, BackupError, RuntimeError) as exc:
+            return failed_report(report, executed, op, backups, completed_writes, exc)
+    return None
 
 
 def _execute_operation(
