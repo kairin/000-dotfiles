@@ -10,7 +10,12 @@
       "coverage_reports": [
         "coverage.xml"
       ],
-      "required_checks": ["codacy-safety-net"],
+      "required_checks": [
+        "codacy-safety-net",
+        "Codacy Static Code Analysis",
+        "Codacy Coverage Variation",
+        "Codacy Diff Coverage"
+      ],
       "expected_checks": [
         "codacy-safety-net",
         "Codacy Static Code Analysis",

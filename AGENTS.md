@@ -136,14 +136,17 @@ git commit -m "..."
 Finalizing a PR: `./setup ship` is the canonical way to merge. It runs
 `gh pr update-branch` if the branch is `BEHIND` its base, then step 4d
 runs `codacy-cli analyze` and uploads SARIF using `CODACY_PROJECT_TOKEN`
-before check polling begins. `codacy-safety-net` is the single required
-GitHub check (enforced by branch protection); the three Codacy app checks
-(`Codacy Static Code Analysis`, `Codacy Coverage Variation`, `Codacy Diff
-Coverage`) are advisory — they appear on PRs once Codacy processes uploaded
-artifacts but are not enforced and do not block merges. `./setup ship`
-resolves required checks dynamically from branch protection or rulesets,
-polls until they report `success`, and squash-merges only when the PR is
-`CLEAN` or `UNSTABLE`. Requires an authenticated `gh` and `CODACY_PROJECT_TOKEN`.
+before check polling begins. All four Codacy checks are required:
+`codacy-safety-net` (GitHub Actions workflow), and the three Codacy app
+checks `Codacy Static Code Analysis`, `Codacy Coverage Variation`, and
+`Codacy Diff Coverage`. `./setup ship` resolves the full required set from
+the GitHub API dynamically (branch protection or rulesets) and polls every
+check until they report `success` before squash-merging when the PR is
+`CLEAN` or `UNSTABLE`. When the merge state is `BLOCKED` solely because
+GitHub requires a PR review (which a solo PR author cannot self-satisfy),
+ship adds `--admin` to bypass the review gate (the admin-bypass actor on
+the ruleset; see `./setup ship` steps 5-6). Requires an authenticated `gh`
+and `CODACY_PROJECT_TOKEN`.
 
 Runtime validation tooling uses Python standard library modules and uv-managed
 developer commands:
