@@ -80,9 +80,45 @@ class SetupScriptTests(DotfilesTestCase):
         # Provide a fake gh that always reports authenticated so optional_integrations_menu
         # omits the gh option and Codacy remains option 1 (matching test input sequences).
         if not (bin_dir / "gh").exists():
+            import textwrap
             self.write_executable(
                 bin_dir / "gh",
-                "#!/usr/bin/env bash\nset -euo pipefail\ncase \"${1:-}\" in\n  auth)\n    if [[ \"${2:-}\" == status ]]; then\n      exit 0\n    fi\n    if [[ \"${2:-}\" == token ]]; then\n      echo \"gho_fake_token\"\n      exit 0\n    fi\n    if [[ \"${2:-}\" == login ]]; then\n      exit 0\n    fi\n    ;;\n  api)\n    if [[ \"${2:-}\" == user ]]; then\n      printf '{\"login\":\"kairin\",\"name\":\"Mister K\"}\\n'\n      exit 0\n    fi\n    ;;\nesac\nexit 1\n",
+                textwrap.dedent("""\
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+                    jq_filter=""
+                    args=()
+                    while (($#)); do
+                      case "$1" in
+                        --jq)      shift; jq_filter="${1:-}"; shift ;;
+                        --paginate) shift ;;
+                        *)         args+=("$1"); shift ;;
+                      esac
+                    done
+                    set -- "${args[@]+"${args[@]}"}"
+                    apply_jq() {
+                      local data="$1"
+                      if [[ -n "$jq_filter" ]]; then
+                        printf '%s\\n' "$data" | jq -r "$jq_filter"
+                      else
+                        printf '%s\\n' "$data"
+                      fi
+                    }
+                    case "${1:-}" in
+                      auth)
+                        case "${2:-}" in
+                          status) exit 0 ;;
+                          token)  echo "gho_fake_token"; exit 0 ;;
+                          login)  exit 0 ;;
+                        esac ;;
+                      api)
+                        case "${2:-}" in
+                          user)      apply_jq '{"login":"kairin","name":"Mister K"}'; exit 0 ;;
+                          user/orgs) apply_jq '[]'; exit 0 ;;
+                        esac ;;
+                    esac
+                    exit 1
+                    """),
             )
         if not (bin_dir / "direnv").exists():
             self.write_executable(
@@ -1643,6 +1679,111 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         self.assertIn('CODACY_PROJECT_NAME="test"', local_text)
         self.assertIn("export CODACY_PROJECT_TOKEN=", local_text)
 
+    def write_fake_gh_with_orgs(self, bin_dir: Path, orgs: list[str]) -> None:
+        """Write a gh fake that returns the given org list for user/orgs."""
+        import textwrap
+        orgs_json = "[" + ",".join(f'{{"login":"{o}"}}' for o in orgs) + "]"
+        self.write_executable(
+            bin_dir / "gh",
+            textwrap.dedent(f"""\
+                #!/usr/bin/env bash
+                set -euo pipefail
+                jq_filter=""
+                args=()
+                while (($#)); do
+                  case "$1" in
+                    --jq)      shift; jq_filter="${{1:-}}"; shift ;;
+                    --paginate) shift ;;
+                    *)         args+=("$1"); shift ;;
+                  esac
+                done
+                set -- "${{args[@]+"${{args[@]}}"}}"
+                apply_jq() {{
+                  local data="$1"
+                  if [[ -n "$jq_filter" ]]; then
+                    printf '%s\\n' "$data" | jq -r "$jq_filter"
+                  else
+                    printf '%s\\n' "$data"
+                  fi
+                }}
+                case "${{1:-}}" in
+                  auth)
+                    case "${{2:-}}" in
+                      status) exit 0 ;;
+                      token)  echo "gho_fake_token"; exit 0 ;;
+                      login)  exit 0 ;;
+                    esac ;;
+                  api)
+                    case "${{2:-}}" in
+                      user)      apply_jq '{{"login":"kairin","name":"Mister K"}}'; exit 0 ;;
+                      user/orgs) apply_jq '{orgs_json}'; exit 0 ;;
+                    esac ;;
+                esac
+                exit 1
+                """),
+        )
+
+    def test_select_github_owner_picks_by_number(self) -> None:
+        """Test that entering a number picks the corresponding org from the list."""
+        project = self.make_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+        self.write_fake_gh_with_orgs(bin_dir, ["MyOrg"])
+        self.write_codacy_token(home, "kairin-self-evolving.project-token", "fake-project")
+
+        result = run_setup(str(project), env=self.env_for(bin_dir, home),
+                           input_text="3\n1\n1\n2\nmy-repo\n\ny\n2\n5\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn('CODACY_USERNAME="MyOrg"', local_text)
+
+    def test_select_github_owner_free_text_custom_name(self) -> None:
+        """Test that typing a non-number string uses it as a custom owner."""
+        project = self.make_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+        self.write_fake_gh_with_orgs(bin_dir, [])
+        self.write_codacy_token(home, "kairin-self-evolving.project-token", "fake-project")
+
+        result = run_setup(str(project), env=self.env_for(bin_dir, home),
+                           input_text="3\n1\n1\ncustom-owner\nmy-repo\n\ny\n2\n5\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn('CODACY_USERNAME="custom-owner"', local_text)
+
+    def test_select_github_owner_falls_back_when_gh_unauthenticated(self) -> None:
+        """Test that select_github_owner falls back to text prompt when gh api fails."""
+        project = self.make_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+        self.write_codacy_token(home, "kairin-self-evolving.project-token", "fake-project")
+        # Replace gh with a fake that reports authenticated but fails on api calls
+        import textwrap
+        self.write_executable(
+            bin_dir / "gh",
+            textwrap.dedent("""\
+                #!/usr/bin/env bash
+                set -euo pipefail
+                case "${1:-}" in
+                  auth) exit 0 ;;
+                  api) exit 1 ;;
+                esac
+                exit 1
+                """),
+        )
+
+        result = run_setup(str(project), env=self.env_for(bin_dir, home),
+                           input_text="3\n1\n1\nmy-owner\nmy-repo\n\ny\n2\n5\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("GitHub owner", result.stdout)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn('CODACY_USERNAME="my-owner"', local_text)
 
 if __name__ == "__main__":
     import unittest
