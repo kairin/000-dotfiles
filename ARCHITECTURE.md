@@ -387,7 +387,7 @@ Flow:
    GitHub API; poll until each reports `success`.
 6. Squash-merge when `mergeStateStatus` is `CLEAN` or `UNSTABLE`. When
    it is `BLOCKED` after all required checks pass, add `--admin` to
-   bypass the remaining gate (`setup:1283-1302`). The code does not
+   bypass the remaining gate (`setup:1374-1393`). The code does not
    introspect the BLOCKED reason; in practice this gate is the missing
    PR-review requirement on solo-author PRs, but the design treats any
    post-checks BLOCKED state as eligible for admin bypass.
