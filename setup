@@ -1821,10 +1821,15 @@ select_github_owner() {
 
   if command -v gh >/dev/null 2>&1; then
     personal_login="$(gh api user --jq '.login' 2>/dev/null || true)"
-    orgs_raw="$(gh api user/orgs --jq '.[].login' 2>/dev/null || true)"
+    orgs_raw="$(gh api --paginate user/orgs --jq '.[].login' 2>/dev/null || true)"
   fi
 
   if [[ -z "$personal_login" ]]; then
+    prompt_value "$__resultvar" "GitHub owner" "$detected_owner"
+    return
+  fi
+
+  if [[ ! -t 0 ]]; then
     prompt_value "$__resultvar" "GitHub owner" "$detected_owner"
     return
   fi
@@ -2717,7 +2722,15 @@ EOF
     fi
     case "$choice" in
       1) cmd_verify --project "$project" || true ;;
-      2) cmd_init --project "$project" --vars "$vars" --yes; return $? ;;
+      2)
+        if cmd_init --project "$project" --vars "$vars" --yes; then
+          printf '\nSetup complete.\n'
+          return 0
+        else
+          printf '\nPress Enter to return to the project menu...'
+          read -r _ 2>/dev/null || true
+        fi
+        ;;
       3) cmd_init --project "$project" --vars "$vars" --copilot --yes; return $? ;;
       4) if optional_integrations_menu "$project"; then :; else return 0; fi ;;
       5) show_project_vars "$vars" ;;
