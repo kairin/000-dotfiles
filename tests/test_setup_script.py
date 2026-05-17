@@ -1785,6 +1785,25 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         local_text = (project / ".envrc.local").read_text()
         self.assertIn('CODACY_USERNAME="my-owner"', local_text)
 
+    def test_codacy_verify_project_function_exists(self) -> None:
+        """Test that codacy_verify_project function is defined in setup script."""
+        from pathlib import Path
+        setup_content = Path(SETUP).read_text()
+        self.assertIn("codacy_verify_project()", setup_content)
+        self.assertIn("local cache_dir=", setup_content)
+        self.assertIn("codacy_verify_project", setup_content)
+        self.assertIn("[NOT FOUND — org may have changed]", setup_content)
+
+    def test_codacy_account_details_calls_verify(self) -> None:
+        """Test that codacy_account_details calls codacy_verify_project when token exists."""
+        from pathlib import Path
+        setup_content = Path(SETUP).read_text()
+        # Verify the new verification code is in codacy_account_details
+        self.assertIn("codacy_verify_project \"$token\" \"$p_owner\" \"$p_repo\"", setup_content)
+        # Verify the sentinel strings are used
+        self.assertIn("project=$project_scope [NOT FOUND", setup_content)
+        self.assertIn("project=$project_scope [PERMISSION DENIED", setup_content)
+
 if __name__ == "__main__":
     import unittest
 

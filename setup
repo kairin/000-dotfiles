@@ -472,6 +472,34 @@ codacy_project_scope() {
   printf '%s/%s' "$owner" "$repo"
 }
 
+codacy_verify_project() {
+  local token="$1" owner="$2" repo="$3"
+  local cache_dir="$HOME/.cache/dotfiles/codacy-verify"
+  mkdir -p "$cache_dir"
+  find "$cache_dir" -maxdepth 1 -type f -mtime +7 -delete 2>/dev/null || true
+  local cache_file="$cache_dir/$(printf '%s' "${owner}-${repo}" | tr '/' '-')"
+  local now; now=$(date +%s)
+  if [[ -f "$cache_file" ]]; then
+    local cached_at cached_rc
+    cached_at=$(head -n1 "$cache_file" 2>/dev/null || echo 0)
+    cached_rc=$(tail -n1 "$cache_file" 2>/dev/null || echo 3)
+    if (( now - cached_at < 3600 )); then return "$cached_rc"; fi
+  fi
+  [[ -n "$token" && -n "$owner" && -n "$repo" ]] || { printf '%s\n3\n' "$now" > "$cache_file"; return 3; }
+  command -v curl >/dev/null 2>&1 || { printf '%s\n3\n' "$now" > "$cache_file"; return 3; }
+  local http_code
+  http_code="$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' \
+    -H "api-token: $token" \
+    "https://app.codacy.com/api/v3/organizations/gh/${owner}/repositories/${repo}" \
+    2>/dev/null || echo "000")"
+  local rc=3
+  case "$http_code" in
+    2*) rc=0 ;; 404) rc=1 ;; 401|403) rc=2 ;;
+  esac
+  printf '%s\n%s\n' "$now" "$rc" > "$cache_file"
+  return "$rc"
+}
+
 codacy_account_details() {
   local project="$1" token account_name project_scope details=()
   token="$(codacy_account_token_value)"
@@ -480,7 +508,21 @@ codacy_account_details() {
     [[ -n "$account_name" ]] && details+=("account=$account_name")
   fi
   project_scope="$(codacy_project_scope "$project" || true)"
-  [[ -n "$project_scope" ]] && details+=("project=$project_scope")
+  if [[ -n "$project_scope" ]]; then
+    if [[ -n "$token" ]]; then
+      local p_owner="${project_scope%%/*}" p_repo="${project_scope##*/}"
+      local _vrc=0
+      codacy_verify_project "$token" "$p_owner" "$p_repo" 2>/dev/null || _vrc=$?
+      case "$_vrc" in
+        0) details+=("project=$project_scope") ;;
+        1) details+=("project=$project_scope [NOT FOUND — org may have changed]") ;;
+        2) details+=("project=$project_scope [PERMISSION DENIED — token scope insufficient]") ;;
+        *) details+=("project=$project_scope") ;;
+      esac
+    else
+      details+=("project=$project_scope")
+    fi
+  fi
   if [[ ${#details[@]} -gt 0 ]]; then
     printf '%s' "${details[0]}"
     local i
