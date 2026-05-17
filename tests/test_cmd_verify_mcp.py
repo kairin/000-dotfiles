@@ -146,7 +146,7 @@ class CmdVerifyMcpTests(DotfilesTestCase):
         result = self._run_verify(project, home)
 
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("AGENTS.md missing", result.stdout)
+        self.assertRegex(result.stdout, r"AGENTS\.md\s+missing")
         self.assertIn("Verification failed.", result.stdout)
 
 

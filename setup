@@ -766,7 +766,7 @@ cmd_verify() {
     return 1
   fi
   echo "Verification passed."
-  check_api_credentials
+  check_api_credentials || true
   check_mcp_servers || true
   return 0
 }

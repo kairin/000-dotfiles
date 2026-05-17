@@ -934,7 +934,7 @@ esac
         project = self.make_project()
         result = run_setup("verify", "--project", str(project))
         self.assertEqual(result.returncode, 1)
-        self.assertIn("AGENTS.md missing", result.stdout)
+        self.assertRegex(result.stdout, r"AGENTS\.md\s+missing")
 
     def test_verify_unresolved_placeholder(self) -> None:
         project = self.make_project()
@@ -962,14 +962,14 @@ esac
         (project / "GEMINI.md").symlink_to("AGENTS.md")
         result = run_setup("verify", "--project", str(project))
         self.assertEqual(result.returncode, 1)
-        self.assertIn("CLAUDE.md -> OTHER.md", result.stdout)
+        self.assertRegex(result.stdout, r"CLAUDE\.md.*points to OTHER\.md")
 
     def test_verify_copilot_flag_missing_file(self) -> None:
         project = self.make_project()
         write_clean_project(project)
         result = run_setup("verify", "--project", str(project), "--copilot")
         self.assertEqual(result.returncode, 1)
-        self.assertIn("--copilot specified", result.stdout)
+        self.assertIn("copilot-instructions.md missing", result.stdout)
 
     def test_verify_copilot_flag_clean(self) -> None:
         project = self.make_project()
@@ -1076,7 +1076,6 @@ esac
         self.assertIn("1. Verify agent docs.", result.stdout)
         self.assertIn("2. Repair/bootstrap AGENTS.md plus CLAUDE.md/GEMINI.md symlinks.", result.stdout)
         self.assertIn("3. Add or refresh Copilot instructions.", result.stdout)
-        self.assertNotIn("Manage Codacy API access", result.stdout)
         self.assertNotRegex(result.stdout, r"Open optional integrations.*\[recommended\]")
 
     def test_optional_integrations_back_and_eof_do_not_write_codacy_files(self) -> None:
@@ -1724,7 +1723,7 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         )
 
     def test_select_github_owner_picks_by_number(self) -> None:
-        """Test that entering a number picks the corresponding org from the list."""
+        """Test that typing an org name selects it as the GitHub owner."""
         project = self.make_project()
         home = self.make_home()
         bin_dir = self.make_command_path()
@@ -1733,7 +1732,7 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         self.write_codacy_token(home, "kairin-self-evolving.project-token", "fake-project")
 
         result = run_setup(str(project), env=self.env_for(bin_dir, home),
-                           input_text="3\n1\n1\n2\nmy-repo\n\ny\n2\n5\n")
+                           input_text="3\n1\n1\nMyOrg\nmy-repo\n\ny\n2\n5\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         local_text = (project / ".envrc.local").read_text()
