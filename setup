@@ -18,6 +18,30 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+_setup_colors() {
+  if [[ -t 1 ]]; then
+    C_GREEN='\e[0;32m'; C_ORANGE='\e[0;33m'; C_RED='\e[0;31m'
+    C_BOLD='\e[1m'; C_DIM='\e[2m'; C_RESET='\e[0m'
+  else
+    C_GREEN=''; C_ORANGE=''; C_RED=''; C_BOLD=''; C_DIM=''; C_RESET=''
+  fi
+}
+_setup_colors || true
+
+_status_line() {
+  local level="$1" label="$2" detail="$3" action="${4:-}"
+  case "$level" in
+    ok)
+      printf "  ${C_GREEN}✓${C_RESET}  %-20s %s\n" "$label" "$detail" ;;
+    warn)
+      printf "  ${C_ORANGE}⚠${C_RESET}  %-20s %s\n" "$label" "$detail"
+      [[ -n "$action" ]] && printf "     ${C_DIM}→ %s${C_RESET}\n" "$action" ;;
+    critical)
+      printf "  ${C_RED}✗${C_RESET}  %-20s %s\n" "$label" "$detail"
+      [[ -n "$action" ]] && printf "     ${C_DIM}→ %s${C_RESET}\n" "$action" ;;
+  esac
+}
+
 resolve_script_path() {
   local source="${BASH_SOURCE[0]}"
   local dir
@@ -387,30 +411,37 @@ check_placeholders() {
 check_api_credentials() {
   echo
   echo "API credential status:"
-  echo "  Service              Status"
-  echo "  ---                  ---"
+  RECOMMENDED_OPT=""
 
-  # Check gh CLI
+  # Check GitHub
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-    echo "  GitHub (gh)          ✓ verified: $(gh_identity_summary)"
+    _status_line ok "GitHub (gh)" "$(gh_identity_summary)" ""
   else
-    echo "  GitHub (gh)          ✗ Not configured"
+    _status_line critical "GitHub (gh)" "Not configured" "Option 3 → Configure GitHub access"
+    [[ -z "$RECOMMENDED_OPT" ]] && RECOMMENDED_OPT=3
   fi
 
   # Check HuggingFace token
   if [[ -n "${HF_TOKEN:-}" ]] || [[ -f "$HOME/.cache/huggingface/token" ]]; then
-    echo "  HuggingFace          ✓ Token found"
+    _status_line ok "HuggingFace" "Token found" ""
   else
-    echo "  HuggingFace          ✗ Not configured"
+    _status_line critical "HuggingFace" "Not configured" "Set HF_TOKEN environment variable"
   fi
 
   # Check Codacy account token — prefer env var, fall back to file
   local codacy_details
   codacy_details="$(codacy_account_details "$PWD")"
-  if [[ -n "$codacy_details" ]]; then
-    echo "  Codacy               ✓ $codacy_details"
+  if [[ -z "$codacy_details" ]]; then
+    _status_line critical "Codacy" "Not configured" "Option 4 → Manage Codacy API access"
+    [[ -z "$RECOMMENDED_OPT" ]] && RECOMMENDED_OPT=4
+  elif [[ "$codacy_details" == *"[NOT FOUND"* ]]; then
+    _status_line warn "Codacy" "$codacy_details" "Option 4 → Manage Codacy API access → pick correct org"
+    [[ -z "$RECOMMENDED_OPT" ]] && RECOMMENDED_OPT=4
+  elif [[ "$codacy_details" == *"[PERMISSION DENIED"* ]]; then
+    _status_line critical "Codacy" "$codacy_details" "Option 4 → refresh token"
+    [[ -z "$RECOMMENDED_OPT" ]] && RECOMMENDED_OPT=4
   else
-    echo "  Codacy               ✗ Not configured"
+    _status_line ok "Codacy" "$codacy_details" ""
   fi
 }
 
@@ -680,34 +711,38 @@ cmd_verify() {
   local fail=0
 
   if [[ -L "$project/AGENTS.md" ]]; then
-    echo "  FAIL  AGENTS.md is a symlink (must be a regular file)"; fail=1
+    _status_line critical "AGENTS.md" "is a symlink (must be regular file)" "Run './setup init' to repair"
+    fail=1
   elif [[ ! -f "$project/AGENTS.md" ]]; then
-    echo "  FAIL  AGENTS.md missing"; fail=1
+    _status_line critical "AGENTS.md" "missing" "Run './setup init' to create"
+    fail=1
   else
-    echo "  OK    AGENTS.md present"
+    _status_line ok "AGENTS.md" "present" ""
   fi
 
   local name target
   for name in CLAUDE.md GEMINI.md; do
     if [[ ! -L "$project/$name" ]]; then
-      echo "  FAIL  $name is not a symlink"; fail=1
+      _status_line critical "$name" "not a symlink" "Run './setup init' to repair"
+      fail=1
       continue
     fi
     target="$(readlink "$project/$name")"
     if [[ "$target" != "AGENTS.md" ]]; then
-      echo "  FAIL  $name -> $target (expected AGENTS.md)"; fail=1
+      _status_line critical "$name" "points to $target (expected AGENTS.md)" "Run './setup init' to repair"
+      fail=1
     else
-      echo "  OK    $name -> AGENTS.md"
+      _status_line ok "$name" "→ AGENTS.md" ""
     fi
   done
 
   if [[ -f "$project/AGENTS.md" && ! -L "$project/AGENTS.md" ]]; then
     if ! check_placeholders "$project/AGENTS.md"; then
-      echo "  FAIL  unresolved placeholders in AGENTS.md"
+      _status_line critical "Placeholders" "AGENTS.md has unresolved placeholders" "Check variables in .dotfiles/project-vars.json"
       grep -nE '\{\{[A-Z][A-Z0-9_]*\}\}' "$project/AGENTS.md" | sed 's/^/        /'
       fail=1
     else
-      echo "  OK    AGENTS.md has no unresolved placeholders"
+      _status_line ok "Placeholders" "AGENTS.md clean" ""
     fi
   fi
 
@@ -715,12 +750,14 @@ cmd_verify() {
   if [[ "$copilot" -eq 1 ]]; then
     if [[ -f "$copilot_file" ]]; then
       if ! check_placeholders "$copilot_file"; then
-        echo "  FAIL  unresolved placeholders in .github/copilot-instructions.md"; fail=1
+        _status_line critical "Copilot" ".github/copilot-instructions.md has unresolved placeholders" "Check variables in .dotfiles/project-vars.json"
+        fail=1
       else
-        echo "  OK    .github/copilot-instructions.md clean"
+        _status_line ok "Copilot" ".github/copilot-instructions.md clean" ""
       fi
     else
-      echo "  FAIL  --copilot specified but $copilot_file missing"; fail=1
+      _status_line critical "Copilot" ".github/copilot-instructions.md missing" "Run './setup init --copilot' to create"
+      fail=1
     fi
   fi
 
