@@ -708,6 +708,12 @@ cmd_init() {
   preflight_project_templates
   project="$(resolve_project "${project:-$PWD}")"
 
+  if [[ "$project" == "$DOTFILES_REPO" ]]; then
+    echo "WARNING: The dotfiles source repo cannot be used as a project target."
+    echo "Run './setup' (no arguments) for machine setup instead."
+    return 1
+  fi
+
   if [[ -z "$vars" ]]; then
     if vars="$(find_vars_file "$project")"; then
       vars_source="discovered"
@@ -2724,6 +2730,13 @@ EOF
 cmd_project_folder() {
   local project="$1" was_empty=0 vars
   project="$(resolve_project "$project")"
+
+  if [[ "$project" == "$DOTFILES_REPO" ]]; then
+    echo "WARNING: The dotfiles source repo cannot be used as a project target."
+    echo "Run './setup' (no arguments) for machine setup instead."
+    return 1
+  fi
+
   project_is_empty "$project" && was_empty=1
   preflight_common
   preflight_project_templates

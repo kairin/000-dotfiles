@@ -28,6 +28,13 @@ def init_project(
 ) -> Report:
     repo_path = Path(repo).resolve()
     project_path = Path(project).resolve()
+
+    if repo_path == project_path:
+        raise ValueError(
+            "Cannot run init_project against the dotfiles source repo itself. "
+            "Run './setup' (no arguments) for machine setup."
+        )
+
     if not yes:
         return Report("init-project", "failed", str(repo_path), project=str(project_path), errors=[{"message": "init-project requires --yes before writing"}])
 
