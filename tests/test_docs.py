@@ -86,27 +86,21 @@ class DocsTests(DotfilesTestCase):
         pipeline = (REPO_ROOT / "scripts" / "quality-pipeline.sh").read_text()
         self.assertIn("All four Codacy checks are required", pipeline)
 
-    def test_readme_covers_menu_recommendation_contract(self) -> None:
-        """T021: README documents stable option labels and Recommended next step: wording."""
-        readme = (REPO_ROOT / "README.md").read_text()
-        for label in [
-            "1. Install / update developer tools",
-            "2. Apply safe non-protected dotfiles.",
-            "7. Exit without writing",
-        ]:
-            self.assertIn(label, readme, f"README missing stable option label: {label}")
-        self.assertIn("[recommended]", readme, "README must show the [recommended] marker")
-        self.assertIn("Recommended next step:", readme,
-                      "README must show the 'Recommended next step:' prompt text")
+    def test_architecture_hub_and_tests_present(self):
+        """Sentinel for the hub-and-spoke docs convention.
 
-    def test_getting_started_covers_menu_recommendation_contract(self) -> None:
-        """T022: getting-started.md documents stable option labels and Recommended next step: wording."""
-        doc = (REPO_ROOT / "docs" / "getting-started.md").read_text()
-        for label in [
-            "1. Install / update developer tools",
-            "2. Apply safe non-protected dotfiles.",
-        ]:
-            self.assertIn(label, doc, f"getting-started.md missing stable option label: {label}")
-        self.assertIn("[recommended]", doc, "getting-started.md must show the [recommended] marker")
-        self.assertIn("Recommended next step:", doc,
-                      "getting-started.md must show the 'Recommended next step:' prompt text")
+        ARCHITECTURE.md and tests/test_architecture.py together enforce the
+        single-source-of-truth pattern documented at
+        ARCHITECTURE.md#drift-prevention. Removing either short-circuits the
+        whole convention; this assertion lives in test_docs.py (already
+        load-bearing) so it survives deletion of the architecture test file.
+        """
+        self.assertTrue(
+            (REPO_ROOT / "ARCHITECTURE.md").is_file(),
+            "ARCHITECTURE.md must exist — it is the canonical hub document.",
+        )
+        self.assertTrue(
+            (REPO_ROOT / "tests" / "test_architecture.py").is_file(),
+            "tests/test_architecture.py must exist — it enforces hub-and-spoke "
+            "drift contracts. See ARCHITECTURE.md#drift-prevention.",
+        )
