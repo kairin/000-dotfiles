@@ -18,6 +18,30 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+_setup_colors() {
+  if [[ -t 1 ]]; then
+    C_GREEN='\e[0;32m'; C_ORANGE='\e[0;33m'; C_RED='\e[0;31m'
+    C_BOLD='\e[1m'; C_DIM='\e[2m'; C_RESET='\e[0m'
+  else
+    C_GREEN=''; C_ORANGE=''; C_RED=''; C_BOLD=''; C_DIM=''; C_RESET=''
+  fi
+}
+_setup_colors || true
+
+_status_line() {
+  local level="$1" label="$2" detail="$3" action="${4:-}"
+  case "$level" in
+    ok)
+      printf "  ${C_GREEN}✓${C_RESET}  %-20s %s\n" "$label" "$detail" ;;
+    warn)
+      printf "  ${C_ORANGE}⚠${C_RESET}  %-20s %s\n" "$label" "$detail"
+      [[ -n "$action" ]] && printf "     ${C_DIM}→ %s${C_RESET}\n" "$action" ;;
+    critical)
+      printf "  ${C_RED}✗${C_RESET}  %-20s %s\n" "$label" "$detail"
+      [[ -n "$action" ]] && printf "     ${C_DIM}→ %s${C_RESET}\n" "$action" ;;
+  esac
+}
+
 resolve_script_path() {
   local source="${BASH_SOURCE[0]}"
   local dir
@@ -387,30 +411,37 @@ check_placeholders() {
 check_api_credentials() {
   echo
   echo "API credential status:"
-  echo "  Service              Status"
-  echo "  ---                  ---"
+  RECOMMENDED_OPT=""
 
-  # Check gh CLI
+  # Check GitHub
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-    echo "  GitHub (gh)          ✓ verified: $(gh_identity_summary)"
+    _status_line ok "GitHub (gh)" "$(gh_identity_summary)" ""
   else
-    echo "  GitHub (gh)          ✗ Not configured"
+    _status_line critical "GitHub (gh)" "Not configured" "Option 3 → Configure GitHub access"
+    [[ -z "$RECOMMENDED_OPT" ]] && RECOMMENDED_OPT=3
   fi
 
   # Check HuggingFace token
   if [[ -n "${HF_TOKEN:-}" ]] || [[ -f "$HOME/.cache/huggingface/token" ]]; then
-    echo "  HuggingFace          ✓ Token found"
+    _status_line ok "HuggingFace" "Token found" ""
   else
-    echo "  HuggingFace          ✗ Not configured"
+    _status_line critical "HuggingFace" "Not configured" "Set HF_TOKEN environment variable"
   fi
 
   # Check Codacy account token — prefer env var, fall back to file
   local codacy_details
   codacy_details="$(codacy_account_details "$PWD")"
-  if [[ -n "$codacy_details" ]]; then
-    echo "  Codacy               ✓ $codacy_details"
+  if [[ -z "$codacy_details" ]]; then
+    _status_line critical "Codacy" "Not configured" "Option 4 → Manage Codacy API access"
+    [[ -z "$RECOMMENDED_OPT" ]] && RECOMMENDED_OPT=4
+  elif [[ "$codacy_details" == *"[NOT FOUND"* ]]; then
+    _status_line warn "Codacy" "$codacy_details" "Option 4 → Manage Codacy API access → pick correct org"
+    [[ -z "$RECOMMENDED_OPT" ]] && RECOMMENDED_OPT=4
+  elif [[ "$codacy_details" == *"[PERMISSION DENIED"* ]]; then
+    _status_line critical "Codacy" "$codacy_details" "Option 4 → refresh token"
+    [[ -z "$RECOMMENDED_OPT" ]] && RECOMMENDED_OPT=4
   else
-    echo "  Codacy               ✗ Not configured"
+    _status_line ok "Codacy" "$codacy_details" ""
   fi
 }
 
@@ -472,6 +503,42 @@ codacy_project_scope() {
   printf '%s/%s' "$owner" "$repo"
 }
 
+# codacy_verify_project TOKEN OWNER REPO
+# Checks if OWNER/REPO is accessible with the Codacy API token.
+# Results cached in ~/.cache/dotfiles/codacy-verify/ for 1 hour.
+# Exit codes:
+#   0  Repository found (HTTP 2xx)
+#   1  Repository not found (HTTP 404)
+#   2  Authentication failure (HTTP 401 or 403)
+#   3  Cannot determine (no args, no curl, network error, or cache miss timeout)
+codacy_verify_project() {
+  local token="$1" owner="$2" repo="$3"
+  local cache_dir="$HOME/.cache/dotfiles/codacy-verify"
+  mkdir -p "$cache_dir"
+  find "$cache_dir" -maxdepth 1 -type f -mtime +7 -delete 2>/dev/null || true
+  local cache_file="$cache_dir/$(printf '%s' "${owner}-${repo}" | tr '/' '-')"
+  local now; now=$(date +%s)
+  if [[ -f "$cache_file" ]]; then
+    local cached_at cached_rc
+    cached_at=$(head -n1 "$cache_file" 2>/dev/null || echo 0)
+    cached_rc=$(tail -n1 "$cache_file" 2>/dev/null || echo 3)
+    if (( now - cached_at < 3600 )); then return "$cached_rc"; fi
+  fi
+  [[ -n "$token" && -n "$owner" && -n "$repo" ]] || { printf '%s\n3\n' "$now" > "$cache_file"; return 3; }
+  command -v curl >/dev/null 2>&1 || { printf '%s\n3\n' "$now" > "$cache_file"; return 3; }
+  local http_code
+  http_code="$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' \
+    -H "api-token: $token" \
+    "https://app.codacy.com/api/v3/organizations/gh/${owner}/repositories/${repo}" \
+    2>/dev/null || echo "000")"
+  local rc=3
+  case "$http_code" in
+    2*) rc=0 ;; 404) rc=1 ;; 401|403) rc=2 ;;
+  esac
+  printf '%s\n%s\n' "$now" "$rc" > "$cache_file"
+  return "$rc"
+}
+
 codacy_account_details() {
   local project="$1" token account_name project_scope details=()
   token="$(codacy_account_token_value)"
@@ -480,7 +547,21 @@ codacy_account_details() {
     [[ -n "$account_name" ]] && details+=("account=$account_name")
   fi
   project_scope="$(codacy_project_scope "$project" || true)"
-  [[ -n "$project_scope" ]] && details+=("project=$project_scope")
+  if [[ -n "$project_scope" ]]; then
+    if [[ -n "$token" ]]; then
+      local p_owner="${project_scope%%/*}" p_repo="${project_scope##*/}"
+      local _vrc=0
+      codacy_verify_project "$token" "$p_owner" "$p_repo" 2>/dev/null || _vrc=$?
+      case "$_vrc" in
+        0) details+=("project=$project_scope") ;;
+        1) details+=("project=$project_scope [NOT FOUND — org may have changed]") ;;
+        2) details+=("project=$project_scope [PERMISSION DENIED — token scope insufficient]") ;;
+        *) details+=("project=$project_scope") ;;
+      esac
+    else
+      details+=("project=$project_scope")
+    fi
+  fi
   if [[ ${#details[@]} -gt 0 ]]; then
     printf '%s' "${details[0]}"
     local i
@@ -638,34 +719,38 @@ cmd_verify() {
   local fail=0
 
   if [[ -L "$project/AGENTS.md" ]]; then
-    echo "  FAIL  AGENTS.md is a symlink (must be a regular file)"; fail=1
+    _status_line critical "AGENTS.md" "is a symlink (must be regular file)" "Run './setup init' to repair"
+    fail=1
   elif [[ ! -f "$project/AGENTS.md" ]]; then
-    echo "  FAIL  AGENTS.md missing"; fail=1
+    _status_line critical "AGENTS.md" "missing" "Run './setup init' to create"
+    fail=1
   else
-    echo "  OK    AGENTS.md present"
+    _status_line ok "AGENTS.md" "present" ""
   fi
 
   local name target
   for name in CLAUDE.md GEMINI.md; do
     if [[ ! -L "$project/$name" ]]; then
-      echo "  FAIL  $name is not a symlink"; fail=1
+      _status_line critical "$name" "not a symlink" "Run './setup init' to repair"
+      fail=1
       continue
     fi
     target="$(readlink "$project/$name")"
     if [[ "$target" != "AGENTS.md" ]]; then
-      echo "  FAIL  $name -> $target (expected AGENTS.md)"; fail=1
+      _status_line critical "$name" "points to $target (expected AGENTS.md)" "Run './setup init' to repair"
+      fail=1
     else
-      echo "  OK    $name -> AGENTS.md"
+      _status_line ok "$name" "→ AGENTS.md" ""
     fi
   done
 
   if [[ -f "$project/AGENTS.md" && ! -L "$project/AGENTS.md" ]]; then
     if ! check_placeholders "$project/AGENTS.md"; then
-      echo "  FAIL  unresolved placeholders in AGENTS.md"
+      _status_line critical "Placeholders" "AGENTS.md has unresolved placeholders" "Check variables in .dotfiles/project-vars.json"
       grep -nE '\{\{[A-Z][A-Z0-9_]*\}\}' "$project/AGENTS.md" | sed 's/^/        /'
       fail=1
     else
-      echo "  OK    AGENTS.md has no unresolved placeholders"
+      _status_line ok "Placeholders" "AGENTS.md clean" ""
     fi
   fi
 
@@ -673,12 +758,14 @@ cmd_verify() {
   if [[ "$copilot" -eq 1 ]]; then
     if [[ -f "$copilot_file" ]]; then
       if ! check_placeholders "$copilot_file"; then
-        echo "  FAIL  unresolved placeholders in .github/copilot-instructions.md"; fail=1
+        _status_line critical "Copilot" ".github/copilot-instructions.md has unresolved placeholders" "Check variables in .dotfiles/project-vars.json"
+        fail=1
       else
-        echo "  OK    .github/copilot-instructions.md clean"
+        _status_line ok "Copilot" ".github/copilot-instructions.md clean" ""
       fi
     else
-      echo "  FAIL  --copilot specified but $copilot_file missing"; fail=1
+      _status_line critical "Copilot" ".github/copilot-instructions.md missing" "Run './setup init --copilot' to create"
+      fail=1
     fi
   fi
 
@@ -687,7 +774,7 @@ cmd_verify() {
     return 1
   fi
   echo "Verification passed."
-  check_api_credentials
+  check_api_credentials || true
   check_mcp_servers || true
   return 0
 }
@@ -707,6 +794,12 @@ cmd_init() {
   preflight_common
   preflight_project_templates
   project="$(resolve_project "${project:-$PWD}")"
+
+  if [[ "$project" == "$DOTFILES_REPO" ]]; then
+    echo "WARNING: The dotfiles source repo cannot be used as a project target."
+    echo "Run './setup' (no arguments) for machine setup instead."
+    return 1
+  fi
 
   if [[ -z "$vars" ]]; then
     if vars="$(find_vars_file "$project")"; then
@@ -1809,6 +1902,72 @@ detect_github_identity() {
   printf '%s\n%s\n' "$owner" "$repo"
 }
 
+select_github_owner() {
+  local __resultvar="$1" detected_owner="${2:-}"
+  local personal_login="" orgs_raw=""
+
+  if command -v gh >/dev/null 2>&1; then
+    personal_login="$(gh api user --jq '.login' 2>/dev/null || true)"
+    orgs_raw="$(gh api --paginate user/orgs --jq '.[].login' 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$personal_login" ]]; then
+    prompt_value "$__resultvar" "GitHub owner" "$detected_owner"
+    return
+  fi
+
+  if [[ "${SETUP_FORCE_MENU:-}" != "1" ]] && [[ ! -t 0 ]]; then
+    prompt_value "$__resultvar" "GitHub owner" "$detected_owner"
+    return
+  fi
+
+  local entries=("$personal_login")
+  if [[ -n "$orgs_raw" ]]; then
+    while IFS= read -r org; do
+      [[ -n "$org" ]] && entries+=("$org")
+    done <<< "$orgs_raw"
+  fi
+
+  local default_idx=1 i
+  for ((i = 0; i < ${#entries[@]}; i++)); do
+    if [[ "${entries[$i]}" == "$detected_owner" ]]; then
+      default_idx=$((i + 1)); break
+    fi
+  done
+
+  echo
+  echo "GitHub owner:"
+  for ((i = 0; i < ${#entries[@]}; i++)); do
+    local suffix=""
+    [[ $i -eq 0 ]] && suffix=" (personal)"
+    printf '  %d. %s%s\n' $((i + 1)) "${entries[$i]}" "$suffix"
+  done
+
+  local n="${#entries[@]}"
+  printf 'Choose [1-%d] or type a name [%d]: ' "$n" "$default_idx"
+  local choice
+  if [[ "${SETUP_FORCE_MENU:-}" == "1" ]]; then
+    read -r choice
+  else
+    if ! read -r -e choice; then
+      echo
+      printf -v "$__resultvar" '%s' "${entries[$((default_idx - 1))]}"
+      return 1
+    fi
+  fi
+
+  local selected
+  if [[ -z "$choice" ]]; then
+    selected="${entries[$((default_idx - 1))]}"
+  elif [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= n )); then
+    selected="${entries[$((choice - 1))]}"
+  else
+    selected="$choice"
+  fi
+
+  printf -v "$__resultvar" '%s' "$selected"
+}
+
 ship_upload_sarif() {
   local worktree="$1" sarif="$2" commit="$3"
   ( cd "$worktree" && codacy-cli upload \
@@ -2141,7 +2300,7 @@ EOF
   fi
 
   local owner repo
-  prompt_value owner "GitHub owner" "$detected_owner" || {
+  select_github_owner owner "$detected_owner" || {
     echo "Codacy setup cancelled before repository identity was confirmed."
     return 0
   }
@@ -2654,7 +2813,15 @@ EOF
     fi
     case "$choice" in
       1) cmd_verify --project "$project" || true ;;
-      2) cmd_init --project "$project" --vars "$vars" --yes; return $? ;;
+      2)
+        if cmd_init --project "$project" --vars "$vars" --yes; then
+          printf '\nSetup complete.\n'
+          return 0
+        else
+          printf '\nPress Enter to return to the project menu...'
+          read -r _ 2>/dev/null || true
+        fi
+        ;;
       3) cmd_init --project "$project" --vars "$vars" --copilot --yes; return $? ;;
       4) if optional_integrations_menu "$project"; then :; else return 0; fi ;;
       5) show_project_vars "$vars" ;;
@@ -2667,6 +2834,13 @@ EOF
 cmd_project_folder() {
   local project="$1" was_empty=0 vars
   project="$(resolve_project "$project")"
+
+  if [[ "$project" == "$DOTFILES_REPO" ]]; then
+    echo "WARNING: The dotfiles source repo cannot be used as a project target."
+    echo "Run './setup' (no arguments) for machine setup instead."
+    return 1
+  fi
+
   project_is_empty "$project" && was_empty=1
   preflight_common
   preflight_project_templates

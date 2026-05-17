@@ -25,3 +25,8 @@ class ProjectInitSuccessTests(DotfilesTestCase):
             self.assertIn(variable, agents_text)
         self.assertIn("Do not read, print, cat, copy, or commit", agents_text)
         self.assertIn("~/.codacy/", agents_text)
+
+    def test_init_project_rejects_self_as_target(self):
+        with self.assertRaises(ValueError) as ctx:
+            init_project(REPO_ROOT, REPO_ROOT, "fake.json", yes=True)
+        self.assertIn("Cannot run init_project against the dotfiles source repo", str(ctx.exception))

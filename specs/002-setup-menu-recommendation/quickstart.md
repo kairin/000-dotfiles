@@ -52,8 +52,8 @@ are current, no blockers exist, and no auth guidance remains.
 Expected result:
 
 - The summary states that setup is current.
-- The menu recommends option 5, exit without writing.
-- Choosing option 5 exits without writes.
+- The menu recommends option 7, exit without writing.
+- Choosing option 7 exits without writes.
 
 ## 6. Verify Documentation Alignment
 
