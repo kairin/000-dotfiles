@@ -62,6 +62,8 @@ You'll see a summary of your machine state and a 7-option menu:
 5. Configure / verify API tokens
 6. Install / update Git hooks for this repo
 7. Exit without writing
+
+Recommended next step: 1. Install / update developer tools
 ```
 
 Since tools are missing on a fresh machine, **option 1 is highlighted**. Choose it.

@@ -117,14 +117,14 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T021 [P] [US3] Add README documentation checks for stable option labels, `Recommended next step:`, and fresh-machine option 1 then option 2 flow in `tests/test_docs.py`.
-- [ ] T022 [P] [US3] Add getting-started documentation checks for stable option labels, `Recommended next step:`, and refreshed-menu behavior in `tests/test_docs.py`.
+- [x] T021 [P] [US3] Add README documentation checks for stable option labels, `Recommended next step:`, and fresh-machine option 1 then option 2 flow in `tests/test_docs.py`.
+- [x] T022 [P] [US3] Add getting-started documentation checks for stable option labels, `Recommended next step:`, and refreshed-menu behavior in `tests/test_docs.py`.
 
 ### Implementation for User Story 3
 
 - [x] T023 [US3] Update fresh-machine and configured-machine menu examples to include `Recommended next step:` and exact recommendation markers in `README.md`.
 - [x] T024 [US3] Update first-time setup and ongoing maintenance menu examples to include `Recommended next step:` and refreshed-menu behavior in `docs/getting-started.md`.
-- [ ] T025 [US3] Align `specs/002-setup-menu-recommendation/quickstart.md` with the final menu wording if implementation changes the planned recommendation text.
+- [x] T025 [US3] Align `specs/002-setup-menu-recommendation/quickstart.md` with the final menu wording if implementation changes the planned recommendation text.
 
 **Checkpoint**: User Story 3 is complete when docs and automated documentation checks match the implemented menu contract.
 

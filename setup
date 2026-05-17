@@ -503,6 +503,14 @@ codacy_project_scope() {
   printf '%s/%s' "$owner" "$repo"
 }
 
+# codacy_verify_project TOKEN OWNER REPO
+# Checks if OWNER/REPO is accessible with the Codacy API token.
+# Results cached in ~/.cache/dotfiles/codacy-verify/ for 1 hour.
+# Exit codes:
+#   0  Repository found (HTTP 2xx)
+#   1  Repository not found (HTTP 404)
+#   2  Authentication failure (HTTP 401 or 403)
+#   3  Cannot determine (no args, no curl, network error, or cache miss timeout)
 codacy_verify_project() {
   local token="$1" owner="$2" repo="$3"
   local cache_dir="$HOME/.cache/dotfiles/codacy-verify"
@@ -1908,7 +1916,7 @@ select_github_owner() {
     return
   fi
 
-  if [[ ! -t 0 ]]; then
+  if [[ "${SETUP_FORCE_MENU:-}" != "1" ]] && [[ ! -t 0 ]]; then
     prompt_value "$__resultvar" "GitHub owner" "$detected_owner"
     return
   fi
@@ -1938,10 +1946,14 @@ select_github_owner() {
   local n="${#entries[@]}"
   printf 'Choose [1-%d] or type a name [%d]: ' "$n" "$default_idx"
   local choice
-  if ! read -r -e choice; then
-    echo
-    printf -v "$__resultvar" '%s' "${entries[$((default_idx - 1))]}"
-    return 1
+  if [[ "${SETUP_FORCE_MENU:-}" == "1" ]]; then
+    read -r choice
+  else
+    if ! read -r -e choice; then
+      echo
+      printf -v "$__resultvar" '%s' "${entries[$((default_idx - 1))]}"
+      return 1
+    fi
   fi
 
   local selected

@@ -84,6 +84,8 @@ $ ~/000-dotfiles/setup
    5. Configure / verify API tokens
    6. Install / update Git hooks for this repo
    7. Exit without writing
+
+Recommended next step: 1. Install / update developer tools (phased submenu, preview, then apply).
                          ↓
         Choose [1-7]: 1
                          ↓
@@ -113,6 +115,8 @@ $ ~/000-dotfiles/setup
    5. Configure / verify API tokens
    6. Install / update Git hooks for this repo
    7. Exit without writing
+
+Recommended next step: 2. Apply safe non-protected dotfiles.
                          ↓
         Choose [1-7]: 2
                          ↓
@@ -162,6 +166,8 @@ $ ~/000-dotfiles/setup
    5. Configure / verify API tokens
    6. Install / update Git hooks for this repo
    7. Exit without writing
+
+Recommended next step: 2. Apply safe non-protected dotfiles.
                          ↓
         Choose [1-7]: 2
                          ↓

@@ -1722,8 +1722,8 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
                 """),
         )
 
-    def test_select_github_owner_picks_by_number(self) -> None:
-        """Test that typing an org name selects it as the GitHub owner."""
+    def test_select_github_owner_uses_free_text_org_name(self) -> None:
+        """Test that typing an org name selects it via the free-text fallback (non-TTY stdin)."""
         project = self.make_project()
         home = self.make_home()
         bin_dir = self.make_command_path()
@@ -1737,6 +1737,31 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         local_text = (project / ".envrc.local").read_text()
         self.assertIn('CODACY_USERNAME="MyOrg"', local_text)
+
+    def test_select_github_owner_picks_by_number_genuine(self) -> None:
+        """Test that entering a number selects the corresponding org from the numbered menu."""
+        project = self.make_project()
+        home = self.make_home()
+        bin_dir = self.make_command_path()
+        self.write_fake_uv(bin_dir, home / "uv.log")
+        self.write_fake_gh_with_orgs(bin_dir, ["FirstOrg", "MyOrg", "ThirdOrg"])
+        self.write_codacy_token(home, "kairin-self-evolving.project-token", "fake-project")
+
+        env = self.env_for(bin_dir, home)
+        env["SETUP_FORCE_MENU"] = "1"
+
+        # The menu shows numbered entries: 1=kairin, 2=FirstOrg, 3=MyOrg, 4=ThirdOrg.
+        # User enters "3" to select MyOrg (menu option 3).
+        # Sequence: 3 (Codacy setup), 1 (GitHub check—yes), 1 (prompt default—yes),
+        # 3 (select MyOrg from numbered list), my-repo, (blank for default user),
+        # y (apply), 2 (set project name), 5 (exit and verify written).
+        result = run_setup(str(project), env=env,
+                           input_text="3\n1\n1\n3\nmy-repo\n\ny\n2\n5\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        local_text = (project / ".envrc.local").read_text()
+        self.assertIn('CODACY_USERNAME="MyOrg"', local_text,
+                      "Numbered selection (menu option 3) should map to MyOrg in the written .envrc.local")
 
     def test_select_github_owner_free_text_custom_name(self) -> None:
         """Test that typing a non-number string uses it as a custom owner."""
