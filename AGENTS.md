@@ -255,6 +255,32 @@ Do not add lock files unless runtime dependencies are introduced and the Spec
 Kit plan explains why they are needed. Coverage is only meaningful for real
 validation/setup code and must generate `coverage.xml` before Codacy upload.
 
+## Security Setup for Solo Development
+<!-- anchor: security-solo-dev -->
+
+This repo is maintained by a single developer in a GitHub organization. The following
+security features are recommended based on cost (free), maintenance burden (low), and
+value for solo development.
+
+**Do NOT enable (high friction, not worth it for solo dev):**
+- Secret scanning for private repos (requires GitHub Pro; unnecessary given `.gitignore` + direnv protection)
+- CODEOWNERS file (no code review routing needed; you review your own code)
+- Approval requirements (Codacy checks + pre-push hook provide sufficient gates; no human review queue)
+
+**DO enable (free, low friction, high value):**
+- Dependabot alerts (free for all repos; catches vulnerable Python/Node dependencies automatically)
+- Audit logging (free; GitHub org records all repository and member changes; review occasionally)
+- Codacy checks (already active; three required status checks gate merges: `codacy-safety-net`, `Codacy Static Code Analysis`, `Codacy Diff Coverage`)
+
+**Your real code review layer:**
+Run `/review` skill locally before pushing. This is faster than waiting for CI feedback and gives
+interactive guidance. The pre-push hook blocks obviously bad commits; the CI/Codacy checks enforce
+code quality on merge. Combined, they replace the need for human approval.
+
+**Summary:** No paid GitHub features required. Codacy checks are your gating mechanism. Pre-push hook
++ local `/review` skill = your code review function. Dependabot alerts + audit logging add
+defensive depth at zero cost.
+
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, see the spec documents in
