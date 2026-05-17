@@ -104,7 +104,7 @@ Two read-only audit entry points:
   │   └─ option 7  Quit
   └─ direct subcommands (advanced)
       ├─ verify, doctor, plan, apply, init-project, ship, hooks
-      └─ codacy-plan, gstack-exec, gstack-setup, gstack-shell, repair-codacy-env, docker-build
+      └─ codacy-plan, gstack-exec, gstack-setup, gstack-shell, repair-codacy-env, repair-gemini-ripgrep, docker-build
 ```
 
 ---
@@ -326,8 +326,8 @@ uv run --with coverage coverage xml
 ### Pre-push hook
 <!-- anchor: pre-push -->
 Installed via `./setup hooks` or `./scripts/install-hooks.sh`. Runs on
-every `git push` regardless of which CLI initiated the push. Five steps,
-all in `scripts/hooks/pre-push:1-140`:
+every `git push` regardless of which CLI initiated the push. Four steps,
+all in `scripts/hooks/pre-push:1-142`:
 
 | # | Step | Lines | Behavior |
 |---|---|---|---|
@@ -364,7 +364,7 @@ static-analysis SARIF, which is separate from coverage metrics.
 
 ### `./setup ship`
 <!-- anchor: ship -->
-Canonical merge path. Defined at `cmd_ship()` (`setup:1080`). Requires an
+Canonical merge path. Defined at `cmd_ship()` (`setup:1195`). Requires an
 authenticated `gh` and `CODACY_PROJECT_TOKEN` exported (auto-loaded by
 direnv).
 
@@ -387,7 +387,7 @@ Flow:
    GitHub API; poll until each reports `success`.
 6. Squash-merge when `mergeStateStatus` is `CLEAN` or `UNSTABLE`. When
    it is `BLOCKED` after all required checks pass, add `--admin` to
-   bypass the remaining gate (`setup:1287-1296`). The code does not
+   bypass the remaining gate (`setup:1283-1302`). The code does not
    introspect the BLOCKED reason; in practice this gate is the missing
    PR-review requirement on solo-author PRs, but the design treats any
    post-checks BLOCKED state as eligible for admin bypass.
@@ -571,7 +571,7 @@ Git hook that runs for any caller.
 Install the Git hook in each repo with `./setup hooks` or
 `./scripts/install-hooks.sh`. Git triggers `.git/hooks/pre-push`
 automatically on every push, regardless of which CLI initiated it. The
-hook itself lives at `scripts/hooks/pre-push:1-140`; the protected-branch
+hook itself lives at `scripts/hooks/pre-push:1-142`; the protected-branch
 guard is at lines 22-36.
 
 ---
