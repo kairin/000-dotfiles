@@ -327,15 +327,15 @@ uv run --with coverage coverage xml
 <!-- anchor: pre-push -->
 Installed via `./setup hooks` or `./scripts/install-hooks.sh`. Runs on
 every `git push` regardless of which CLI initiated the push. Four steps,
-all in `scripts/hooks/pre-push:1-142`:
+all in `scripts/hooks/pre-push:1-143`:
 
 | # | Step | Lines | Behavior |
 |---|---|---|---|
 | 0 | Protected-branch guard | 22-36 | Hard refusal to push `refs/heads/main` |
-| 1 | Unit tests | 38-61 | `uv run python -m unittest discover -s tests`; BLOCKING |
-| 2 | Complexity check | 63-79 | radon CC ≤ 5 on modified `dotfiles_tools/*.py` |
-| 3 | Type annotations | 82-105 | warning only |
-| 4 | Line length | 107-140 | warning only |
+| 1 | Unit tests | 38-62 | `uv run python -m unittest discover -s tests`; BLOCKING |
+| 2 | Complexity check | 63-82 | radon CC ≤ 5 on modified `dotfiles_tools/*.py` |
+| 3 | Type annotations | 83-107 | warning only |
+| 4 | Line length | 108-142 | warning only |
 
 **The pre-push hook does NOT upload coverage or SARIF.** Coverage upload
 and analysis are handled separately by `scripts/quality-pipeline.sh` (static
@@ -571,7 +571,7 @@ Git hook that runs for any caller.
 Install the Git hook in each repo with `./setup hooks` or
 `./scripts/install-hooks.sh`. Git triggers `.git/hooks/pre-push`
 automatically on every push, regardless of which CLI initiated it. The
-hook itself lives at `scripts/hooks/pre-push:1-142`; the protected-branch
+hook itself lives at `scripts/hooks/pre-push:1-143`; the protected-branch
 guard is at lines 22-36.
 
 ---
