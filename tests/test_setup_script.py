@@ -1450,29 +1450,10 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         self.assertIn("base=main", result.stdout)
         self.assertIn("PR #17 is MERGED", result.stdout)
         self.assertIn("step 4b: resolving required GitHub checks", result.stdout)
-        self.assertIn("step 4d: codacy SARIF analysis and upload", result.stdout)
-        self.assertTrue(codacy_log.exists(), "setup ship must invoke codacy-cli for SARIF upload")
-        codacy_lines = codacy_log.read_text().splitlines()
-        self.assertTrue(
-            any("analyze" in line for line in codacy_lines),
-            "codacy-cli analyze must be called during ship",
-        )
-        # init) arm logs "init <full argv>" — use startswith, not == "init"
-        self.assertTrue(
-            any(line.startswith("init ") for line in codacy_lines),
-            "codacy-cli init must be called during ship to populate .codacy/codacy.yaml",
-        )
-        self.assertTrue(
-            any("--api-token" in line for line in codacy_lines if line.startswith("init ")),
-            "codacy-cli init must be called with --api-token (CODACY_ACCOUNT_TOKEN)",
-        )
-        # Ordering: init must precede analyze
-        init_idx = next(i for i, line in enumerate(codacy_lines) if line.startswith("init "))
-        analyze_idx = next(i for i, line in enumerate(codacy_lines) if line == "analyze")
-        self.assertLess(
-            init_idx, analyze_idx,
-            "codacy-cli init must run before codacy-cli analyze (init writes .codacy/codacy.yaml)",
-        )
+        self.assertIn("step 4d: coverage upload via Codacy Coverage Reporter", result.stdout)
+        # Verify that GitHub's required checks are resolved and PR is merged successfully
+        # Coverage upload now uses Codacy Coverage Reporter (bash script), not codacy-cli
+        self.assertIn("all required checks green", result.stdout)
 
         gh_lines = gh_log.read_text().splitlines()
         self.assertTrue(any(line.startswith("pr view 17 ") for line in gh_lines))

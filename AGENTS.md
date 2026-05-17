@@ -148,17 +148,17 @@ git commit -m "..."
 
 Finalizing a PR: `./setup ship` is the canonical way to merge. It runs
 `gh pr update-branch` if the branch is `BEHIND` its base, then step 4d
-runs `codacy-cli analyze` and uploads SARIF using `CODACY_PROJECT_TOKEN`
-before check polling begins. All four Codacy checks are required:
-`codacy-safety-net` (GitHub Actions workflow), and the three Codacy app
-checks `Codacy Static Code Analysis`, `Codacy Coverage Variation`, and
-`Codacy Diff Coverage`. `./setup ship` resolves the full required set from
-the GitHub API dynamically (branch protection or rulesets) and polls every
-check until they report `success` before squash-merging when the PR is
-`CLEAN` or `UNSTABLE`. When `mergeStateStatus` is `BLOCKED` after all four
-required checks pass, ship adds `--admin` to bypass the remaining gate
-(`setup:1287-1296`); the code does not introspect the BLOCKED reason, so
-treat admin bypass as eligible whenever required checks are green and the
+uploads coverage via Codacy Coverage Reporter (when `CODACY_PROJECT_TOKEN`
+and `coverage.xml` are present) before check polling begins. All four Codacy
+checks are required: `codacy-safety-net` (GitHub Actions workflow), and the
+three Codacy app checks `Codacy Static Code Analysis`, `Codacy Coverage
+Variation`, and `Codacy Diff Coverage`. `./setup ship` resolves the full
+required set from the GitHub API dynamically (branch protection or rulesets)
+and polls every check until they report `success` before squash-merging when
+the PR is `CLEAN` or `UNSTABLE`. When `mergeStateStatus` is `BLOCKED` after
+all four required checks pass, ship adds `--admin` to bypass the remaining
+gate (`setup:1287-1296`); the code does not introspect the BLOCKED reason,
+so treat admin bypass as eligible whenever required checks are green and the
 PR has no other blocking signal. Requires an authenticated `gh` and
 `CODACY_PROJECT_TOKEN`.
 
@@ -175,10 +175,9 @@ uv run --with coverage coverage run -m unittest discover -s tests
 uv run --with coverage coverage xml
 ```
 
-Pre-push hook details (5 steps; does NOT upload Codacy SARIF) and the local
-quality pipeline (7 stages) are documented at
-[ARCHITECTURE.md#pre-push](ARCHITECTURE.md#pre-push-hook) and
-[ARCHITECTURE.md#quality-pipeline](ARCHITECTURE.md#local-quality-pipeline).
+Pre-push hook details (5 steps) and the local quality pipeline (7 stages)
+are documented at [ARCHITECTURE.md#pre-push](ARCHITECTURE.md#pre-push-hook)
+and [ARCHITECTURE.md#quality-pipeline](ARCHITECTURE.md#local-quality-pipeline).
 
 ## Docker-based browser automation
 <!-- anchor: docker-browser -->
@@ -194,45 +193,38 @@ the 9 docker-compose settings, mount list, verified-state record, and
 file inventory, see
 [ARCHITECTURE.md#docker-based-browser-automation](ARCHITECTURE.md#docker-based-browser-automation).
 
-## Codacy CLI Configuration Constraint
-<!-- anchor: codacy-cli -->
-<!-- mirrors: ARCHITECTURE.md#codacy-cli-configuration -->
+## Coverage Upload Methods
+<!-- anchor: coverage-upload -->
+<!-- mirrors: ARCHITECTURE.md#coverage-upload-methods -->
 
-`codacy-cli analyze` silently exits 0 and produces an empty SARIF file when
-`.codacy/codacy.yaml` does not exist. It prints "No configuration file was found,
-execute init command first." but does **not** return a non-zero exit code.
+Coverage reporting is handled via two complementary paths:
 
-`.codacy/` is gitignored (`.gitignore` line 27, commit 46af6c8). Do not attempt to
-restore a committed `.codacy/codacy.yaml` — prior commits 81b38aa, 8d47730 did this
-and were removed when `.codacy/` was gitignored. The file gets silently untracked.
+**Path A: GitHub Actions baseline** (required, automatic)
+The `.github/workflows/codacy-safety-net.yml` workflow runs on every push and PR.
+It generates `coverage.xml` via `coverage run` and uploads to Codacy via the
+Codacy Coverage Reporter bash script. This produces the `codacy-safety-net`
+required check and feeds the Codacy server's baseline for diff calculations.
 
-Two patterns for ephemerally providing the config (DO NOT mix these):
+**Path B: Supplementary coverage upload** (optional, via `./setup ship`)
+The setup script step 4d uses Codacy Coverage Reporter to upload locally-generated
+`coverage.xml` when `CODACY_PROJECT_TOKEN` is available. This allows the Codacy
+server to compute differential coverage metrics. If step 4d fails (e.g., token
+not set), the workflow's Path A baseline still runs and the PR remains mergeable
+when all four required checks pass.
 
-**In `scripts/quality-pipeline.sh`** (`CODACY_ACCOUNT_TOKEN` must NOT appear — test enforced):
+For coverage.xml generation, use:
 ```bash
-mkdir -p .codacy
-printf -- '---\ntools:\n  - name: pylint\n' > .codacy/codacy.yaml
-codacy-cli analyze --tool pylint --format sarif -o "$SARIF"
-rm -f .codacy/codacy.yaml
+uv run --with coverage coverage run -m unittest discover -s tests
+uv run --with coverage coverage xml
 ```
 
-**In `./setup ship` step 4d** (`CODACY_ACCOUNT_TOKEN` available via direnv):
-```bash
-codacy-cli init --api-token "${CODACY_ACCOUNT_TOKEN:-}" --provider gh \
-  --organization "${CODACY_USERNAME:-}" --repository "${CODACY_PROJECT_NAME:-}" 2>/dev/null || true
-codacy-cli analyze --tool pylint --format sarif -o "$SARIF"
-```
+For static analysis (separate from coverage), `scripts/quality-pipeline.sh` uses
+`codacy-cli analyze --tool pylint` to generate SARIF for code-quality checks
+(not coverage). The `/codacy` skill (`~/.claude/skills/codacy/SKILL.md`) documents
+procedures and troubleshooting.
 
-The `/codacy` skill (`~/.claude/skills/codacy/SKILL.md`) documents all procedures
-and troubleshooting. Invoke it before running `codacy-cli`.
-
-Known non-fatal messages: `tools//patterns failed with status 404` (codacy-cli bug),
-`"Repository Analysis" is disabled` (informational Codacy server notice; 200 OK
-on the upload response = SARIF accepted). Neither blocks the four required Codacy
-checks from running on the PR.
-
-Coverage upload paths (Path A: GitHub Actions baseline / Path B: Codacy
-server diff) are documented at [ARCHITECTURE.md#codacy-coverage-paths](ARCHITECTURE.md#coverage-upload-paths).
+See [ARCHITECTURE.md#coverage-upload-methods](ARCHITECTURE.md#coverage-upload-methods)
+for the full technical architecture and token-bridge details.
 
 ## Hook Trigger Map
 <!-- anchor: hooks -->
