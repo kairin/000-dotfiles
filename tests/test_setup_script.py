@@ -1362,15 +1362,34 @@ printf '{"data":{"name":"Mister K","username":"kairin"}}\n'
         codacy_dir.mkdir(parents=True)
         (codacy_dir / "account-token").write_text("account-token\n")
         (codacy_dir / "account-token").chmod(0o600)
-        (codacy_dir / "kairin-000-dotfiles.project-token").write_text("project-token\n")
-        (codacy_dir / "kairin-000-dotfiles.project-token").chmod(0o600)
+
+        # Detect actual GitHub owner/repo from git remote, create token file accordingly
+        git_remote = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+        owner = "kairin"  # fallback
+        repo = "000-dotfiles"  # fallback
+        if "github.com/" in git_remote:
+            parts = git_remote.rstrip("/").split("/")
+            if len(parts) >= 2:
+                owner = parts[-2].rstrip(".git")
+                repo = parts[-1].rstrip(".git")
+        owner_repo_safe = f"{owner}-{repo}".replace("/", "-")
+        project_token_file = f"{owner_repo_safe}.project-token"
+        (codacy_dir / project_token_file).write_text("project-token\n")
+        (codacy_dir / project_token_file).chmod(0o600)
 
         result = run_setup(env=self.env_for(bin_dir, home), input_text="5\n4\n7\n")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Tool and sign-in guidance:", result.stdout)
+        # Verify output contains the detected owner/repo
+        expected_project = f"{owner}/{repo}"
         self.assertIn(
-            "Codacy API access (account token + project token). [verified: account=Mister K, project=kairin/000-dotfiles]",
+            f"Codacy API access (account token + project token). [verified: account=Mister K, project={expected_project}]",
             result.stdout,
         )
 
