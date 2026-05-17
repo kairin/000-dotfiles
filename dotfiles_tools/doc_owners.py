@@ -23,7 +23,7 @@ CANONICAL: dict[str, tuple[str, ...]] = {
     "development-workflow": ("README.md", "AGENTS.md"),
     "python-module-architecture": (),
     "docker-based-browser-automation": ("README.md", "AGENTS.md"),
-    "codacy-cli-configuration": ("AGENTS.md",),
+    "coverage-upload-methods": ("AGENTS.md",),
     "hook-trigger-map": ("AGENTS.md",),
     "drift-prevention": (),
     "design-history": (),

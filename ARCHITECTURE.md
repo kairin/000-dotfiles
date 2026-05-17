@@ -23,7 +23,7 @@ satellites link to is GitHub's auto-derived slug from the heading text.
 - [Development Workflow](#development-workflow) — local pipeline, pre-push hook, `./setup ship`
 - [Python Module Architecture](#python-module-architecture) — the `dotfiles_tools/` package
 - [Docker-based Browser Automation](#docker-based-browser-automation) — `gstack-browser` container
-- [Codacy CLI Configuration](#codacy-cli-configuration) — the ephemeral `.codacy/codacy.yaml` pattern
+- [Coverage Upload Methods](#coverage-upload-methods) — GitHub Actions baseline, Coverage Reporter, SARIF for analysis
 - [Hook Trigger Map](#hook-trigger-map) — Git hook vs CLI tool hooks
 - [Drift Prevention](#drift-prevention) — how satellites stay aligned with this hub
 - [Design History](#design-history) — completed specs + reconciliation log
@@ -337,26 +337,30 @@ all in `scripts/hooks/pre-push:1-140`:
 | 3 | Type annotations | 82-105 | warning only |
 | 4 | Line length | 107-140 | warning only |
 
-**The pre-push hook does NOT upload Codacy SARIF.** The Codacy upload path
-is the separate `scripts/quality-pipeline.sh` script (see below) and
-`./setup ship` step 4d.
+**The pre-push hook does NOT upload coverage or SARIF.** Coverage upload
+and analysis are handled separately by `scripts/quality-pipeline.sh` (static
+analysis via codacy-cli) and `./setup ship` (coverage via Codacy Coverage Reporter).
 
 ### Local quality pipeline
 <!-- anchor: quality-pipeline -->
-`scripts/quality-pipeline.sh` is the developer-side Codacy upload helper
+`scripts/quality-pipeline.sh` is the developer-side static-analysis helper
 (distinct from the pre-push hook). 7 stages, documented in the script
 header:
 
 1. Unit tests
 2. Coverage XML
-3. Pylint analysis → SARIF
-4. Coverage upload to Codacy
-5. SARIF upload to Codacy (HEAD)
-6. SARIF upload to Codacy (merge-base — so PR diff has a baseline)
+3. Pylint analysis → SARIF (for code-quality checks)
+4. Coverage upload to Codacy (via Coverage Reporter)
+5. SARIF upload to Codacy (static-analysis for HEAD)
+6. SARIF upload to Codacy (merge-base — so PR diff has a baseline for analysis)
 7. Codacy server-side gate (informational)
 
 Modes: default runs stages 1–7; `--codacy-only` runs only 3, 5, 6, 7.
 Exit codes: 0 pass, 1 stage failed, 3 prerequisite missing (PATH or env).
+
+**Note:** Stage 4 (coverage upload) is supplementary. The required baseline
+is established by the GitHub Actions workflow (Path A). Stage 3, 5, 6 handle
+static-analysis SARIF, which is separate from coverage metrics.
 
 ### `./setup ship`
 <!-- anchor: ship -->
@@ -370,10 +374,12 @@ Flow:
 2. Resolve PR number (argument or from current branch).
 3. If `gh pr view --json mergeStateStatus` returns `BEHIND`, run
    `gh pr update-branch`.
-4. Step 4d: run `codacy-cli analyze --tool pylint --format sarif` and
-   upload via `ship_upload_sarif()` (`setup:1812`), using
-   `CODACY_PROJECT_TOKEN`. Step 4h re-runs against the merge base so the
-   PR diff has a baseline.
+4. Step 4d: upload coverage via Codacy Coverage Reporter (when
+   `CODACY_PROJECT_TOKEN` and `coverage.xml` are present). This uses
+   `bash <(curl -Ls https://coverage.codacy.com/get.sh)` to submit the
+   local coverage report for diff-coverage computation. If the upload fails
+   (e.g., token missing), the step logs a warning but does not block; the
+   required baseline is still established by the GitHub Actions workflow.
 5. Poll all four required checks: `codacy-safety-net` (GitHub Actions),
    plus the three Codacy app checks `Codacy Static Code Analysis`,
    `Codacy Coverage Variation`, `Codacy Diff Coverage`. The required set
@@ -479,60 +485,70 @@ Files: `docker/gstack-browser/Dockerfile`,
 
 ---
 
-## Codacy CLI Configuration
-<!-- anchor: codacy-cli-configuration -->
-`codacy-cli analyze` silently exits 0 and produces an empty SARIF file
-when `.codacy/codacy.yaml` does not exist. It prints
-"No configuration file was found, execute init command first." but does
-not return a non-zero exit code. `.codacy/` is gitignored at
-`.gitignore` line 27 (since commit 46af6c8), so the config file cannot be
-committed. Two non-overlapping patterns ephemerally provide the config.
+## Coverage Upload Methods
+<!-- anchor: coverage-upload-methods -->
+Coverage reporting reaches Codacy via complementary paths; static analysis
+uses separate SARIF-based workflows. Understanding the distinction prevents
+misattribution of what drives required checks.
 
-### Pattern A — `scripts/quality-pipeline.sh` (no account token)
-<!-- anchor: codacy-pattern-a -->
-```bash
-mkdir -p .codacy
-printf -- '---\ntools:\n  - name: pylint\n' > .codacy/codacy.yaml
-codacy-cli analyze --tool pylint --format sarif -o "$SARIF"
-rm -f .codacy/codacy.yaml
+### Path A — GitHub Actions baseline
+<!-- anchor: coverage-path-a -->
+`.github/workflows/codacy-safety-net.yml` runs on every push and PR:
+
+```yaml
+- name: Run unit tests with coverage
+  run: uv run --with coverage==7.5.4 coverage run -m unittest discover -s tests
+
+- name: Generate coverage XML
+  run: uv run --with coverage==7.5.4 coverage xml
+
+- name: Upload coverage to Codacy
+  run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report \
+    --api-token "$CODACY_ACCOUNT_TOKEN" \
+    -r coverage.xml
 ```
 
-This pattern does **not** read `CODACY_ACCOUNT_TOKEN`; that variable must
-not appear in `quality-pipeline.sh` (enforced by `tests/test_docs.py`).
+This produces the `codacy-safety-net` required check and establishes the
+baseline for Codacy server-side diff calculations. **This is the required,
+authoritative coverage baseline.**
 
-### Pattern B — `./setup ship` step 4d (account token available)
-<!-- anchor: codacy-pattern-b -->
+### Path B — Codacy server-side diff
+<!-- anchor: coverage-path-b -->
+The Codacy app independently computes:
+- Diff coverage (lines changed that lack coverage)
+- Coverage variation (increase/decrease vs baseline)
+
+These power the `Codacy Diff Coverage` and `Codacy Coverage Variation`
+required checks. No local upload needed; the server calculates from Path A.
+
+### Supplementary — Local coverage upload via `./setup ship` (optional)
+<!-- anchor: coverage-supplementary -->
+When `CODACY_PROJECT_TOKEN` and `coverage.xml` exist, step 4d uploads via
+Codacy Coverage Reporter:
+
 ```bash
-codacy-cli init --api-token "${CODACY_ACCOUNT_TOKEN:-}" --provider gh \
-  --organization "${CODACY_USERNAME:-}" --repository "${CODACY_PROJECT_NAME:-}" 2>/dev/null || true
-codacy-cli analyze --tool pylint --format sarif -o "$SARIF"
+bash <(curl -Ls https://coverage.codacy.com/get.sh) report \
+  --api-token "$CODACY_PROJECT_TOKEN" \
+  -r coverage.xml
 ```
 
-`./setup ship` runs under direnv, so the account token is loaded
-automatically.
+This allows the Codacy server to recompute diff metrics with fresh data
+before the PR checks run. If this step fails (e.g., token missing), the
+workflow's Path A baseline still provides all required checks—the local
+upload is supplementary only.
 
-Known non-fatal messages: `tools//patterns failed with status 404`
-(codacy-cli bug, ignorable), `"Repository Analysis" is disabled`
-(informational Codacy server notice; the `200 OK` on the upload response
-means the SARIF was accepted). Neither blocks the four required Codacy
-checks from running on the PR.
+### Static analysis — Separate from coverage
+<!-- anchor: static-analysis-separate -->
+`scripts/quality-pipeline.sh` stages 3, 5, 6 use `codacy-cli analyze
+--tool pylint --format sarif` to generate SARIF for code-quality checks.
+The `.codacy/codacy.yaml` config is ephemeral (Pattern A: created, used,
+deleted in one invocation). This is **not** a coverage mechanism; SARIF
+uploads are independent of the coverage baseline.
 
-### Coverage upload paths
-<!-- anchor: codacy-coverage-paths -->
-Coverage data reaches Codacy via two independent paths that must not be
-conflated:
-
-- **Path A — GitHub Actions baseline.** `.github/workflows/dotfiles-validation.yml`
-  uploads `coverage.xml` on every push. This is the CI-side baseline.
-- **Path B — Codacy server-side diff.** The Codacy app independently
-  computes diff coverage and coverage variation from the baseline
-  established by Path A; these power the `Codacy Diff Coverage` and
-  `Codacy Coverage Variation` required checks on the PR.
-
-The local `./setup ship` and `scripts/quality-pipeline.sh` uploads
-(stages 4 and 5 in the local pipeline) provide additional Codacy data,
-but the **required checks** on the PR are driven by GitHub Actions
-(Path A) + Codacy server (Path B), not by local uploads.
+Known non-fatal messages when running codacy-cli: `tools//patterns failed
+with status 404` (codacy-cli bug, ignorable), `"Repository Analysis" is
+disabled` (Codacy server notice; `200 OK` on upload = SARIF accepted).
+Neither blocks required checks on the PR.
 
 See `~/.claude/skills/codacy/SKILL.md` for procedures and the runbooks at
 `docs/codacy-handling-*.md` for command transcripts.

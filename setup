@@ -1243,43 +1243,21 @@ cmd_ship() {
   [[ -n "$base_ref_name" && "$base_ref_name" != "null" ]] || die "gh pr view returned no baseRefName for PR #$pr"
   echo "[ship] head=$head_oid base=$base_ref_name mergeStateStatus=$merge_state"
 
-  echo "[ship] step 4d: codacy SARIF analysis and upload"
-  local sarif_tmp=""
-  if ! command -v codacy-cli >/dev/null 2>&1; then
-    echo "[ship] WARNING: codacy-cli not on PATH — skipping SARIF upload (run ./setup install-tools)"
-  elif [[ -z "${CODACY_PROJECT_TOKEN:-}" ]]; then
-    echo "[ship] WARNING: CODACY_PROJECT_TOKEN not set — skipping SARIF upload (direnv not loaded?)"
+  echo "[ship] step 4d: coverage upload via Codacy Coverage Reporter"
+  if [[ -z "${CODACY_PROJECT_TOKEN:-}" ]]; then
+    echo "[ship] INFO: CODACY_PROJECT_TOKEN not set; coverage upload skipped (GitHub Actions workflow handles baseline)"
+  elif [[ ! -f "$repo_root/coverage.xml" ]]; then
+    echo "[ship] INFO: coverage.xml not found; skipping coverage upload (tests may not have been run with coverage)"
   else
-    sarif_tmp="$(mktemp /tmp/ship-sarif-XXXXXXXX.sarif)"
-    trap 'rm -f "${sarif_tmp:-}"' EXIT INT TERM
-    # REGRESSION GUARD: codacy-cli init must precede analyze — init writes .codacy/codacy.yaml.
-    # Without it, analyze exits 0 but produces empty SARIF.
-    # The test test_ship_uses_github_required_checks_and_no_temporary_codacy_worktrees asserts this.
-    codacy-cli init \
-      --api-token "${CODACY_ACCOUNT_TOKEN:-}" \
-      --provider "${CODACY_ORGANIZATION_PROVIDER:-gh}" \
-      --organization "${CODACY_USERNAME:-}" \
-      --repository "${CODACY_PROJECT_NAME:-}" 2>/dev/null || true
-    echo "[ship] step 4d: running pylint analysis → $sarif_tmp"
-    if codacy-cli analyze --tool pylint --format sarif -o "$sarif_tmp"; then
-      echo "[ship] step 4d: uploading SARIF for HEAD $head_oid"
-      ship_upload_sarif "$repo_root" "$sarif_tmp" "$head_oid" \
-        || { rm -f "$sarif_tmp"; sarif_tmp=""; trap - EXIT INT TERM; die "SARIF upload failed for HEAD $head_oid"; }
-      local base_sha
-      base_sha="$(git merge-base HEAD "origin/${base_ref_name}" 2>/dev/null \
-        || git rev-parse "origin/${base_ref_name}" 2>/dev/null || echo "")"
-      if [[ -n "$base_sha" && "$base_sha" != "$head_oid" ]]; then
-        echo "[ship] step 4h: uploading SARIF for merge-base $base_sha"
-        ship_upload_sarif "$repo_root" "$sarif_tmp" "$base_sha" \
-          || { rm -f "$sarif_tmp"; sarif_tmp=""; trap - EXIT INT TERM; die "SARIF upload failed for merge-base $base_sha"; }
-      fi
-      rm -f "$sarif_tmp"; sarif_tmp=""
-      trap - EXIT INT TERM
-      echo "[ship] SARIF upload complete — Codacy will process and post checks on the PR"
+    echo "[ship] step 4d: uploading coverage.xml to Codacy"
+    # Use Codacy Coverage Reporter (proper method for coverage.xml uploads)
+    # See: https://coverage.codacy.com/docs/coverage-reporter
+    if bash <(curl -Ls https://coverage.codacy.com/get.sh) report \
+      --api-token "$CODACY_PROJECT_TOKEN" \
+      -r "$repo_root/coverage.xml" 2>&1 | tail -5; then
+      echo "[ship] coverage upload complete — Codacy will process diff coverage on the PR"
     else
-      rm -f "$sarif_tmp"; sarif_tmp=""
-      trap - EXIT INT TERM
-      echo "[ship] WARNING: codacy-cli analyze failed — skipping SARIF upload"
+      echo "[ship] WARNING: coverage upload failed (non-fatal; required checks are driven by GitHub Actions workflow)"
     fi
   fi
 
